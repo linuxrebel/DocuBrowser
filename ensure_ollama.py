@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 James Sparenberg
 """
 ensure_ollama.py — called by docubrowser.py before any embedding operation.
 

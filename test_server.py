@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 James Sparenberg
 """
 Mock API server for testing the DocuBrowse UI.
 Serves index.html with mock /api/search, /api/tags, /api/stats endpoints.

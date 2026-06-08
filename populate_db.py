@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 James Sparenberg
 """
 Populate database with 100 test documents.
 Run: python3 populate_db.py

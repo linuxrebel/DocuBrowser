@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 James Sparenberg
 """
 PDF extractor module for DocuBrowse.
 Handles PDF text extraction, metadata parsing, and error handling.
