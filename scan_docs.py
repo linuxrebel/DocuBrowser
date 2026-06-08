@@ -15,10 +15,13 @@ Default workers: min(os.cpu_count(), 8)
 """
 
 import argparse
+import itertools
+import logging
 import os
+import signal
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
 from datetime import datetime
 from pathlib import Path
 
@@ -26,7 +29,87 @@ from docubrowse_db import get_db
 
 
 DEFAULT_EXTENSIONS = [".pdf", ".txt", ".md", ".html"]
-DEFAULT_WORKERS    = min(os.cpu_count() or 4, 8)
+
+# Physical-core-aware default — hyperthreads don't help pdfplumber
+try:
+    from hardware_utils import recommended_scan_workers, wait_for_memory
+    DEFAULT_WORKERS = recommended_scan_workers()
+except ImportError:
+    DEFAULT_WORKERS = min(os.cpu_count() or 4, 8)
+    def wait_for_memory(**kw): return False
+
+# Per-file timeout: 2 generous seconds per page in the MAX_PAGES cap.
+# Keeps a single corrupt/looping PDF from blocking the whole scan.
+try:
+    from pdf_extractor import MAX_PAGES as _MAX_PAGES
+except ImportError:
+    _MAX_PAGES = 150
+_SECS_PER_PAGE   = 2
+FILE_TIMEOUT_SECS = _MAX_PAGES * _SECS_PER_PAGE   # default: 300 s (5 min)
+
+# Progress display: compact bar in TTY, verbose per-file when piped/logged
+_IS_TTY = sys.stdout.isatty()
+
+
+def _worker_init():
+    """Module-level so ProcessPoolExecutor can pickle it. Workers ignore
+    SIGINT — the parent process handles Ctrl-C and shuts down cleanly."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def _setup_scan_logger() -> tuple:
+    """
+    Set up a file logger for per-file scan results.
+    Tries /var/log/docubrowser.log first (needs root), then
+    ~/.local/share/docubrowser/docubrowser.log as fallback.
+    Returns (logger, log_path_str).
+    """
+    logger = logging.getLogger("docubrowse.scan")
+    if logger.handlers:
+        # Already configured — return the path from the first FileHandler
+        for h in logger.handlers:
+            if isinstance(h, logging.FileHandler):
+                return logger, h.baseFilename
+        return logger, None
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    for log_path in [
+        Path("/var/log/docubrowser.log"),
+        Path.home() / ".local/share/docubrowser/docubrowser.log",
+    ]:
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            fh = logging.FileHandler(str(log_path), encoding="utf-8")
+            fh.setFormatter(logging.Formatter(
+                "%(asctime)s  %(levelname)-7s  %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            ))
+            logger.addHandler(fh)
+            return logger, str(log_path)
+        except (PermissionError, OSError):
+            continue
+
+    logger.addHandler(logging.NullHandler())
+    return logger, None
+
+
+def _progress_bar(completed: int, total: int, start_time: float, errors: int = 0) -> str:
+    """Return a compact \\r progress line for interactive TTY display."""
+    elapsed = time.time() - start_time + 0.001
+    pct     = completed * 100 // total
+    width   = 25
+    filled  = width * completed // total
+    bar     = "█" * filled + "░" * (width - filled)
+    rate    = completed / elapsed
+    remain  = (total - completed) / rate if rate > 0 else 0
+    eta     = (f"{int(remain // 60)}m{int(remain % 60):02d}s"
+               if remain > 60 else f"{remain:.0f}s")
+    err_str = f"  \033[91m{errors} err\033[0m" if errors else ""
+    return (
+        f"\r  [{bar}] {pct:3d}%  {completed}/{total}"
+        f"  {rate:.1f}/s  ETA {eta}{err_str}  "
+    )
 
 
 # ── Worker function (runs in subprocess — NO sqlite3 here) ───────────────────
@@ -49,17 +132,32 @@ def _extract_file(args: tuple) -> dict:
         "error":   None,
     }
 
+    # Per-file SIGALRM timeout — prevents a corrupt/looping PDF from
+    # blocking the worker indefinitely.  Scaled to the MAX_PAGES cap.
+    def _alarm_handler(signum, frame):
+        raise TimeoutError(
+            f"timed out after {FILE_TIMEOUT_SECS}s "
+            f"(>{_MAX_PAGES}-page budget @ {_SECS_PER_PAGE}s/page)"
+        )
+    signal.alarm(0)   # defensive cancel of any stale alarm
+    signal.signal(signal.SIGALRM, _alarm_handler)
+    signal.alarm(FILE_TIMEOUT_SECS)
+
     try:
         ext = file_path.suffix.lower()
 
         if ext == ".pdf":
+            import contextlib, io
             from pdf_extractor import extract_pdf, generate_keywords
-            result = extract_pdf(str(file_path))
+            # pdfminer/pdfplumber emit harmless color-space warnings to stderr;
+            # suppress them in the worker process so they never reach the terminal.
+            with contextlib.redirect_stderr(io.StringIO()):
+                result = extract_pdf(str(file_path))
         else:
             result = _extract_text_file(file_path)
 
         if not result["success"]:
-            base["error"] = result.get("error", "extraction failed")
+            base["error"] = result.get("error") or "extraction failed (no detail available)"
             return base
 
         # Compute file stats
@@ -98,9 +196,14 @@ def _extract_file(args: tuple) -> dict:
             "tags":        sorted(tags),
         }
 
+    except TimeoutError as exc:
+        base["error"] = str(exc)
+        return base
     except Exception as exc:
         base["error"] = str(exc)
         return base
+    finally:
+        signal.alarm(0)   # always cancel the alarm
 
 
 def _extract_text_file(file_path: Path) -> dict:
@@ -216,6 +319,9 @@ def scan_directory(
     extensions = [e if e.startswith(".") else f".{e}" for e in extensions]
 
     conn = get_db(str(db_path))
+    _log, _log_path = _setup_scan_logger()
+    if _log_path:
+        print(f"Log:      {_log_path}")
 
     # Collect candidate files (respects extensions)
     print(f"Scanning  {doc_dir}")
@@ -248,6 +354,15 @@ def scan_directory(
             continue
         to_process.append(f)
 
+    # Sort smallest-first: quick wins early, memory monsters at the end.
+    # Guard with try/except in case a file disappears between scan and sort.
+    def _safe_size(f):
+        try:
+            return f.stat().st_size
+        except OSError:
+            return 0
+    to_process.sort(key=_safe_size)
+
     print(f"  {skipped:,} already up-to-date (skip)")
     print(f"  {len(to_process):,} to extract")
     print()
@@ -265,33 +380,70 @@ def scan_directory(
 
     work_items = [(str(f), str(doc_dir)) for f in to_process]
 
-    with ProcessPoolExecutor(max_workers=workers) as executor:
-        futures = {
-            executor.submit(_extract_file, item): item[0]
-            for item in work_items
-        }
-        for future in as_completed(futures):
-            completed += 1
-            result = future.result()
-            name   = result["name"]
-            label  = f"[{completed:>{len(str(total))}}/{total}]"
+    # Sliding-window executor: keep at most `workers` futures in-flight —
+    # one per worker slot, no extra queuing.  Memory is checked BEFORE each
+    # individual submit so we never hand a new PDF to a worker when RAM is low.
+    MAX_IN_FLIGHT = workers   # match exactly to worker count, no pre-queue
+    work_iter     = iter(work_items)
+    in_flight     = {}   # future -> filename
+    width         = len(str(total))
 
-            if result["success"]:
-                doc_id = _write_result(conn, result, doc_dir)
-                if doc_id is not None:
-                    print(f"  {label} {name}: OK ({len(result.get('tags',[]))} tags)",
-                          flush=True)
-                    extracted += 1
-                else:
-                    print(f"  {label} {name}: DB ERROR", flush=True)
-                    failed += 1
+    def _fill_queue(executor):
+        """Submit one new future per available worker slot, checking RAM first."""
+        slots = MAX_IN_FLIGHT - len(in_flight)
+        for item in itertools.islice(work_iter, slots):
+            wait_for_memory(is_tty=_IS_TTY, logger=_log)
+            f = executor.submit(_extract_file, item)
+            in_flight[f] = item[0]
+
+    def _handle_result(future):
+        nonlocal completed, extracted, failed
+        completed += 1
+        result = future.result()
+        name   = result["name"]
+        label  = f"[{completed:>{width}}/{total}]"
+
+        if result["success"]:
+            doc_id = _write_result(conn, result, doc_dir)
+            if doc_id is not None:
+                extracted += 1
+                _log.info("OK  %s  (%d tags)", name, len(result.get("tags", [])))
             else:
-                print(f"  {label} {name}: FAILED — {result['error']}", flush=True)
                 failed += 1
+                _log.error("DB ERROR  %s", name)
+        else:
+            failed += 1
+            _log.warning("FAILED  %s  —  %s", name, result["error"])
 
-            # Commit every batch
-            if completed % 50 == 0:
-                conn.commit()
+        # Terminal output: progress bar only (TTY) or nothing per-file (non-TTY)
+        if _IS_TTY:
+            print(_progress_bar(completed, total, start_time, failed),
+                  end="", flush=True)
+
+        if completed % 50 == 0:
+            conn.commit()
+
+    try:
+        with ProcessPoolExecutor(max_workers=workers, initializer=_worker_init) as executor:
+            _fill_queue(executor)   # prime initial batch
+
+            while in_flight:
+                done, _ = wait(list(in_flight.keys()), return_when=FIRST_COMPLETED)
+                for future in done:
+                    del in_flight[future]
+                    _handle_result(future)
+                _fill_queue(executor)
+    except KeyboardInterrupt:
+        if _IS_TTY:
+            print()  # move past progress bar
+        print(f"\nInterrupted — {extracted} extracted, {failed} failed.")
+        conn.commit()
+        conn.close()
+        sys.exit(0)
+
+    # Clear progress bar line before summary
+    if _IS_TTY:
+        print()
 
     conn.commit()
 
@@ -302,8 +454,8 @@ def scan_directory(
             (datetime.now().isoformat(), total + skipped, extracted, skipped),
         )
         conn.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"  WARNING: could not write scan_log: {exc}", file=sys.stderr)
 
     conn.close()
 
@@ -346,9 +498,13 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
 
     args = build_parser().parse_args()
-    scan_directory(
-        args.doc_dir,
-        args.db_path,
-        extensions=args.ext,
-        workers=args.workers,
-    )
+    try:
+        scan_directory(
+            args.doc_dir,
+            args.db_path,
+            extensions=args.ext,
+            workers=args.workers,
+        )
+    except KeyboardInterrupt:
+        print("\nInterrupted.")
+        sys.exit(0)

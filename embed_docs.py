@@ -14,14 +14,16 @@ Default workers: 6  (tune with --workers; Ollama queues internally if
 """
 
 import argparse
+import itertools
 import json
 import os
+import signal
 import sqlite3
 import struct
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from datetime import datetime
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -31,7 +33,35 @@ from urllib.error import URLError, HTTPError
 OLLAMA_HOST     = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
 BATCH_SIZE      = 25
-DEFAULT_WORKERS = 6
+
+# GPU-aware default: 6 workers with CUDA, 3 for CPU-only Ollama
+try:
+    from hardware_utils import recommended_embed_workers, wait_for_memory
+    DEFAULT_WORKERS = recommended_embed_workers()
+except ImportError:
+    DEFAULT_WORKERS = 6
+    def wait_for_memory(**kw): return False
+
+# Progress display: compact bar in TTY, verbose per-file when piped/logged
+_IS_TTY = sys.stdout.isatty()
+
+
+def _progress_bar(completed: int, total: int, start_time: float, errors: int = 0) -> str:
+    """Return a compact \\r progress line for interactive TTY display."""
+    elapsed = time.time() - start_time + 0.001
+    pct     = completed * 100 // total
+    width   = 25
+    filled  = width * completed // total
+    bar     = "█" * filled + "░" * (width - filled)
+    rate    = completed / elapsed
+    remain  = (total - completed) / rate if rate > 0 else 0
+    eta     = (f"{int(remain // 60)}m{int(remain % 60):02d}s"
+               if remain > 60 else f"{remain:.0f}s")
+    err_str = f"  \033[91m{errors} err\033[0m" if errors else ""
+    return (
+        f"\r  [{bar}] {pct:3d}%  {completed}/{total}"
+        f"  {rate:.1f}/s  ETA {eta}{err_str}  "
+    )
 
 
 # ── Embedding call (runs in worker thread) ────────────────────────────────────
@@ -141,22 +171,59 @@ def embed_docs(db_path: str, limit: int = None, workers: int = DEFAULT_WORKERS):
         if completed_idx % BATCH_SIZE == 0:
             conn.commit()
 
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {executor.submit(_embed_one, item): item[1] for item in work_items}
-        for future in as_completed(futures):
-            doc_id, name, embedding = future.result()
+    # Sliding-window: keep workers*3 requests in-flight (HTTP I/O, low memory
+    # per item) with memory checks between fills.
+    MAX_IN_FLIGHT = workers * 3
+    work_iter     = iter(work_items)
+    in_flight     = {}   # future -> name
+    width         = len(str(total))
+
+    def _fill_queue(executor):
+        for item in itertools.islice(work_iter, MAX_IN_FLIGHT - len(in_flight)):
+            wait_for_memory(is_tty=_IS_TTY)
+            f = executor.submit(_embed_one, item)
+            in_flight[f] = item[1]
+
+    def _handle_result(future):
+        nonlocal completed, embedded, failed
+        doc_id, name, embedding = future.result()
+        with write_lock:
+            completed += 1
+            idx = completed
+        if embedding:
             with write_lock:
-                completed += 1
-                idx = completed
-            if embedding:
-                with write_lock:
-                    _write(doc_id, embedding, idx)
-                embedded += 1
-                status = "OK"
+                _write(doc_id, embedding, idx)
+            embedded += 1
+            if _IS_TTY:
+                print(_progress_bar(idx, total, start_time, failed),
+                      end="", flush=True)
             else:
-                failed += 1
-                status = "FAILED"
-            print(f"  [{idx:>{len(str(total))}}/{total}] {name}: {status}", flush=True)
+                print(f"  [{idx:>{width}}/{total}] {name}: OK", flush=True)
+        else:
+            failed += 1
+            msg = f"  [{idx:>{width}}/{total}] {name}: FAILED"
+            if _IS_TTY:
+                print(f"\n{msg}", flush=True)
+                print(_progress_bar(idx, total, start_time, failed),
+                      end="", flush=True)
+            else:
+                print(msg, flush=True)
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        _fill_queue(executor)
+
+        while in_flight:
+            done, _ = wait(list(in_flight.keys()), return_when=FIRST_COMPLETED)
+
+            for future in done:
+                del in_flight[future]
+                _handle_result(future)
+
+            _fill_queue(executor)
+
+    # Clear progress bar line before summary
+    if _IS_TTY:
+        print()
 
     # Final commit
     conn.commit()

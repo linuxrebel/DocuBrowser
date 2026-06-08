@@ -12,16 +12,20 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 # Try importing pdfplumber, fall back to pypdf if unavailable
+HAS_PDFPLUMBER = False
+HAS_PYPDF = False
 try:
     import pdfplumber
     HAS_PDFPLUMBER = True
 except ImportError:
-    HAS_PDFPLUMBER = False
     try:
         import PyPDF2 as pypdf
         HAS_PYPDF = True
     except ImportError:
-        HAS_PYPDF = False
+        pass
+
+
+MAX_PAGES = 150   # cap per-PDF to bound memory use and extraction time
 
 
 def extract_pdf(pdf_path: str) -> Dict:
@@ -88,15 +92,14 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
                 result['title'] = pdf.metadata.get('Title') or result['title']
                 result['author'] = pdf.metadata.get('Author')
 
-            # Extract text from all pages
+            # Extract text — capped at MAX_PAGES to bound memory and time
             text_parts = []
-            for page in pdf.pages:
+            for page in pdf.pages[:MAX_PAGES]:
                 try:
                     text = page.extract_text() or ''
                     if text:
                         text_parts.append(text)
                 except Exception:
-                    # Skip pages that fail
                     pass
 
             full_text = '\n'.join(text_parts)
@@ -104,6 +107,12 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
             result['text'] = full_text[:5000]
             result['snippet'] = full_text[:500]
             result['success'] = bool(result['text'])
+            if not result['success']:
+                pages = result['page_count']
+                result['error'] = (
+                    f"no text extracted from {pages} page(s) "
+                    f"— likely scanned/image-only or DRM-protected PDF"
+                )
 
             return result
     except Exception as e:
@@ -123,9 +132,9 @@ def _extract_pypdf(pdf_path: Path, result: Dict) -> Dict:
                 result['title'] = reader.metadata.get('/Title') or result['title']
                 result['author'] = reader.metadata.get('/Author')
 
-            # Extract text from pages
+            # Extract text — capped at MAX_PAGES
             text_parts = []
-            for page in reader.pages:
+            for page in reader.pages[:MAX_PAGES]:
                 try:
                     text = page.extract_text() or ''
                     if text:
@@ -137,6 +146,12 @@ def _extract_pypdf(pdf_path: Path, result: Dict) -> Dict:
             result['text'] = full_text[:5000]
             result['snippet'] = full_text[:500]
             result['success'] = bool(result['text'])
+            if not result['success']:
+                pages = result['page_count']
+                result['error'] = (
+                    f"no text extracted from {pages} page(s) "
+                    f"— likely scanned/image-only or DRM-protected PDF"
+                )
 
             return result
     except Exception as e:

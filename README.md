@@ -14,7 +14,8 @@ A fast document search and browsing application with semantic search. DocuBrowse
 | [CLI Reference](#cli-reference) | [Configuration](#configuration) |
 | [Architecture](#architecture) | [API Endpoints](#api-endpoints) |
 | [Search Algorithm](#search-algorithm) | [File Structure](#file-structure) |
-| [Development](#development) | [Known Limitations](#known-limitations) |
+| [Development](#development) | [Troubleshooting](#troubleshooting) |
+| [Known Limitations](#known-limitations) | [Roadmap](#roadmap) |
 | [Roadmap](#roadmap) | [Performance Notes](#performance-notes) |
 | [Browser Support](#browser-support) | [Keyboard Shortcuts](#keyboard-shortcuts) |
 | [License](#license) | |
@@ -368,6 +369,31 @@ ollama serve
 
 # Pull the embedding model
 ollama pull nomic-embed-text:latest
+```
+
+---
+
+## Troubleshooting
+
+[↑ Top](#top)
+
+### Inotify watch limit errors
+
+When scanning large document collections (thousands of files), you may see errors like:
+
+```
+OSError: [Errno 28] inotify watch limit reached
+Failed to add inotify watch: No space left on device
+```
+
+This is a Linux kernel limit on the number of filesystem watches, not a disk space issue. Disable the limit while scanning, then re-enable it when done:
+
+```bash
+# Disable inotify limit (before scanning)
+sudo sh -c "echo fs.inotify.max_user_instances=0 >> /etc/sysctl.conf" && sudo sysctl -p
+
+# Re-enable after scanning is complete
+sudo sh -c "echo fs.inotify.max_user_instances=128 >> /etc/sysctl.conf" && sudo sysctl -p
 ```
 
 ---

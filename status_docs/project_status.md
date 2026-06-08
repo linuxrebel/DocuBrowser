@@ -1,9 +1,9 @@
 # DocuBrowse Project Status
 
-**Version**: v0.1.0 (MVP)  
-**Status**: 🟢 **RELEASE READY**  
+**Version**: v0.2.0 (Scan Engine Hardening)  
+**Status**: 🟡 **IN PROGRESS — scanning large corpus**  
 **Last Updated**: 2026-06-08  
-**Repository**: GitHub (ready for push)
+**Repository**: GitHub (pushed)
 
 ---
 
@@ -20,21 +20,47 @@ DocuBrowse is a modern document search and browsing application for the `/mnt/da
 
 ---
 
-## Session Summary — 2026-06-08
+## Session Summary — 2026-06-08 (Scan Engine Hardening)
 
 **Work completed this session:**
 
-- **`docubrowser.py`** — new CLI launcher; main user entry point modeled after repo-browser.py. Commands: `start`, `stop`, `restart`, `status`, `rescan`, `embed`, `open`; `duplist`/`dupclean` stubbed for Phase 2.
-- **`ensure_ollama.py`** — new Ollama prerequisite gate (ported from repo-browser). Checks binary → service → `nomic-embed-text:latest` model; prompts to install/start/pull as needed. Wired into `start`, `rescan`, and `embed`.
-- **`README.md`** — fully rewritten: navigation table linking all 14 sections, per-section `↑ Top` links, updated to reflect `docubrowser.py` as entry point, CLI reference table, config file docs, accurate file structure.
-- **`LICENSE`** — GPL-3.0 full text added.
-- **SPDX headers** — `GPL-3.0-or-later` identifier + copyright notice added to all 13 `.py` files.
-- **Housekeeping** — `readme.md` → `README.md`, `chmod 755` all `.py` files.
+### Reliability & OOM protection
+- **`hardware_utils.py`** (new) — CPU/GPU/RAM detection, `recommended_scan_workers()` formula (4 GB/worker + 4 GB OS reserve, cap 8), `wait_for_memory()` with pause/resume thresholds (15%/25%). Warn-zone messages log-only; critical pause to stderr only (no progress bar corruption).
+- **`scan_docs.py`** — Full rewrite of scanner core:
+  - ProcessPoolExecutor with `forkserver` + module-level `_worker_init()` (picklable; workers ignore SIGINT)
+  - Sliding window executor (`wait(FIRST_COMPLETED)`, `MAX_IN_FLIGHT = workers`) — no bulk memory pre-queuing
+  - Per-file SIGALRM timeout: `MAX_PAGES × 2s` (default 300s) — corrupt/looping PDFs can't hang the scan
+  - Sort files ascending by size (`_safe_size` with OSError guard) — small files finish first, index useful sooner
+  - All per-file FAILED/OK output → log file only; terminal shows progress bar + summary only
+  - `_setup_scan_logger()`: tries `/var/log/docubrowser.log`, falls back to `~/.local/share/docubrowser/`
+  - KeyboardInterrupt caught at executor loop level: commits progress, closes DB, exits cleanly
+- **`pdf_extractor.py`** — `MAX_PAGES = 150` cap on pdfplumber/PyPDF2 (large speedup, memory reduction). Fixed `HAS_PYPDF` NameError (both flags initialized unconditionally before try/except).
+- **`embed_docs.py`** — minor hardening; `import signal` added.
+
+### Process management
+- **`docubrowser.py`** — major additions:
+  - `SCAN_PID_FILE` tracks scan PGID; `_stop_running_scans()` kills entire process group via `os.killpg()`
+  - `cmd_stopall()` — kills scans, embeds, and server in one command
+  - `cmd_rescan()` — auto-kills any running scan before starting a new one (no more zombie workers)
+  - `start_new_session=True` on scan `Popen` → scan gets own PGID → group kill works
+  - Scan stderr redirected to log file — Python `resource_tracker` "leaked semaphore" warnings suppressed from terminal
+- **`README.md`** — added Troubleshooting section: inotify limit disable/re-enable commands
+
+### Engineering docs
+- **`.claude/CLAUDE.md`** (new) — QA requirement, project context, key files, dev rules, and all hard-won lessons (ProcessPoolExecutor pitfalls, memory management, PDF extraction, progress bar, Ctrl-C, sort order)
+- **`status_docs/DECISIONS.md`** (new) — deferred decisions log: ETA improvements, worker formula, ebook extraction, inotify, sensitive files, no-extension files
+
+**Bugs caught by QA agent (would have been production issues):**
+- `_worker_init` nested inside `scan_directory()` → PicklingError at executor startup → moved to module level
+- Bare `lambda f: f.stat().st_size` in sort key → OSError crash if file disappears → replaced with `_safe_size()`
+- `HAS_PYPDF` NameError when pdfplumber is installed → flags now initialized unconditionally
+- SIGALRM defensive cancel missing → stale alarm risk → `signal.alarm(0)` added before handler install
 
 **Commits this session:**
 - `9812c30` feat: add CLI launcher and Ollama prerequisite gate
 - `0ed92af` docs: rewrite README with nav table and per-section top links
 - `50173f3` license: adopt GNU General Public License v3.0
+- *(pending)* fix: scan engine hardening — OOM, timeouts, clean stop, semaphore suppression
 
 ---
 
