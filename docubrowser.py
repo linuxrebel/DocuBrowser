@@ -27,6 +27,7 @@ import os
 import signal
 import subprocess
 import sys
+import textwrap
 import time
 from pathlib import Path
 from urllib.request import urlopen
@@ -38,6 +39,7 @@ DEFAULT_PORT    = 8643
 DEFAULT_DB      = Path(__file__).parent / "docs.db"
 DEFAULT_DOC_DIR = "/mnt/data/Documents"
 PID_FILE        = Path("/tmp/docubrowse.pid")
+SCAN_PID_FILE   = Path("/tmp/docubrowse_scan.pid")   # PGID of running scan
 CONFIG_PATHS    = [
     Path("/etc/docubrowse.config"),
     Path(__file__).parent / "docubrowse.config",
@@ -237,6 +239,74 @@ def cmd_restart(config: dict, args):
     cmd_start(config, args)
 
 
+def _stop_running_scans(verbose: bool = True) -> bool:
+    """
+    Kill any running scan process group (scan_docs.py + all its workers).
+    Uses the PGID stored in SCAN_PID_FILE.  Falls back to pkill if the
+    pidfile is missing.  Returns True if anything was killed.
+    """
+    killed = False
+
+    if SCAN_PID_FILE.exists():
+        try:
+            pgid = int(SCAN_PID_FILE.read_text().strip())
+            os.killpg(pgid, signal.SIGTERM)
+            if verbose:
+                print(f"Stopped running scan (process group {pgid}).")
+            killed = True
+        except (ValueError, ProcessLookupError, PermissionError):
+            pass
+        finally:
+            SCAN_PID_FILE.unlink(missing_ok=True)
+
+    # Belt-and-suspenders: catch any orphaned workers not in the pidfile
+    orphan = subprocess.run(
+        ["pkill", "-f", "scan_docs.py"],
+        capture_output=True,
+    )
+    if orphan.returncode == 0 and not killed:
+        if verbose:
+            print("Stopped orphaned scan worker(s).")
+        killed = True
+
+    if killed:
+        time.sleep(1)   # brief pause for processes to exit and release memory
+    return killed
+
+
+def cmd_stopall(config: dict, args):
+    """Stop all running scans, embeds, and the search server."""
+    any_killed = False
+
+    # Scans
+    if _stop_running_scans(verbose=True):
+        any_killed = True
+
+    # Embeds
+    orphan = subprocess.run(["pkill", "-f", "embed_docs.py"], capture_output=True)
+    if orphan.returncode == 0:
+        print("Stopped running embed process.")
+        any_killed = True
+
+    # Server
+    port = args.port or config["port"]
+    pid  = read_pid()
+    if pid:
+        try:
+            os.kill(pid, signal.SIGTERM)
+            print(f"Stopped DocuBrowse server (PID {pid}).")
+            any_killed = True
+        except ProcessLookupError:
+            pass
+        clear_pid()
+    elif _kill_port(port):
+        print(f"Stopped server on port {port}.")
+        any_killed = True
+
+    if not any_killed:
+        print("Nothing running to stop.")
+
+
 def cmd_status(config: dict, args):
     port = args.port or config["port"]
     pid  = read_pid()
@@ -266,10 +336,39 @@ def cmd_status(config: dict, args):
         print("  Run 'docubrowser.py start' to start the server.")
 
 
+# Known file types — maps user-friendly names to extensions
+_TYPE_MAP = {
+    "pdf":  ".pdf",
+    "txt":  ".txt",
+    "text": ".txt",
+    "md":   ".md",
+    "markdown": ".md",
+    "html": ".html",
+    "htm":  ".html",
+}
+
+
 def cmd_rescan(config: dict, args):
+    # Kill any scan already in progress (including orphaned workers) before starting.
+    _stop_running_scans(verbose=True)
+
     doc_dir = args.doc_dir or config["doc_dir"]
     db_path = args.db      or config["db_path"]
     workers = args.workers
+
+    # Resolve user-supplied type names → extensions
+    if args.types:
+        unknown = [t for t in args.types if t.lower().lstrip(".") not in _TYPE_MAP]
+        if unknown:
+            print(f"ERROR: Unknown file type(s): {', '.join(unknown)}")
+            print(f"  Supported: {', '.join(sorted(set(_TYPE_MAP.keys())))}")
+            sys.exit(1)
+        scan_extensions = [_TYPE_MAP[t.lower().lstrip(".")] for t in args.types]
+        # Deduplicate while preserving order
+        seen = set()
+        scan_extensions = [e for e in scan_extensions if not (e in seen or seen.add(e))]
+    else:
+        scan_extensions = []   # empty = scan_docs.py uses its own default (all types)
 
     if not args.no_embed:
         if not ensure_ollama():
@@ -280,22 +379,72 @@ def cmd_rescan(config: dict, args):
         print(f"ERROR: scan_docs.py not found: {scanner}")
         sys.exit(1)
 
-    print(f"Scanning documents in: {doc_dir}")
+    # Print hardware summary so users know what parallelism is active
+    try:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from hardware_utils import print_hardware_summary
+        print_hardware_summary(workers, args.embed_workers)
+    except Exception:
+        print(f"Scan workers:  {workers}")
+        print(f"Embed workers: {args.embed_workers}")
+        print()
+
+    type_str = ", ".join(scan_extensions) if scan_extensions else "all (pdf txt md html)"
+    print(f"Scanning: {doc_dir}")
     print(f"Database: {db_path}")
-    print(f"Workers:  {workers}")
+    print(f"Types:    {type_str}")
     print()
 
-    cmd = [sys.executable, str(scanner), doc_dir, db_path,
-           "--workers", str(workers)]
-    result = subprocess.run(cmd)
+    cmd = [sys.executable, str(scanner), doc_dir, db_path, "--workers", str(workers)]
+    if scan_extensions:
+        cmd += ["--ext"] + scan_extensions
 
-    if result.returncode != 0:
+    # start_new_session=True gives scan_docs.py its own process group (PGID = PID),
+    # so we can kill the entire group (main process + all workers) cleanly.
+    # stderr is redirected to the log file so that Python's resource_tracker
+    # "leaked semaphore" warnings (printed when workers are hard-killed) never
+    # appear on the terminal.
+    _log_paths = [
+        Path("/var/log/docubrowser.log"),
+        Path.home() / ".local/share/docubrowser/docubrowser.log",
+    ]
+    _scan_stderr = subprocess.DEVNULL
+    for _lp in _log_paths:
+        try:
+            _lp.parent.mkdir(parents=True, exist_ok=True)
+            _scan_stderr = open(_lp, "a")   # noqa: SIM115 — kept open for proc lifetime
+            break
+        except (PermissionError, OSError):
+            continue
+    proc = subprocess.Popen(cmd, start_new_session=True, stderr=_scan_stderr)
+    SCAN_PID_FILE.write_text(str(proc.pid))
+    try:
+        proc.wait()
+    except KeyboardInterrupt:
+        _stop_running_scans(verbose=False)
+        print("\nScan interrupted.")
+        sys.exit(0)
+    finally:
+        SCAN_PID_FILE.unlink(missing_ok=True)
+        if hasattr(_scan_stderr, "close"):
+            _scan_stderr.close()
+
+    if proc.returncode != 0:
         print("\nScan failed.")
-        sys.exit(result.returncode)
+        sys.exit(proc.returncode)
 
     if not args.no_embed:
         print()
         _run_embed(db_path, embed_workers=args.embed_workers)
+
+
+def cmd_scan(config: dict, args):
+    """scan — scan only, no embedding. Equivalent to rescan --no-embed."""
+    # Reuse rescan logic by injecting no_embed=True
+    args.no_embed = True
+    if not hasattr(args, "embed_workers"):
+        args.embed_workers = 0
+    cmd_rescan(config, args)
 
 
 def cmd_embed(config: dict, args):
@@ -389,25 +538,21 @@ def build_parser() -> argparse.ArgumentParser:
         prog="docubrowser.py",
         description="DocuBrowse — document search and browsing tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Commands:
-  start       Start the DocuBrowse server
-  stop        Stop the DocuBrowse server
-  restart     Restart the DocuBrowse server
-  status      Show server status and index stats
-  rescan      Scan documents and update the index
-  embed       Generate embeddings for unembedded documents
-  open        Open the DocuBrowse UI in your browser
-  duplist     List duplicate documents         [Not yet implemented]
-  dupclean    Clean up duplicate documents     [Not yet implemented]
+        epilog=textwrap.dedent("""            Examples:
+              docubrowser.py start
+              docubrowser.py status
+              docubrowser.py scan                           scan all types, no embed
+              docubrowser.py scan pdf                       PDFs only, no embed
+              docubrowser.py rescan                         scan + embed all types
+              docubrowser.py rescan pdf                     scan + embed PDFs only
+              docubrowser.py rescan pdf txt                 scan + embed PDFs and text
+              docubrowser.py rescan --doc-dir /mnt/data/Documents
+              docubrowser.py rescan --workers 4 --embed-workers 8
+              docubrowser.py stop
+              docubrowser.py stopall                           stop scans, embeds, and server
 
-Examples:
-  docubrowser.py start
-  docubrowser.py status
-  docubrowser.py rescan --doc-dir /mnt/data/Documents
-  docubrowser.py rescan --no-embed
-  docubrowser.py stop
-        """,
+            Tip: run 'docubrowser.py <command> --help' for per-command options.
+            """),
     )
 
     # Global options
@@ -415,7 +560,7 @@ Examples:
     parser.add_argument("--port", metavar="PORT", type=int, help="Server port (overrides config)")
     parser.add_argument("--config", metavar="FILE", help="Config file path")
 
-    sub = parser.add_subparsers(dest="command", metavar="command")
+    sub = parser.add_subparsers(dest="command", metavar="<command>", title="commands")
     sub.required = True
 
     # start
@@ -438,28 +583,85 @@ Examples:
     p_status.add_argument("--port", metavar="PORT", type=int, help="Port")
 
     # rescan
-    p_rescan = sub.add_parser("rescan", help="Scan documents and update the index")
+    p_rescan = sub.add_parser(
+        "rescan",
+        help="Scan documents and update the index\n"
+             "                          [TYPE: pdf txt md html]  [--workers N]  [--embed-workers N]  [--no-embed]",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            File types: pdf  txt  md  html  (default: all four)
+
+            Examples:
+              rescan                        scan all supported types
+              rescan pdf                    PDFs only
+              rescan pdf txt                PDFs and plain text
+              rescan --no-embed             scan without re-embedding
+              rescan --workers 4            override CPU worker count
+              rescan --embed-workers 8      override Ollama thread count
+        """),
+    )
+    p_rescan.add_argument("types", nargs="*", metavar="TYPE",
+                          help="File type(s) to scan: pdf txt md html (default: all)")
     p_rescan.add_argument("--doc-dir", metavar="DIR", dest="doc_dir",
                           help="Document directory to scan")
     p_rescan.add_argument("--db", metavar="PATH", help="Database path")
     p_rescan.add_argument("--no-embed", action="store_true",
                           help="Skip embedding generation after scan")
+    # Hardware-aware defaults
+    try:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from hardware_utils import recommended_scan_workers, recommended_embed_workers
+        _default_scan_workers  = recommended_scan_workers()
+        _default_embed_workers = recommended_embed_workers()
+    except Exception:
+        _default_scan_workers  = min(os.cpu_count() or 4, 8)
+        _default_embed_workers = 6
+
     p_rescan.add_argument("--workers", metavar="N", type=int,
-                          default=min(os.cpu_count() or 4, 8),
-                          help="Parallel worker processes for PDF extraction (default: cpu_count capped at 8)")
+                          default=_default_scan_workers,
+                          help=f"Parallel worker processes for PDF extraction (default: {_default_scan_workers}, based on physical CPU cores)")
     p_rescan.add_argument("--embed-workers", metavar="N", type=int,
-                          default=6, dest="embed_workers",
-                          help="Parallel threads for Ollama embedding (default: 6)")
+                          default=_default_embed_workers, dest="embed_workers",
+                          help=f"Parallel threads for Ollama embedding (default: {_default_embed_workers}, GPU-aware)")
+
+    # scan (scan-only alias — no embedding step)
+    p_scan = sub.add_parser(
+        "scan",
+        help="Scan documents only (no embedding)  [TYPE: pdf txt md html | --workers N]",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            File types: pdf  txt  md  html  (default: all four)
+            Same as:    rescan --no-embed [TYPE ...]
+
+            Examples:
+              scan                  scan all supported types
+              scan pdf              PDFs only
+              scan pdf txt          PDFs and plain text
+              scan --workers 4      override CPU worker count
+        """),
+    )
+    p_scan.add_argument("types", nargs="*", metavar="TYPE",
+                        help="File type(s) to scan: pdf txt md html (default: all)")
+    p_scan.add_argument("--doc-dir", metavar="DIR", dest="doc_dir",
+                        help="Document directory to scan")
+    p_scan.add_argument("--db", metavar="PATH", help="Database path")
+    p_scan.add_argument("--workers", metavar="N", type=int,
+                        default=_default_scan_workers,
+                        help=f"Parallel worker processes (default: {_default_scan_workers})")
 
     # embed
     p_embed = sub.add_parser("embed", help="Generate/refresh embeddings for unembedded documents")
     p_embed.add_argument("--db", metavar="PATH", help="Database path")
-    p_embed.add_argument("--workers", metavar="N", type=int, default=6,
-                         help="Parallel threads for Ollama embedding (default: 6)")
+    p_embed.add_argument("--workers", metavar="N", type=int, default=_default_embed_workers,
+                         help=f"Parallel threads for Ollama embedding (default: {_default_embed_workers}, GPU-aware)")
 
     # open
     p_open = sub.add_parser("open", help="Open the DocuBrowse UI in your browser")
     p_open.add_argument("--port", metavar="PORT", type=int, help="Port")
+
+    # stopall
+    p_stopall = sub.add_parser("stopall", help="Stop all running scans, embeds, and the server")
+    p_stopall.add_argument("--port", metavar="PORT", type=int, help="Port (used to find server)")
 
     # duplist (stub)
     sub.add_parser("duplist", help="List duplicate documents [Not yet implemented]")
@@ -473,8 +675,10 @@ Examples:
 COMMANDS = {
     "start":    cmd_start,
     "stop":     cmd_stop,
+    "stopall":  cmd_stopall,
     "restart":  cmd_restart,
     "status":   cmd_status,
+    "scan":     cmd_scan,
     "rescan":   cmd_rescan,
     "embed":    cmd_embed,
     "open":     cmd_open,
@@ -502,4 +706,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nInterrupted.")
+        sys.exit(0)
