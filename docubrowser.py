@@ -269,6 +269,7 @@ def cmd_status(config: dict, args):
 def cmd_rescan(config: dict, args):
     doc_dir = args.doc_dir or config["doc_dir"]
     db_path = args.db      or config["db_path"]
+    workers = args.workers
 
     if not args.no_embed:
         if not ensure_ollama():
@@ -281,9 +282,11 @@ def cmd_rescan(config: dict, args):
 
     print(f"Scanning documents in: {doc_dir}")
     print(f"Database: {db_path}")
+    print(f"Workers:  {workers}")
     print()
 
-    cmd = [sys.executable, str(scanner), doc_dir, db_path]
+    cmd = [sys.executable, str(scanner), doc_dir, db_path,
+           "--workers", str(workers)]
     result = subprocess.run(cmd)
 
     if result.returncode != 0:
@@ -292,7 +295,7 @@ def cmd_rescan(config: dict, args):
 
     if not args.no_embed:
         print()
-        _run_embed(db_path)
+        _run_embed(db_path, embed_workers=args.embed_workers)
 
 
 def cmd_embed(config: dict, args):
@@ -306,7 +309,7 @@ def cmd_embed(config: dict, args):
         print("Run 'docubrowser.py rescan' first.")
         sys.exit(1)
 
-    _run_embed(db_path)
+    _run_embed(db_path, embed_workers=args.workers)
 
 
 def cmd_open(config: dict, args):
@@ -363,15 +366,17 @@ def _kill_port(port: int, verbose: bool = False) -> bool:
         return False
 
 
-def _run_embed(db_path: str):
+def _run_embed(db_path: str, embed_workers: int = 6):
     embedder = Path(__file__).parent / "embed_docs.py"
     if not embedder.exists():
         print(f"ERROR: embed_docs.py not found: {embedder}")
         sys.exit(1)
 
-    print("Generating embeddings (requires Ollama on localhost:11434)...")
+    print(f"Generating embeddings with {embed_workers} parallel workers...")
     print()
-    result = subprocess.run([sys.executable, str(embedder), db_path])
+    result = subprocess.run(
+        [sys.executable, str(embedder), db_path, "--workers", str(embed_workers)]
+    )
     if result.returncode != 0:
         print("\nEmbedding generation failed.")
         sys.exit(result.returncode)
@@ -439,10 +444,18 @@ Examples:
     p_rescan.add_argument("--db", metavar="PATH", help="Database path")
     p_rescan.add_argument("--no-embed", action="store_true",
                           help="Skip embedding generation after scan")
+    p_rescan.add_argument("--workers", metavar="N", type=int,
+                          default=min(os.cpu_count() or 4, 8),
+                          help="Parallel worker processes for PDF extraction (default: cpu_count capped at 8)")
+    p_rescan.add_argument("--embed-workers", metavar="N", type=int,
+                          default=6, dest="embed_workers",
+                          help="Parallel threads for Ollama embedding (default: 6)")
 
     # embed
     p_embed = sub.add_parser("embed", help="Generate/refresh embeddings for unembedded documents")
     p_embed.add_argument("--db", metavar="PATH", help="Database path")
+    p_embed.add_argument("--workers", metavar="N", type=int, default=6,
+                         help="Parallel threads for Ollama embedding (default: 6)")
 
     # open
     p_open = sub.add_parser("open", help="Open the DocuBrowse UI in your browser")
