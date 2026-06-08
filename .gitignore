@@ -76,3 +76,7 @@ profile.prof
 # Large files (Phase 2+)
 # embeddings.cache
 # semantic_index.pkl
+
+# Database (track template only, ignore working copy)
+docs.db
+!docs.db.example
