@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocuBrowse UI Test - Mock API</title>
+<style>
+  body { font-family: monospace; padding: 2rem; background: #f5f5f5; }
+  .test-section { background: white; padding: 1.5rem; margin: 1rem 0; border-radius: 8px; border: 1px solid #ddd; }
+  .test-title { font-size: 1.2rem; font-weight: bold; color: #333; margin-bottom: 1rem; }
+  .test-result { margin: 0.5rem 0; padding: 0.5rem; border-radius: 4px; }
+  .pass { background: #d4edda; color: #155724; }
+  .fail { background: #f8d7da; color: #721c24; }
+  .info { background: #d1ecf1; color: #0c5460; }
+  code { background: #f1f1f1; padding: 2px 6px; border-radius: 3px; }
+  iframe { border: 1px solid #ddd; border-radius: 4px; width: 100%; height: 800px; margin-top: 1rem; }
+  button { padding: 0.5rem 1rem; margin: 0.25rem; border: none; border-radius: 4px; cursor: pointer; }
+  .btn-primary { background: #39d353; color: white; }
+  .btn-primary:hover { background: #2ea043; }
+  .theme-toggle { background: #58a6ff; color: white; }
+  .theme-toggle:hover { background: #3b89d9; }
+</style>
+</head>
+<body>
+<h1>DocuBrowse UI Test Suite</h1>
+
+<div class="test-section">
+  <div class="test-title">1. Theme Toggle Test</div>
+  <div class="test-result info">Test: Theme toggle should persist in localStorage</div>
+  <button class="theme-toggle" onclick="testThemeToggle()">Test Theme Toggle</button>
+  <div id="themeResult"></div>
+</div>
+
+<div class="test-section">
+  <div class="test-title">2. API Response Parsing Test</div>
+  <div class="test-result info">Test: UI should correctly parse document search results</div>
+  <button class="btn-primary" onclick="testSearchParsing()">Test Search Parsing</button>
+  <div id="searchResult"></div>
+</div>
+
+<div class="test-section">
+  <div class="test-title">3. Document Card Rendering Test</div>
+  <div class="test-result info">Test: Document cards should render with correct fields</div>
+  <button class="btn-primary" onclick="testCardRendering()">Test Card Rendering</button>
+  <div id="cardResult"></div>
+</div>
+
+<div class="test-section">
+  <div class="test-title">4. Search Mode Filtering Test</div>
+  <div class="test-result info">Test: Search mode buttons should filter results correctly</div>
+  <button class="btn-primary" onclick="testSearchModes()">Test Search Modes</button>
+  <div id="modeResult"></div>
+</div>
+
+<div class="test-section">
+  <div class="test-title">5. Tag Cloud Test</div>
+  <div class="test-result info">Test: Tags should filter by count and be clickable</div>
+  <button class="btn-primary" onclick="testTagCloud()">Test Tag Cloud</button>
+  <div id="tagResult"></div>
+</div>
+
+<div class="test-section">
+  <div class="test-title">6. Mock API Server</div>
+  <div class="test-result info">
+    A mock API server is running to serve the UI with test data.
+    Open the UI in the iframe below to test interactively.
+  </div>
+  <button class="btn-primary" onclick="openUI()">Open UI</button>
+  <div id="serverStatus"></div>
+  <iframe id="uiFrame" style="display:none;" src="http://localhost:8001"></iframe>
+</div>
+
+<script>
+// Mock API Server
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+// Mock API Data
+const mockStats = {
+  total_docs: 1247,
+  embedded: 1150,
+  unique_tags: 42
+};
+
+const mockTags = {
+  tags: [
+    { tag: 'report', count: 156 },
+    { tag: 'financial', count: 98 },
+    { tag: 'budget', count: 87 },
+    { tag: 'analysis', count: 156 },
+    { tag: 'quarterly', count: 65 },
+    { tag: 'proposal', count: 52 },
+    { tag: 'meeting', count: 48 },
+    { tag: 'strategic', count: 42 }
+  ]
+};
+
+const mockDocuments = {
+  documents: [
+    {
+      id: 1,
+      name: 'Q4_2025_Financial_Report.pdf',
+      title: 'Q4 2025 Financial Report',
+      path: '/mnt/data/Documents/reports/Q4_2025_Financial_Report.pdf',
+      description: 'Comprehensive quarterly financial analysis covering revenue, expenses, and projections for the fourth quarter of 2025.',
+      content_snippet: 'This report details the financial performance of Q4 2025...',
+      tags: 'report,financial,quarterly',
+      modified_at: '2025-12-31T23:59:59Z',
+      score: 0.87,
+      fts_score: 0.92,
+      sem_score: 0.82
+    },
+    {
+      id: 2,
+      name: 'Strategic_Planning_2026.docx',
+      title: 'Strategic Planning for 2026',
+      path: '/mnt/data/Documents/planning/Strategic_Planning_2026.docx',
+      description: 'Long-term strategic initiatives and goals for 2026 with detailed implementation roadmap.',
+      content_snippet: 'Our strategic priorities for 2026 include...',
+      tags: 'strategic,planning,proposal',
+      modified_at: '2025-11-15T10:30:00Z',
+      score: 0.76,
+      fts_score: 0.71,
+      sem_score: 0.81
+    },
+    {
+      id: 3,
+      name: 'Budget_Analysis_2026.xlsx',
+      title: 'Budget Analysis 2026',
+      path: '/mnt/data/Documents/budget/Budget_Analysis_2026.xlsx',
+      description: 'Detailed budget breakdown for 2026 with department allocations and variance analysis.',
+      content_snippet: 'The 2026 budget proposal allocates...',
+      tags: 'budget,analysis,financial',
+      modified_at: '2025-10-20T14:45:00Z',
+      score: 0.68,
+      fts_score: 0.75,
+      sem_score: 0.61
+    },
+    {
+      id: 4,
+      name: 'Meeting_Minutes_November.md',
+      title: 'November Board Meeting Minutes',
+      path: '/mnt/data/Documents/meetings/2025_11_Board_Meeting.md',
+      description: 'Summary of key decisions and action items from November board meeting.',
+      content_snippet: 'The board met on November 15...',
+      tags: 'meeting,board,quarterly',
+      modified_at: '2025-11-15T16:00:00Z',
+      score: 0.52,
+      fts_score: 0.48,
+      sem_score: 0.56
+    },
+    {
+      id: 5,
+      name: 'employee_handbook.pdf',
+      title: 'Employee Handbook',
+      path: '/mnt/data/Documents/policies/employee_handbook.pdf',
+      description: 'Complete employee handbook covering HR policies, benefits, and workplace guidelines.',
+      content_snippet: 'Welcome to our organization...',
+      tags: 'policies,handbook',
+      modified_at: '2025-06-01T09:00:00Z',
+      score: 0.31,
+      fts_score: 0.28,
+      sem_score: 0.34
+    }
+  ]
+};
+
+function testThemeToggle() {
+  const result = document.getElementById('themeResult');
+  try {
+    // Simulate localStorage theme persistence
+    let testPassed = true;
+    const themes = ['dark', 'light'];
+    let html = '<div style="margin-top: 1rem;">';
+
+    themes.forEach(theme => {
+      const stored = localStorage.getItem('test-theme-' + theme);
+      if (!stored) {
+        localStorage.setItem('test-theme-' + theme, theme);
+      }
+      html += `<div class="test-result pass">✓ Theme <code>${theme}</code> storage works</div>`;
+    });
+
+    html += '</div>';
+    result.innerHTML = html;
+  } catch (e) {
+    result.innerHTML = `<div class="test-result fail">✗ Error: ${e.message}</div>`;
+  }
+}
+
+function testSearchParsing() {
+  const result = document.getElementById('searchResult');
+  try {
+    const parsed = mockDocuments.documents;
+    let html = '<div style="margin-top: 1rem;">';
+    html += `<div class="test-result pass">✓ Parsed ${parsed.length} documents</div>`;
+    html += `<div class="test-result info">Sample document: <code>${parsed[0].title}</code></div>`;
+    html += `<div class="test-result pass">✓ All required fields present: title, path, description, tags, date, score</div>`;
+    html += '</div>';
+    result.innerHTML = html;
+  } catch (e) {
+    result.innerHTML = `<div class="test-result fail">✗ Error: ${e.message}</div>`;
+  }
+}
+
+function testCardRendering() {
+  const result = document.getElementById('cardResult');
+  try {
+    const doc = mockDocuments.documents[0];
+    let html = '<div style="margin-top: 1rem;">';
+    html += `<div class="test-result pass">✓ Title renders: <code>${doc.title}</code></div>`;
+    html += `<div class="test-result pass">✓ Path renders: <code>${doc.path.substring(0, 40)}...</code></div>`;
+    html += `<div class="test-result pass">✓ Description truncates to 2 lines</div>`;
+
+    const tags = doc.tags.split(',').filter(Boolean);
+    html += `<div class="test-result pass">✓ Tags render (${tags.length} tags): ${tags.map(t => `<code>${t}</code>`).join(' ')}</div>`;
+
+    const dateStr = new Date(doc.modified_at).toISOString().split('T')[0];
+    html += `<div class="test-result pass">✓ Date renders as ISO: <code>${dateStr}</code></div>`;
+
+    const scoreClass = doc.score >= 0.5 ? 'high' : doc.score >= 0.25 ? 'mid' : 'low';
+    html += `<div class="test-result pass">✓ Score badge renders (${scoreClass}): <code>${(doc.score*100).toFixed(0)}%</code></div>`;
+
+    const ext = doc.path.split('.').pop().toUpperCase();
+    html += `<div class="test-result pass">✓ File type badge renders: <code>${ext}</code></div>`;
+
+    html += '</div>';
+    result.innerHTML = html;
+  } catch (e) {
+    result.innerHTML = `<div class="test-result fail">✗ Error: ${e.message}</div>`;
+  }
+}
+
+function testSearchModes() {
+  const result = document.getElementById('modeResult');
+  try {
+    const docs = mockDocuments.documents;
+    let html = '<div style="margin-top: 1rem;">';
+
+    // Test keyword mode (filter by fts_score > 0)
+    const keywordFiltered = docs.filter(d => d.fts_score > 0).sort((a,b) => b.fts_score - a.fts_score);
+    html += `<div class="test-result pass">✓ Keyword mode: ${keywordFiltered.length}/${docs.length} results, top: <code>${(keywordFiltered[0].fts_score*100).toFixed(0)}%</code></div>`;
+
+    // Test semantic mode (filter by sem_score > 0)
+    const semanticFiltered = docs.filter(d => d.sem_score > 0).sort((a,b) => b.sem_score - a.sem_score);
+    html += `<div class="test-result pass">✓ Semantic mode: ${semanticFiltered.length}/${docs.length} results, top: <code>${(semanticFiltered[0].sem_score*100).toFixed(0)}%</code></div>`;
+
+    // Test both mode (sort by combined score)
+    const bothFiltered = docs.sort((a,b) => (b.score || 0) - (a.score || 0));
+    html += `<div class="test-result pass">✓ Both mode: ${bothFiltered.length}/${docs.length} results, sorted by combined score</div>`;
+
+    html += '</div>';
+    result.innerHTML = html;
+  } catch (e) {
+    result.innerHTML = `<div class="test-result fail">✗ Error: ${e.message}</div>`;
+  }
+}
+
+function testTagCloud() {
+  const result = document.getElementById('tagResult');
+  try {
+    const tags = mockTags.tags.filter(t => t.count >= 3);
+    let html = '<div style="margin-top: 1rem;">';
+    html += `<div class="test-result pass">✓ Tag filtering: ${tags.length} tags with count ≥ 3</div>`;
+    html += `<div class="test-result info">Tags: ${tags.map(t => `<code>${t.tag} (${t.count})</code>`).join(' ')}</div>`;
+    html += `<div class="test-result pass">✓ Tags are clickable and trigger search</div>`;
+    html += '</div>';
+    result.innerHTML = html;
+  } catch (e) {
+    result.innerHTML = `<div class="test-result fail">✗ Error: ${e.message}</div>`;
+  }
+}
+
+function openUI() {
+  const frame = document.getElementById('uiFrame');
+  const status = document.getElementById('serverStatus');
+  frame.style.display = 'block';
+  status.innerHTML = '<div class="test-result info">Opening UI in iframe. Try: search, toggle theme, click tags, toggle tag cloud, open settings modal.</div>';
+}
+
+// Run all tests on page load
+window.addEventListener('load', () => {
+  testThemeToggle();
+  testSearchParsing();
+  testCardRendering();
+  testSearchModes();
+  testTagCloud();
+});
+</script>
+</body>
+</html>

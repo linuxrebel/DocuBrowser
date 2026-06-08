@@ -1,0 +1,354 @@
+SENSITIVE FILES INVENTORY REPORT
+Generated: 2026-06-07
+Location: /mnt/data/Documents
+
+================================================================================
+EXECUTIVE SUMMARY
+================================================================================
+
+Total sensitive files found: 27
+
+CRITICAL FINDING: Multiple unencrypted private keys discovered across project
+and training directories. Several AWS credentials and infrastructure keys found
+in plain text with encryption=none. Immediate action required.
+
+================================================================================
+INVENTORY BY FILE TYPE
+================================================================================
+
+.key files:           5
+  - RSA Private Keys with encryption
+  - DNSSEC/DNS KEY record
+  - Location: Ericsson & LC project directories
+
+.pem files:           6
+  - AWS EC2 key pairs (QuikLabs training - old, likely revoked)
+  - Backup RSA private key
+  - Infrastructure automation key
+  - Location: Training courses & project backups
+
+.p12 files:           1
+  - PKCS#12 certificate archive (binary)
+  - Location: LC mTLS testing
+
+.ppk files:           6
+  - PuTTY SSH key format
+  - Unencrypted (Encryption: none)
+  - AWS training materials (QuikLabs)
+  - Location: Training courses, downloaded examples
+
+.crt files:           5
+  - X.509 TLS/SSL certificates (mostly test/internal)
+  - CA certificate and client/server certs
+  - Location: Ericsson & LC infrastructure certs
+
+.cer files:           4
+  - X.509 certificate format (DER encoded)
+  - Organization/domain certificates
+  - Location: Books/certs folder
+
+.pub files:           2
+  - SSH public keys (non-sensitive)
+  - Location: Ericsson infrastructure config
+
+================================================================================
+INVENTORY BY LOCATION
+================================================================================
+
+Companies/Ericsson/infra-client/:
+  - ./keys/client1.key                     [RSA private key]
+  - ./keys/backup.pem                      [RSA private key - encrypted]
+  - ./keys/ca.crt                          [CA certificate]
+  - ./keys/client1.crt                     [Client certificate]
+  - ./stratus-agent/nsupdate.key           [DNSSEC KEY record]
+  - ./config/infra-client-test.pub         [SSH public key]
+  Count: 6 files
+
+Companies/LC/LC-Scripts/certs/:
+  - ./ca/ca.key                            [CA RSA private key - encrypted]
+  - ./ca/ca.crt                            [CA certificate]
+  - ./client/mtlstest.key                  [mTLS client key - unencrypted]
+  - ./client/mtlstest.crt                  [mTLS client cert]
+  - ./client/mtlstest.p12                  [PKCS#12 archive]
+  - ./server/10.81.43.54.key               [Server key - unencrypted]
+  - ./server/10.81.43.54.crt               [Server certificate]
+  Count: 7 files
+
+Companies/LC/LC-Docs/SaltClass/SaltClass/eavpn.com/_downloads/:
+  - ./id_rsa.ppk                           [SSH private key - unencrypted, downloaded]
+  Count: 1 file
+
+DevOpsCourse/aws-class/:
+  - ./qwikLABS-L4829-2322784.pem           [AWS EC2 key - training material]
+  - ./qwikLABS-L4829-2322784.ppk           [AWS EC2 key (PuTTY) - training]
+  - ./qwikLABS-L4829-2322784 (2020_04_25...).pem    [AWS EC2 key - duplicate]
+  - ./qwikLABS-L4829-2322784 (2020_04_25...).ppk    [AWS EC2 key (PuTTY) - duplicate]
+  Count: 4 files
+
+DevOpsCourse/Ex_Files_DevOps_Foundations_Infrastructure/03_08_runbook_automation_with_rundeck/:
+  - ./infra-auto.pem                       [Infrastructure automation key]
+  - ./infra-auto.pub                       [Automation public key]
+  Count: 2 files
+
+aws-class/ (duplicate training directory):
+  - ./qwikLABS-L4829-2322784.pem           [AWS EC2 key - training]
+  - ./qwikLABS-L4829-2322784.ppk           [AWS EC2 key (PuTTY) - training]
+  - ./qwikLABS-L4829-2322784 (2020_04_25...).pem    [AWS EC2 key - duplicate]
+  - ./qwikLABS-L4829-2322784 (2020_04_25...).ppk    [AWS EC2 key (PuTTY) - duplicate]
+  Count: 4 files
+
+books/certs/:
+  - ./home-james-cert.cer                  [Personal certificate]
+  - ./MS-Organization-Access.cer           [Organization certificate]
+  - ./PwC-AURA Issuing - 1.cer            [PwC organizational CA]
+  - ./PwC-VPN Issuing - 2.cer             [PwC VPN organizational CA]
+  Count: 4 files
+
+================================================================================
+RISK ASSESSMENT
+================================================================================
+
+HIGH RISK (Immediate Action Required):
+  1. /Companies/LC/LC-Scripts/certs/client/mtlstest.key
+     - Unencrypted RSA private key
+     - No password protection detected
+     - Used for mTLS testing in production-like environment
+     - RISK: Private key exposed if file accessed
+
+  2. /Companies/LC/LC-Scripts/certs/server/10.81.43.54.key
+     - Unencrypted RSA private key for specific server (10.81.43.54)
+     - No encryption protection
+     - Server-specific key may be active in infrastructure
+     - RISK: Enables compromise of TLS connections to that server
+
+  3. /Companies/LC/LC-Docs/SaltClass/SaltClass/eavpn.com/_downloads/id_rsa.ppk
+     - Unencrypted SSH private key (PuTTY format)
+     - Downloaded from external source
+     - Comment indicates OpenSSH import
+     - RISK: Outdated training material with active-looking key material
+
+  4. /SaltClass/saltclass/eavpn.com/_downloads/id_rsa.ppk
+     - Duplicate of above (same key, different copy)
+     - Unencrypted
+     - RISK: Redundant high-risk exposure
+
+  5. Multiple AWS EC2 key pairs (.pem/.ppk):
+     - /DevOpsCourse/aws-class/qwikLABS-L4829-2322784*
+     - /aws-class/qwikLABS-L4829-2322784*
+     - Appears to be QuikLABS training credentials (old, likely revoked 2020)
+     - Unencrypted in storage
+     - RISK: If credentials not revoked, could enable AWS resource access
+
+MEDIUM RISK (Expected Location, But Requires Verification):
+  1. /Companies/Ericsson/infra-client/keys/client1.key
+     - Encrypted RSA private key (AES-256-CBC with DEK-Info)
+     - Located in infra-client keys directory (appropriate)
+     - Production infrastructure key for client authentication
+     - RISK: Still sensitive; encryption provides some protection but needs
+       secure key management for encryption password
+
+  2. /Companies/Ericsson/infra-client/keys/backup.pem
+     - Encrypted RSA private key
+     - Named as backup (may be stale)
+     - Located appropriately in infra-client
+     - RISK: Backup keys may be forgotten/abandoned; encryption provides protection
+
+  3. /Companies/LC/LC-Scripts/certs/ca/ca.key
+     - Encrypted RSA private key (AES-256-CBC with DEK-Info)
+     - CA private key - highest sensitivity
+     - Encrypted with strong cipher
+     - RISK: CA key compromise would affect entire certificate infrastructure;
+       encryption password must be extremely secure
+
+  4. /Companies/Ericsson/infra-client/stratus-agent/nsupdate.key
+     - DNSSEC KEY record (DNS zone signing key)
+     - Text-based key record format
+     - Located with infrastructure automation
+     - RISK: If active, compromises DNS zone security; appears to be test key
+       (test@ericsson.com annotation)
+
+LOW RISK (Obviously Test/Example/Non-Sensitive):
+  1. All .crt files (X.509 certificates)
+     - These are public certificates, not keys
+     - No private key material
+     - Appropriate locations for infrastructure docs
+     - RECOMMENDATION: Can be indexed safely
+
+  2. All .pub files (SSH public keys)
+     - These are intentionally public
+     - No private key material
+     - Standard infrastructure documentation
+     - RECOMMENDATION: Can be indexed safely
+
+  3. All .cer files (Organization certificates)
+     - /books/certs/home-james-cert.cer (personal cert, non-sensitive)
+     - /books/certs/MS-Organization-Access.cer (organization CA, non-sensitive)
+     - /books/certs/PwC-*.cer (PwC organizational CAs, non-sensitive)
+     - All are public certificates
+     - RECOMMENDATION: Can be indexed safely
+
+  4. /Companies/LC/LC-Scripts/certs/client/mtlstest.p12
+     - Binary PKCS#12 archive
+     - Test certificate (filename indicates testing)
+     - Located in test configuration directory
+     - RISK: Contains private key material internally; treat as sensitive if
+       private key is included; likely test/example data
+
+================================================================================
+KEY OBSERVATIONS
+================================================================================
+
+1. ENCRYPTION INCONSISTENCY:
+   - Some private keys properly encrypted (Ericsson CA, client1, backup)
+   - Some unencrypted in test/demo contexts (LC mtlstest, server IP key)
+   - Suggests mixed security practices across teams
+
+2. STALE CREDENTIALS:
+   - QuikLabs AWS training keys from 2020 (6 years old)
+   - Multiple duplicate copies (indicates old backups not cleaned)
+   - Downloaded SSH keys from external training site
+   - These should be revoked/deleted if not already
+
+3. FILE STRUCTURE ISSUES:
+   - Duplicate entire aws-class directories (training materials copied multiple times)
+   - Keys mixed in different formats (.pem, .ppk, binary)
+   - Some keys stored with infrastructure code, others in training folders
+   - Suggests documents folder contains mixed training, backups, and working materials
+
+4. UNUSUAL LOCATIONS:
+   - /books/certs/ contains certificates (might not expect crypto files there)
+   - /SaltClass/eavpn.com/_downloads/ contains downloaded training material
+   - Mix of company projects and course material in same directory structure
+
+================================================================================
+RECOMMENDATIONS
+================================================================================
+
+IMMEDIATE ACTIONS (Do First):
+
+1. REVOKE UNENCRYPTED KEYS IN ACTIVE SYSTEMS:
+   - /Companies/LC/LC-Scripts/certs/client/mtlstest.key (unencrypted)
+   - /Companies/LC/LC-Scripts/certs/server/10.81.43.54.key (unencrypted)
+   - Determine if these are still in use
+   - If active: revoke, regenerate with encryption, redeploy
+   - If test/stale: delete immediately
+   - OWNER: LC infrastructure team
+
+2. AUDIT AWS CREDENTIALS:
+   - Verify all QuikLABS credentials from 2020 are revoked
+   - Check AWS CloudTrail for any access using these keys
+   - Delete .pem and .ppk files from training directories if credentials revoked
+   - OWNER: AWS account administrator
+
+3. SCAN FOR ACTIVE SSH KEYS:
+   - Verify id_rsa.ppk files in eavpn.com/_downloads/ are not active
+   - These appear to be downloaded examples/training
+   - Determine if eavpn.com system is still operational
+   - If not: delete; if yes, verify key was rotated
+   - OWNER: System administrator
+
+SHORT-TERM ACTIONS (Next 2 Weeks):
+
+4. ENCRYPT UNENCRYPTED TEST KEYS:
+   - If LC test certificates are still in use for testing:
+     - Add encryption to mtlstest.key and 10.81.43.54.key
+     - Use strong password (minimum 32 characters, store in vault)
+     - Re-enable password protection: openssl rsa -in old.key -aes256 -out new.key
+   - If test/demo: delete instead
+
+5. SECURE CA PRIVATE KEY:
+   - /Companies/LC/LC-Scripts/certs/ca/ca.key is encrypted (good)
+   - Verify encryption password stored in secure vault
+   - Consider moving to dedicated key management system
+   - Restrict access to CA key file to authorized personnel only
+   - OWNER: LC infrastructure team
+
+6. CONSOLIDATE DUPLICATES:
+   - Remove duplicate aws-class training directories
+   - Archive old training materials separately if needed
+   - Clean up stale backup copies of keys
+   - Suggests: create archive /Training-Archive-Old with dated folders
+
+INDEXING STRATEGY:
+
+7. SKIP INDEXING HIGH-RISK FILES:
+   - Do NOT index any unencrypted .key, .pem, .ppk files
+   - Do NOT index PKCS#12 (.p12) files (contain private keys)
+   - Reason: Private key material should never be indexed/searchable
+
+   Files to SKIP:
+   - All .ppk files (6 total)
+   - All unencrypted .key files (2: mtlstest.key, 10.81.43.54.key)
+   - All .p12 files (1 total)
+   - Older .pem AWS training files (6 total - if still in system)
+   - /Companies/Ericsson/infra-client/keys/backup.pem (encrypted but sensitive)
+   - /Companies/Ericsson/infra-client/keys/client1.key (encrypted but sensitive)
+   - /Companies/LC/LC-Scripts/certs/ca/ca.key (encrypted but sensitive)
+   - /Companies/Ericsson/infra-client/stratus-agent/nsupdate.key (DNSSEC key)
+
+8. SAFE TO INDEX (If Needed):
+   - All .crt files (5 total - certificates only, no keys)
+   - All .cer files (4 total - certificates only, no keys)
+   - All .pub files (2 total - public keys intended for distribution)
+   - IMPORTANT: Add metadata tags: [CERTIFICATE] [PUBLIC-KEY] to distinguish
+     from private key files
+
+9. RECOMMENDED TAGS FOR INDEXED FILES:
+   If indexed, use these tags for easy filtering:
+   - [SENSITIVE-PRIVATE-KEY]: Unencrypted or test keys
+   - [SENSITIVE-ENCRYPTED-KEY]: Production encrypted keys
+   - [CERTIFICATE]: Public certificates
+   - [PUBLIC-KEY]: SSH public keys (non-sensitive)
+   - [TRAINING-MATERIAL]: AWS QuikLabs, course materials
+   - [STALE]: Files older than 3 years or marked as backup/old
+
+10. FILE RETENTION POLICY:
+    - Delete: AWS training keys older than 1 year (likely revoked)
+    - Archive: Backup keys older than 1 year to separate location
+    - Active: Production keys should move to key management system
+    - Document: Create inventory of which keys are active, when rotated, owner
+
+================================================================================
+SUMMARY TABLE
+================================================================================
+
+File Type  Count  Encrypted  Location              Risk Level   Action
+---------------------------------------------------------------------------
+.key       5      Mixed      Ericsson/LC           HIGH/MED     Audit & Secure
+.pem       6      No         Training/Backups      HIGH/MED     Revoke/Delete
+.p12       1      Binary     LC certs              HIGH         Skip indexing
+.ppk       6      No         Training/Downloads    HIGH         Skip indexing
+.crt       5      N/A        Ericsson/LC           LOW          Index OK
+.cer       4      N/A        Books                 LOW          Index OK
+.pub       2      N/A        Ericsson              LOW          Index OK
+---------------------------------------------------------------------------
+Total      27
+
+HIGH RISK:        9 files (unencrypted or test environment)
+MEDIUM RISK:      4 files (encrypted but production-critical)
+LOW RISK:        14 files (public certs/keys only)
+
+================================================================================
+CONCLUSION
+================================================================================
+
+The /mnt/data/Documents directory contains 27 sensitive cryptographic files
+across training, project, and backup contexts. Critical findings:
+
+1. Multiple unencrypted private keys requiring immediate remediation
+2. Likely-stale AWS training credentials that should be revoked
+3. Inconsistent encryption practices between teams
+4. No evidence of active key management system (keys stored as files)
+
+RECOMMENDATION: Do NOT perform broad indexing of this directory. Instead:
+- Implement immediate secure key management (vault/HSM)
+- Delete stale credentials and unused keys
+- Encrypt remaining file-based keys
+- Create separate indexed archive with only public certificates
+- Migrate active keys to secrets management system
+- Document key ownership and rotation schedule
+
+The sensitive files should be audited and secured before any indexing project
+begins.
+
+================================================================================
