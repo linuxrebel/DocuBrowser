@@ -170,7 +170,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         q = query.get('q', [''])[0].strip()
         mode = query.get('mode', ['both'])[0]  # both, keyword, semantic
         offset = int(query.get('offset', ['0'])[0])
-        limit = 50
+        limit = max(1, min(200, int(query.get('limit', ['50'])[0])))
 
         # Empty query: return documents in alphabetical order with pagination
         if not q:
