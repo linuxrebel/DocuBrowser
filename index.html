@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocuBrowse</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=DM+Sans:wght@400;500;600&display=swap');
+
+  /* ── Dark theme (default) ── */
+  :root, [data-theme="dark"] {
+    --bg: #0a0e14; --surface: #11151c; --surface2: #1a1f2b;
+    --border: #2a3040; --text: #c5cdd8; --text-dim: #6b7a8d;
+    --accent: #39d353; --accent2: #58a6ff; --accent3: #f0883e;
+    --tag-bg: #1e2733; --tag-text: #7eb8da;
+    --header-bg: rgba(10,14,20,0.95);
+    --modal-overlay: rgba(0,0,0,0.7);
+  }
+
+  /* ── Light theme ── */
+  [data-theme="light"] {
+    --bg: #f0f4f8; --surface: #ffffff; --surface2: #e4eaf1;
+    --border: #c8d3df; --text: #1c2b3a; --text-dim: #5a6a7a;
+    --accent: #157a2b; --accent2: #0969da; --accent3: #a84a0a;
+    --tag-bg: #dde3ea; --tag-text: #1a4a7a;
+    --header-bg: rgba(240,244,248,0.95);
+    --modal-overlay: rgba(0,0,0,0.45);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; transition:background 0.2s, color 0.2s; }
+
+  .header {
+    border-bottom:1px solid var(--border); padding:1rem 2rem;
+    display:flex; align-items:center; gap:1.5rem;
+    position:sticky; top:0; background:var(--header-bg); z-index:100;
+    backdrop-filter:blur(12px);
+  }
+  .logo { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:1.1rem; color:var(--accent); white-space:nowrap; }
+  .logo span { color:var(--text-dim); font-weight:300; }
+  .search-wrap { flex:1; max-width:600px; position:relative; }
+  .search-wrap svg { position:absolute; left:12px; top:50%; transform:translateY(-50%); width:18px; height:18px; stroke:var(--text-dim); }
+  .search-input {
+    width:100%; padding:0.6rem 1rem 0.6rem 2.5rem;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-size:0.95rem;
+    font-family:'DM Sans',sans-serif; outline:none; transition:border 0.2s;
+  }
+  .search-input:focus { border-color:var(--accent); }
+  .search-input::placeholder { color:var(--text-dim); }
+  .stats { font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-dim); white-space:nowrap; }
+  .stats b { color:var(--accent); font-weight:500; }
+  .content { padding:1.5rem 2rem; }
+  .results-meta { font-size:0.85rem; color:var(--text-dim); margin-bottom:1rem; font-family:'JetBrains Mono',monospace; }
+  .results-meta b { color:var(--accent2); }
+  .doc-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:1rem; }
+  .doc-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:1.2rem 1.4rem;
+    transition:border-color 0.2s, transform 0.15s;
+  }
+  .doc-card:hover { border-color:var(--accent2); transform:translateY(-1px); }
+  .doc-title { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:1rem; color:var(--accent2); margin-bottom:0.3rem; display:flex; align-items:center; gap:0.5rem; }
+  .doc-title a { color:inherit; text-decoration:none; cursor:pointer; }
+  .doc-title a:hover { text-decoration:underline; }
+  .doc-title-copy { cursor:pointer; opacity:0.6; transition:opacity 0.2s; }
+  .doc-title-copy:hover { opacity:1; }
+  .score-badge { font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:500; }
+  .score-high { background:rgba(57,211,83,0.15); color:#39d353; }
+  .score-mid  { background:rgba(240,136,62,0.15); color:#f0883e; }
+  .score-low  { background:rgba(107,122,141,0.15); color:#6b7a8d; }
+  [data-theme="light"] .score-high { background:#d0f0d8; color:#1a7a2e; }
+  [data-theme="light"] .score-mid  { background:#fde4cc; color:#a04008; }
+  [data-theme="light"] .score-low  { background:#e2e7ed; color:#455060; }
+  [data-theme="light"] .mode-btn:not(.active) { background:var(--surface2); }
+  [data-theme="light"] .doc-card { box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+  [data-theme="light"] .tag-cloud { background:var(--surface2); }
+  .doc-path { font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-dim); margin-bottom:0.5rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; word-break:break-all; }
+  .doc-desc { font-size:0.85rem; color:var(--text); line-height:1.5; margin-bottom:0.7rem; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .doc-tags { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.6rem; }
+  .tag { font-family:'JetBrains Mono',monospace; font-size:0.7rem; background:var(--tag-bg); color:var(--tag-text); padding:2px 8px; border-radius:4px; cursor:pointer; transition:background 0.15s; }
+  .tag:hover { background:var(--accent2); color:var(--bg); }
+  .doc-meta { display:flex; gap:1rem; margin-top:0.6rem; font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--text-dim); justify-content:space-between; }
+  .doc-meta-left { display:flex; gap:1rem; }
+  .doc-meta-right { text-align:right; }
+  .tag-cloud { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1.5rem; padding:1rem; background:var(--surface); border-radius:10px; border:1px solid var(--border); }
+  .tag-cloud-toggle { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--accent2); cursor:pointer; margin-bottom:0.8rem; display:inline-flex; align-items:center; gap:0.4rem; border:none; background:none; }
+  .tag-cloud-toggle:hover { color:var(--accent); }
+  .spinner { display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .search-mode { display:flex; gap:0.5rem; align-items:center; }
+  .mode-btn { font-family:'JetBrains Mono',monospace; font-size:0.7rem; padding:4px 10px; border-radius:5px; border:1px solid var(--border); background:transparent; color:var(--text-dim); cursor:pointer; transition:all 0.15s; }
+  .mode-btn.active { background:var(--accent2); color:var(--bg); border-color:var(--accent2); }
+  .mode-btn:hover:not(.active) { border-color:var(--text-dim); }
+
+  /* ── Theme toggle ── */
+  .theme-btn {
+    background:none; border:1px solid var(--border); cursor:pointer;
+    padding:4px 10px; border-radius:6px;
+    display:flex; align-items:center; gap:0.4rem;
+    color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+    transition:border-color 0.2s, color 0.2s;
+    white-space:nowrap;
+  }
+  .theme-btn svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; flex-shrink:0; }
+  .theme-btn:hover { border-color:var(--accent2); color:var(--accent2); }
+
+  /* ── Settings (gear) button ── */
+  .gear-btn {
+    background:none; border:1px solid var(--border); cursor:pointer;
+    padding:4px 10px; border-radius:6px;
+    display:flex; align-items:center; gap:0.4rem;
+    color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+    transition:border-color 0.2s, color 0.2s, transform 0.2s;
+    white-space:nowrap;
+  }
+  .gear-btn svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; flex-shrink:0; transition:transform 0.3s; }
+  .gear-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .gear-btn:hover svg { transform:rotate(45deg); }
+
+  /* ── Modal overlay ── */
+  .modal-overlay {
+    display:none; position:fixed; inset:0; background:var(--modal-overlay);
+    z-index:200; justify-content:center; align-items:center;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:2rem; width:90%; max-width:600px; max-height:80vh; overflow-y:auto;
+  }
+  .modal h2 { font-family:'JetBrains Mono',monospace; font-size:1.1rem; color:var(--accent); margin-bottom:1.5rem; }
+  .modal label { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--text-dim); display:block; margin-bottom:0.3rem; }
+  .field-row { display:flex; gap:0.5rem; margin-bottom:1.2rem; }
+  .field-row input {
+    flex:1; padding:0.5rem 0.8rem; background:var(--bg); border:1px solid var(--border);
+    border-radius:6px; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:0.85rem; outline:none;
+  }
+  .field-row input:focus { border-color:var(--accent); }
+  .browse-btn {
+    padding:0.5rem 1rem; background:var(--surface2); border:1px solid var(--border);
+    border-radius:6px; color:var(--text-dim); cursor:pointer; font-family:'JetBrains Mono',monospace;
+    font-size:0.8rem; white-space:nowrap; transition:all 0.15s;
+  }
+  .browse-btn:hover { border-color:var(--accent2); color:var(--accent2); }
+  .modal-actions { display:flex; gap:0.8rem; margin-top:1.5rem; }
+  .btn-primary {
+    padding:0.6rem 1.5rem; background:var(--accent); color:var(--bg); border:none;
+    border-radius:6px; font-family:'JetBrains Mono',monospace; font-weight:600;
+    font-size:0.85rem; cursor:pointer; transition:opacity 0.15s;
+  }
+  .btn-primary:hover { opacity:0.85; }
+  .btn-secondary {
+    padding:0.6rem 1.5rem; background:transparent; color:var(--text-dim); border:1px solid var(--border);
+    border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:0.85rem; cursor:pointer;
+  }
+  .btn-secondary:hover { border-color:var(--text-dim); }
+  .config-status {
+    font-family:'JetBrains Mono',monospace; font-size:0.75rem; padding:0.6rem 0.8rem;
+    background:var(--bg); border-radius:6px; margin-bottom:1.2rem; line-height:1.6;
+  }
+  .config-status .ok { color:var(--accent); }
+  .config-status .warn { color:var(--accent3); }
+  .save-msg {
+    font-family:'JetBrains Mono',monospace; font-size:0.8rem; margin-top:1rem;
+    padding:0.8rem; border-radius:6px; background:rgba(57,211,83,0.1);
+    border:1px solid rgba(57,211,83,0.3); color:var(--accent); white-space:pre-line; display:none;
+  }
+
+  /* ── Directory browser ── */
+  .dir-browser {
+    display:none; background:var(--bg); border:1px solid var(--border); border-radius:8px;
+    max-height:250px; overflow-y:auto; margin-bottom:1rem;
+  }
+  .dir-browser.open { display:block; }
+  .dir-entry {
+    padding:0.4rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+    color:var(--text); cursor:pointer; display:flex; align-items:center; gap:0.5rem;
+    border-bottom:1px solid var(--border);
+  }
+  .dir-entry:hover { background:var(--surface2); }
+  .dir-entry .icon { color:var(--accent3); }
+  .dir-select-btn {
+    padding:0.3rem 0.8rem; background:var(--accent2); color:var(--bg); border:none;
+    border-radius:4px; font-size:0.7rem; cursor:pointer; margin-left:auto;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .dir-path { font-size:0.75rem; color:var(--text-dim); padding:0.5rem 0.8rem; border-bottom:1px solid var(--border); background:var(--surface); }
+
+  /* ── Document-specific badges ── */
+  .doc-type-badge { font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:500; background:var(--accent2); color:var(--bg); }
+
+  /* ── Results meta & title ── */
+  .results-title { font-size:1rem; font-weight:600; color:var(--accent2); margin-right:1rem; display:inline-block; }
+  .results-info { font-size:0.8rem; color:var(--text-dim); }
+  .score-help { font-size:0.7rem; color:var(--text-dim); cursor:help; border-bottom:1px dashed var(--text-dim); margin-left:0.3rem; }
+  .score-help:hover::after { content:" Score = relevance to your search (0-100%). Combines keyword matching + semantic similarity."; position:absolute; background:var(--surface); border:1px solid var(--border); padding:0.5rem; border-radius:4px; font-size:0.7rem; white-space:normal; width:250px; z-index:10; }
+
+
+  /* ── Inline Load More (next to count) ── */
+  .load-more-btn-inline {
+    padding:0.3rem 0.8rem; background:var(--accent2); color:var(--bg); border:none;
+    border-radius:4px; font-size:0.7rem; font-family:'JetBrains Mono',monospace;
+    cursor:pointer; font-weight:500; transition:all 0.15s; margin-left:1rem; vertical-align:baseline;
+  }
+  .load-more-btn-inline:hover { background:var(--accent); }
+  .load-more-btn-inline:active { transform:scale(0.98); }
+
+  /* ── Scroll to Top button ── */
+  .scroll-top-container {
+    display:flex; justify-content:center; padding:2rem 0; margin-top:2rem;
+    border-top:1px solid var(--border);
+  }
+  .scroll-top-btn {
+    padding:0.6rem 1.2rem; background:var(--accent2); color:var(--bg); border:none;
+    border-radius:6px; font-size:0.8rem; font-family:'JetBrains Mono',monospace;
+    cursor:pointer; font-weight:500; transition:all 0.2s;
+  }
+  .scroll-top-btn:hover { background:var(--accent); transform:translateY(-2px); }
+  .scroll-top-btn:active { transform:translateY(0); }
+
+  /* ── Alphabetic index bar ── */
+  .index-bar {
+    display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.6rem; padding:0.6rem 0;
+    border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+    padding:0.6rem 0;
+  }
+  .index-btn {
+    font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+    padding:3px 6px; border:1px solid var(--border); border-radius:4px;
+    background:transparent; color:var(--text-dim); cursor:pointer;
+    transition:all 0.15s;
+  }
+  .index-btn:hover:not(.disabled) { border-color:var(--accent2); color:var(--accent2); }
+  .index-btn.disabled { opacity:0.3; cursor:not-allowed; }
+  .index-btn.active { background:var(--accent2); color:var(--bg); border-color:var(--accent2); }
+
+  /* ── Toast notification ── */
+  .toast {
+    position:fixed; bottom:2rem; right:2rem; padding:0.8rem 1.2rem;
+    background:var(--surface); border:1px solid var(--border); border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--accent);
+    box-shadow:0 4px 12px rgba(0,0,0,0.2);
+    z-index:300; animation:slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { transform:translateX(400px); opacity:0; } to { transform:translateX(0); opacity:1; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">docu<span>/</span>browse</div>
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input class="search-input" id="searchInput" type="text" placeholder="Search documents… e.g. 'quarterly report' or 'budget analysis'" autofocus>
+  </div>
+  <div class="search-mode">
+    <button class="mode-btn active" data-mode="both">both</button>
+    <button class="mode-btn" data-mode="keyword">keyword</button>
+    <button class="mode-btn" data-mode="semantic">semantic</button>
+  </div>
+  <div class="stats" id="stats"></div>
+  <!-- Theme toggle -->
+  <button class="theme-btn" id="themeBtn" title="Toggle light/dark theme">
+    <svg id="themeIcon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"></svg>
+    <span id="themeLabel"></span>
+  </button>
+  <!-- Settings -->
+  <button class="gear-btn" id="gearBtn" title="Settings">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+    Settings
+  </button>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h2>Settings</h2>
+    <div class="config-status" id="configStatus"></div>
+    <label>docPath — root directory containing documents</label>
+    <div class="field-row">
+      <input type="text" id="cfgDocPath" placeholder="/mnt/data/Documents">
+      <button class="browse-btn" onclick="openBrowser('docPath')">browse</button>
+    </div>
+    <div class="dir-browser" id="browser-docPath"></div>
+    <label>workDir — where docubrowse files live</label>
+    <div class="field-row">
+      <input type="text" id="cfgWorkDir" placeholder="/path/to/DocuBrowse">
+      <button class="browse-btn" onclick="openBrowser('workDir')">browse</button>
+    </div>
+    <div class="dir-browser" id="browser-workDir"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveConfig()">Save</button>
+      <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
+    </div>
+    <div class="save-msg" id="saveMsg"></div>
+  </div>
+</div>
+
+<div class="content">
+  <button class="tag-cloud-toggle" id="tagToggle">▸ tags</button>
+  <div class="tag-cloud" id="tagCloud" style="display:none"></div>
+  <div class="results-meta" id="resultsMeta"></div>
+  <div class="doc-grid" id="docGrid"></div>
+  <div class="scroll-top-container">
+    <button class="scroll-top-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">↑ Top</button>
+  </div>
+</div>
+
+<script>
+const grid = document.getElementById('docGrid');
+const meta = document.getElementById('resultsMeta');
+const input = document.getElementById('searchInput');
+const statsEl = document.getElementById('stats');
+const tagCloud = document.getElementById('tagCloud');
+const tagToggle = document.getElementById('tagToggle');
+
+let debounceTimer = null, searchMode = 'both', allDocs = [];
+let currentOffset = 0, currentTotal = 0, currentHasMore = false, currentQuery = '';
+let isLoadingMore = false;
+
+// ── Theme toggle ──────────────────────────────────────────────
+const html = document.documentElement;
+const themeBtn = document.getElementById('themeBtn');
+const themeIcon = document.getElementById('themeIcon');
+const themeLabel = document.getElementById('themeLabel');
+
+const MOON_PATH = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+const SUN_PATH  = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+
+function applyTheme(theme) {
+  html.setAttribute('data-theme', theme);
+  if (theme === 'dark') {
+    themeIcon.innerHTML = MOON_PATH;  // dark mode → show sun to switch to light
+    themeLabel.textContent = 'Light';
+  } else {
+    themeIcon.innerHTML = SUN_PATH;   // light mode → show moon to switch to dark
+    themeLabel.textContent = 'Dark';
+  }
+  localStorage.setItem('db-theme', theme);
+}
+
+themeBtn.addEventListener('click', () => {
+  applyTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+});
+
+// Restore saved theme on load
+applyTheme(localStorage.getItem('db-theme') || 'dark');
+
+// ── Search mode buttons ───────────────────────────────────────
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelector('.mode-btn.active').classList.remove('active');
+    btn.classList.add('active');
+    searchMode = btn.dataset.mode;
+    doSearch();
+  });
+});
+tagToggle.addEventListener('click', () => {
+  const open = tagCloud.style.display !== 'none';
+  tagCloud.style.display = open ? 'none' : 'flex';
+  tagToggle.textContent = (open ? '▸' : '▾') + ' tags';
+});
+
+// ── Fetch stats and tags ──────────────────────────────────────
+function loadStats() {
+  fetch('/api/stats')
+    .then(r => r.json())
+    .then(d => {
+      // API returns: {docs, embedded, tags}
+      const docs = d.docs || d.total_docs || 0;
+      const embedded = d.embedded || 0;
+      const tags = d.tags || d.unique_tags || 0;
+      statsEl.innerHTML = `<b>${docs}</b> docs · <b>${embedded}</b> embedded · <b>${tags}</b> tags`;
+    })
+    .catch(e => {
+      console.error('Stats fetch error:', e);
+      statsEl.innerHTML = '⚠ stats unavailable';
+    });
+}
+
+function loadTags() {
+  fetch('/api/tags')
+    .then(r => r.json())
+    .then(d => {
+      // API returns either {tags: [...]} or {tag: count, ...}
+      let tagsList = [];
+      if (d.tags && Array.isArray(d.tags)) {
+        // Format: {tags: [{tag, count}, ...]}
+        tagsList = d.tags;
+      } else {
+        // Format: {tag: count, ...} - convert to array
+        tagsList = Object.entries(d).map(([tag, count]) => ({tag, count}));
+      }
+      tagCloud.innerHTML = tagsList.filter(t => t.count >= 3)
+        .map(t => `<span class="tag" onclick="searchTag('${esc(t.tag)}')">${esc(t.tag)} <small style="opacity:0.5">${t.count}</small></span>`).join('');
+    })
+    .catch(e => {
+      console.error('Tags fetch error:', e);
+      tagCloud.innerHTML = '<span style="color:var(--text-dim)">⚠ tags unavailable</span>';
+    });
+}
+
+loadStats();
+loadTags();
+
+function searchTag(tag) { input.value = tag; doSearch(); }
+input.addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(doSearch, 250); });
+
+async function doSearch() {
+  const q = input.value.trim();
+  if (!q) { meta.innerHTML = ''; return renderAll(); }
+
+  // Reset pagination for new search
+  currentOffset = 0;
+  currentQuery = q;
+  meta.innerHTML = '<span class="spinner"></span> searching…';
+  const t0 = performance.now();
+  try {
+    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&offset=0`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const ms = Math.round(performance.now() - t0);
+    let docs = data.results || data.documents || data.docs || [];
+
+    // Store pagination state
+    currentTotal = data.total || 0;
+    currentHasMore = data.has_more || false;
+    currentOffset = (data.offset || 0) + docs.length;
+
+    // Apply search mode filtering
+    if (searchMode === 'keyword') docs = docs.filter(d => d.fts_score > 0).sort((a,b) => b.fts_score - a.fts_score);
+    else if (searchMode === 'semantic') docs = docs.filter(d => d.sem_score > 0).sort((a,b) => b.sem_score - a.sem_score);
+    else docs.sort((a,b) => (b.score || 0) - (a.score || 0));
+
+    const endIdx = currentOffset + docs.length;
+    const startIdx = currentOffset + 1;
+    const loadMoreBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next 50 results">Load More</button>` : '';
+    meta.innerHTML = `<b>${startIdx}-${endIdx}</b> results for "<b>${esc(q)}</b>" in ${ms}ms ${loadMoreBtn}`;
+    grid.innerHTML = '';
+    renderDocs(docs, true);
+
+    // Show Load More if there are more results
+  } catch (e) {
+    console.error('Search error:', e);
+    meta.innerHTML = `<span style="color:var(--accent3)">⚠ Error searching: ${e.message}</span>`;
+    grid.innerHTML = '';
+  }
+}
+
+async function renderAll() {
+  try {
+    console.log('renderAll() starting');
+    // Reset for fresh "all documents" view
+    allDocs = [];
+    currentOffset = 0;
+    currentQuery = '';
+
+    const res = await fetch('/api/search?q=&offset=0');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    console.log('API response:', data);
+    allDocs = data.results || data.documents || data.docs || [];
+    console.log('allDocs loaded:', allDocs.length, 'documents');
+
+    // Store pagination state
+    currentTotal = data.total || 100;
+    currentHasMore = data.has_more || false;
+    currentOffset = (data.offset || 0) + allDocs.length;
+
+    console.log('Setting meta.innerHTML');
+    const endIdx = allDocs.length;
+    const startIdx = currentOffset > 0 ? currentOffset - allDocs.length + 1 : 1;
+    const backBtn = currentOffset > 50 ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous 50 documents">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next 50 documents">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
+    meta.innerHTML = `<span class="results-title">All Documents</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}</span>`;
+    console.log('Rendering index bar');
+    renderIndexBar(allDocs);
+    console.log('Clearing grid');
+    grid.innerHTML = '';
+    console.log('Rendering docs');
+    renderDocs(allDocs, false);  // false = don't show score badges
+    console.log('renderDocs completed');
+
+    // Show Load More if there are more documents
+    console.log('renderAll() complete');
+  } catch (e) {
+    console.error('Render all error:', e);
+    meta.innerHTML = `<span style="color:var(--accent3)">⚠ Error loading documents: ${e.message}</span>`;
+    grid.innerHTML = '';
+  }
+}
+
+function renderIndexBar(docs) {
+  const letters = ['0-9', ...Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ')];
+  const firstLetters = new Set(docs.map(d => {
+    const title = (d.title || d.name || '').charAt(0).toUpperCase();
+    return title.match(/[A-Z]/) ? title : '0';
+  }));
+
+  const indexBar = document.createElement('div');
+  indexBar.className = 'index-bar';
+  indexBar.innerHTML = letters.map(letter => {
+    const has = letter === '0-9' ? firstLetters.has('0') : firstLetters.has(letter);
+    const cls = has ? 'index-btn' : 'index-btn disabled';
+    return `<button class="${cls}" data-letter="${letter}" onclick="filterByLetter('${letter}')">${letter}</button>`;
+  }).join('');
+
+  meta.appendChild(indexBar);
+}
+
+function filterByLetter(letter) {
+  const prefix = letter === '0-9' ? /^[0-9]/ : new RegExp(`^${letter}`, 'i');
+  const filtered = allDocs.filter(d => prefix.test(d.title || d.name || ''));
+  renderDocs(filtered, false);
+
+  // Highlight active button
+  document.querySelectorAll('.index-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.letter === letter);
+  });
+}
+
+function renderDocs(docs, showScore, append = false) {
+  const html = docs.map(d => {
+    // Tags can be array or comma-separated string; handle both
+    let tags = [];
+    if (Array.isArray(d.tags)) {
+      tags = d.tags.filter(Boolean);
+    } else if (d.tags) {
+      tags = (d.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+    }
+
+    const score = d.score !== undefined ? d.score : Math.max(d.fts_score || 0, d.sem_score || 0);
+    const sc = score >= 0.5 ? 'score-high' : score >= 0.25 ? 'score-mid' : 'score-low';
+    const badge = showScore && score !== undefined ? `<span class="score-badge ${sc}" title="Relevance score: combines keyword matching and semantic similarity">${(score*100).toFixed(0)}%</span>` : '';
+
+    // Extract file extension for doc type badge
+    const ext = (d.path || '').split('.').pop().toUpperCase();
+    const extBadge = ext && ext.length < 10 ? `<span class="doc-type-badge">${esc(ext)}</span>` : '';
+
+    // Format date modified
+    const modDate = d.modified_at || d.updated_at;
+    const dateStr = modDate ? new Date(modDate).toISOString().split('T')[0] : '';
+
+    // Description: first 2 lines
+    const desc = d.description || d.content_snippet || '';
+
+    return `<div class="doc-card">
+      <div class="doc-title">
+        <span onclick="copyToClipboard('${esc(d.path)}')" class="doc-title-copy" title="Copy path">${esc(d.title || d.name || 'Untitled')}</span>
+        ${badge}
+        ${extBadge}
+      </div>
+      <div class="doc-path">${esc(d.path)}</div>
+      ${desc ? `<div class="doc-desc">${esc(desc)}</div>` : ''}
+      ${tags.length ? `<div class="doc-tags">${tags.map(t=>`<span class="tag" onclick="searchTag('${esc(t)}')">${esc(t)}</span>`).join('')}</div>` : ''}
+      <div class="doc-meta">
+        <div class="doc-meta-left"></div>
+        <div class="doc-meta-right">${dateStr}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  if (append) {
+    grid.innerHTML += html;
+  } else {
+    grid.innerHTML = html;
+  }
+}
+
+async function loadMoreTop() {
+  if (isLoadingMore || !currentHasMore) return;
+  isLoadingMore = true;
+
+  try {
+    const q = currentQuery ? encodeURIComponent(currentQuery) : '';
+    const url = q ? `/api/search?q=${q}&offset=${currentOffset}` : `/api/search?q=&offset=${currentOffset}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    let docs = data.results || data.documents || data.docs || [];
+
+    // Apply search mode filtering
+    if (currentQuery) {
+      if (searchMode === 'keyword') docs = docs.filter(d => d.fts_score > 0).sort((a,b) => b.fts_score - a.fts_score);
+      else if (searchMode === 'semantic') docs = docs.filter(d => d.sem_score > 0).sort((a,b) => b.sem_score - a.sem_score);
+    }
+
+    allDocs = docs;
+    currentTotal = data.total || 0;
+    currentHasMore = data.has_more || false;
+    currentOffset = (data.offset || 0) + docs.length;
+
+    grid.innerHTML = '';
+    renderDocs(docs, !!currentQuery, false);
+
+    // Rebuild meta with proper count display
+    const endIdx = currentOffset;
+    const startIdx = currentOffset - docs.length + 1;
+    const backBtn = currentOffset > 50 ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
+    meta.innerHTML = `<span class="results-title">${currentQuery ? 'Search Results' : 'All Documents'}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}</span>`;
+
+    // Redraw index bar for non-search mode
+    if (!currentQuery) {
+      renderIndexBar(allDocs);
+    }
+
+    window.scrollTo(0, 0);
+  } catch (e) {
+    console.error('Load more error:', e);
+    alert('Error loading more documents');
+  }
+  isLoadingMore = false;
+}
+
+async function loadMorePrev() {
+  if (isLoadingMore || currentOffset <= 50) return;
+  isLoadingMore = true;
+
+  try {
+    const newOffset = Math.max(0, currentOffset - 100);
+    const q = currentQuery ? encodeURIComponent(currentQuery) : '';
+    const url = q ? `/api/search?q=${q}&offset=${newOffset}` : `/api/search?q=&offset=${newOffset}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    let docs = data.results || data.documents || data.docs || [];
+
+    // Apply search mode filtering
+    if (currentQuery) {
+      if (searchMode === 'keyword') docs = docs.filter(d => d.fts_score > 0).sort((a,b) => b.fts_score - a.fts_score);
+      else if (searchMode === 'semantic') docs = docs.filter(d => d.sem_score > 0).sort((a,b) => b.sem_score - a.sem_score);
+    }
+
+    allDocs = docs;
+    currentTotal = data.total || 0;
+    currentHasMore = true;  // If we can go back, there are always more docs ahead
+    currentOffset = newOffset + docs.length;
+
+    grid.innerHTML = '';
+    renderDocs(docs, !!currentQuery, false);
+
+    // Rebuild meta with proper count display
+    const endIdx = currentOffset;
+    const startIdx = currentOffset - docs.length + 1;
+    const backBtn = currentOffset > 50 ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
+    meta.innerHTML = `<span class="results-title">${currentQuery ? 'Search Results' : 'All Documents'}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}</span>`;
+
+    // Redraw index bar for non-search mode
+    if (!currentQuery) {
+      renderIndexBar(allDocs);
+    }
+
+    window.scrollTo(0, 0);
+  } catch (e) {
+    console.error('Load prev error:', e);
+    alert('Error loading previous documents');
+  }
+  isLoadingMore = false;
+}
+
+function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : ''; }
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Path copied to clipboard');
+  }).catch(e => {
+    console.error('Copy error:', e);
+    showToast('Failed to copy path');
+  });
+}
+
+function showToast(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2000);
+}
+
+// ── Settings ──────────────────────────────────────────────────
+const gearBtn = document.getElementById('gearBtn');
+const settingsModal = document.getElementById('settingsModal');
+gearBtn.addEventListener('click', openSettings);
+settingsModal.addEventListener('click', e => { if (e.target === settingsModal) closeSettings(); });
+
+async function openSettings() {
+  settingsModal.classList.add('open');
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const cfg = await res.json();
+    document.getElementById('cfgDocPath').value = cfg.docPath || '';
+    document.getElementById('cfgWorkDir').value = cfg.workDir || '';
+    const status = document.getElementById('configStatus');
+    if (cfg.installed) {
+      status.innerHTML = `<span class="ok">✓ Config loaded from /etc/docubrowse.config</span>`;
+    } else if (cfg.configSource) {
+      status.innerHTML = `<span class="warn">⚠ Using config: ${esc(cfg.configSource)}</span><br>Copy to /etc for system-wide use`;
+    } else {
+      status.innerHTML = `<span class="warn">⚠ No config file found — set values below</span>`;
+    }
+    document.getElementById('saveMsg').style.display = 'none';
+  } catch (e) {
+    console.error('Config fetch error:', e);
+    const status = document.getElementById('configStatus');
+    status.innerHTML = `<span class="warn">⚠ Could not load config: ${e.message}</span>`;
+  }
+}
+
+function closeSettings() { settingsModal.classList.remove('open'); closeBrowsers(); }
+
+async function saveConfig() {
+  const docPath = document.getElementById('cfgDocPath').value.trim();
+  const workDir = document.getElementById('cfgWorkDir').value.trim();
+  if (!docPath || !workDir) { alert('Both fields are required'); return; }
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({docPath, workDir})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const msg = document.getElementById('saveMsg');
+    msg.textContent = data.message || 'Config saved successfully';
+    msg.style.display = 'block';
+    showToast('Config saved');
+  } catch (e) {
+    console.error('Config save error:', e);
+    alert('Error saving config: ' + e.message);
+  }
+}
+
+// ── Directory Browser ─────────────────────────────────────────
+function closeBrowsers() {
+  document.querySelectorAll('.dir-browser').forEach(b => b.classList.remove('open'));
+}
+
+async function openBrowser(field) {
+  const browser = document.getElementById('browser-' + field);
+  const input = document.getElementById(field === 'docPath' ? 'cfgDocPath' : 'cfgWorkDir');
+  const startPath = input.value || '/';
+  browser.classList.toggle('open');
+  if (browser.classList.contains('open')) await loadDir(field, startPath);
+}
+
+async function loadDir(field, path) {
+  const browser = document.getElementById('browser-' + field);
+  try {
+    const res = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    let html = `<div class="dir-path">${esc(data.path)} <button class="dir-select-btn" onclick="selectDir('${field}','${esc(data.path)}')">select this</button></div>`;
+    if (data.error) html += `<div class="dir-entry" style="color:var(--accent3)">${esc(data.error)}</div>`;
+    for (const e of (data.entries || [])) {
+      html += `<div class="dir-entry" onclick="loadDir('${field}','${esc(e.path)}')"><span class="icon">📁</span> ${esc(e.name)}</div>`;
+    }
+    browser.innerHTML = html;
+  } catch (e) {
+    console.error('Dir browse error:', e);
+    browser.innerHTML = `<div class="dir-entry" style="color:var(--accent3)">⚠ Error loading directory: ${e.message}</div>`;
+  }
+}
+
+function selectDir(field, path) {
+  const input = document.getElementById(field === 'docPath' ? 'cfgDocPath' : 'cfgWorkDir');
+  input.value = path;
+  document.getElementById('browser-' + field).classList.remove('open');
+}
+
+// ── Initialize ────────────────────────────────────────────────
+renderAll();
+</script>
+</body>
+</html>
