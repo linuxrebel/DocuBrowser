@@ -79,4 +79,7 @@ profile.prof
 
 # Database (track template only, ignore working copy)
 docs.db
+docs.db-shm
+docs.db-wal
+docs.db-journal
 !docs.db.example
