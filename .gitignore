@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation
+docs/_build/
+
+# Database (keep docs.db for MVP, exclude in Phase 2)
+# Uncomment when expanded: docs.db.backup
+# Uncomment when expanded: docs.db.wal
+# Uncomment when expanded: docs.db.journal
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+temp/
+tmp/
+
+# Environment-specific
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+
+# Development artifacts
+test_output.txt
+profile.prof
+*.pdb
+
+# Large files (Phase 2+)
+# embeddings.cache
+# semantic_index.pkl
