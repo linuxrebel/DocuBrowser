@@ -84,8 +84,17 @@
   .doc-meta-left { display:flex; gap:1rem; }
   .doc-meta-right { text-align:right; }
   .tag-cloud { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:1.5rem; padding:1rem; background:var(--surface); border-radius:10px; border:1px solid var(--border); }
-  .tag-cloud-toggle { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--accent2); cursor:pointer; margin-bottom:0.8rem; display:inline-flex; align-items:center; gap:0.4rem; border:none; background:none; }
+  .tag-cloud-toggle { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--accent2); cursor:pointer; margin-bottom:0.8rem; display:inline-flex; align-items:center; gap:0.5rem; border:none; background:none; padding:4px 8px; border-radius:6px; transition:color 0.15s; }
+  .tag-cloud-toggle svg { transition:transform 0.2s; flex-shrink:0; }
+  .tag-cloud-toggle.open svg { transform:rotate(90deg); }
   .tag-cloud-toggle:hover { color:var(--accent); }
+  .page-size-select {
+    font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+    background:var(--surface); border:1px solid var(--border); color:var(--text-dim);
+    border-radius:4px; padding:2px 6px; cursor:pointer;
+    margin-left:0.5rem; vertical-align:baseline;
+  }
+  .page-size-select:hover, .page-size-select:focus { border-color:var(--accent2); color:var(--accent2); outline:none; }
   .spinner { display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; }
   @keyframes spin { to { transform:rotate(360deg); } }
   .search-mode { display:flex; gap:0.5rem; align-items:center; }
@@ -298,7 +307,10 @@
 </div>
 
 <div class="content">
-  <button class="tag-cloud-toggle" id="tagToggle">▸ tags</button>
+  <button class="tag-cloud-toggle" id="tagToggle">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    tags
+  </button>
   <div class="tag-cloud" id="tagCloud" style="display:none"></div>
   <div class="results-meta" id="resultsMeta"></div>
   <div class="doc-grid" id="docGrid"></div>
@@ -318,6 +330,22 @@ const tagToggle = document.getElementById('tagToggle');
 let debounceTimer = null, searchMode = 'both', allDocs = [];
 let currentOffset = 0, currentTotal = 0, currentHasMore = false, currentQuery = '';
 let isLoadingMore = false;
+let pageSize = parseInt(localStorage.getItem('db-page-size') || '50');
+
+function pageSizeHtml() {
+  const opts = [25, 50, 75, 100].map(n =>
+    `<option value="${n}"${pageSize === n ? ' selected' : ''}>${n}/page</option>`
+  ).join('');
+  return `<select class="page-size-select" onchange="changePageSize(this.value)" title="Items per page">${opts}</select>`;
+}
+
+function changePageSize(val) {
+  pageSize = parseInt(val);
+  localStorage.setItem('db-page-size', String(pageSize));
+  currentOffset = 0;
+  if (currentQuery) doSearch();
+  else renderAll();
+}
 
 // ── Theme toggle ──────────────────────────────────────────────
 const html = document.documentElement;
@@ -359,7 +387,7 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
 tagToggle.addEventListener('click', () => {
   const open = tagCloud.style.display !== 'none';
   tagCloud.style.display = open ? 'none' : 'flex';
-  tagToggle.textContent = (open ? '▸' : '▾') + ' tags';
+  tagToggle.classList.toggle('open', !open);
 });
 
 // ── Fetch stats and tags ──────────────────────────────────────
@@ -417,7 +445,7 @@ async function doSearch() {
   meta.innerHTML = '<span class="spinner"></span> searching…';
   const t0 = performance.now();
   try {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&offset=0`);
+    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&offset=0&limit=${pageSize}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const ms = Math.round(performance.now() - t0);
@@ -456,7 +484,7 @@ async function renderAll() {
     currentOffset = 0;
     currentQuery = '';
 
-    const res = await fetch('/api/search?q=&offset=0');
+    const res = await fetch(`/api/search?q=&offset=0&limit=${pageSize}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     console.log('API response:', data);
@@ -471,9 +499,9 @@ async function renderAll() {
     console.log('Setting meta.innerHTML');
     const endIdx = allDocs.length;
     const startIdx = currentOffset > 0 ? currentOffset - allDocs.length + 1 : 1;
-    const backBtn = currentOffset > 50 ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous 50 documents">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
-    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next 50 documents">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    meta.innerHTML = `<span class="results-title">All Documents</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}</span>`;
+    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous page">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
+    meta.innerHTML = `<span class="results-title">All Documents</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
     console.log('Rendering index bar');
     renderIndexBar(allDocs);
     console.log('Clearing grid');
@@ -574,7 +602,7 @@ async function loadMoreTop() {
 
   try {
     const q = currentQuery ? encodeURIComponent(currentQuery) : '';
-    const url = q ? `/api/search?q=${q}&offset=${currentOffset}` : `/api/search?q=&offset=${currentOffset}`;
+    const url = q ? `/api/search?q=${q}&offset=${currentOffset}&limit=${pageSize}` : `/api/search?q=&offset=${currentOffset}&limit=${pageSize}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -597,9 +625,9 @@ async function loadMoreTop() {
     // Rebuild meta with proper count display
     const endIdx = currentOffset;
     const startIdx = currentOffset - docs.length + 1;
-    const backBtn = currentOffset > 50 ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
+    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    meta.innerHTML = `<span class="results-title">${currentQuery ? 'Search Results' : 'All Documents'}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}</span>`;
+    meta.innerHTML = `<span class="results-title">${currentQuery ? 'Search Results' : 'All Documents'}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
 
     // Redraw index bar for non-search mode
     if (!currentQuery) {
@@ -619,9 +647,9 @@ async function loadMorePrev() {
   isLoadingMore = true;
 
   try {
-    const newOffset = Math.max(0, currentOffset - 100);
+    const newOffset = Math.max(0, currentOffset - pageSize * 2);
     const q = currentQuery ? encodeURIComponent(currentQuery) : '';
-    const url = q ? `/api/search?q=${q}&offset=${newOffset}` : `/api/search?q=&offset=${newOffset}`;
+    const url = q ? `/api/search?q=${q}&offset=${newOffset}&limit=${pageSize}` : `/api/search?q=&offset=${newOffset}&limit=${pageSize}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -644,9 +672,9 @@ async function loadMorePrev() {
     // Rebuild meta with proper count display
     const endIdx = currentOffset;
     const startIdx = currentOffset - docs.length + 1;
-    const backBtn = currentOffset > 50 ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
+    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    meta.innerHTML = `<span class="results-title">${currentQuery ? 'Search Results' : 'All Documents'}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}</span>`;
+    meta.innerHTML = `<span class="results-title">${currentQuery ? 'Search Results' : 'All Documents'}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
 
     // Redraw index bar for non-search mode
     if (!currentQuery) {
