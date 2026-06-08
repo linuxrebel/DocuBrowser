@@ -454,17 +454,18 @@ async function doSearch() {
     // Store pagination state
     currentTotal = data.total || 0;
     currentHasMore = data.has_more || false;
-    currentOffset = (data.offset || 0) + docs.length;
+    const rawOffset = data.offset || 0;
+    currentOffset = rawOffset + docs.length;
 
     // Apply search mode filtering
     if (searchMode === 'keyword') docs = docs.filter(d => d.fts_score > 0).sort((a,b) => b.fts_score - a.fts_score);
     else if (searchMode === 'semantic') docs = docs.filter(d => d.sem_score > 0).sort((a,b) => b.sem_score - a.sem_score);
     else docs.sort((a,b) => (b.score || 0) - (a.score || 0));
 
-    const endIdx = currentOffset + docs.length;
-    const startIdx = currentOffset + 1;
-    const loadMoreBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next 50 results">Load More</button>` : '';
-    meta.innerHTML = `<b>${startIdx}-${endIdx}</b> results for "<b>${esc(q)}</b>" in ${ms}ms ${loadMoreBtn}`;
+    const startIdx = rawOffset + 1;
+    const endIdx = rawOffset + docs.length;
+    const loadMoreBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Load More</button>` : '';
+    meta.innerHTML = `<span class="results-info"><b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> for "<b>${esc(q)}</b>" ${ms}ms ${loadMoreBtn}${pageSizeHtml()}</span>`;
     grid.innerHTML = '';
     renderDocs(docs, true);
 
