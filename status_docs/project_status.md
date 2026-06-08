@@ -2,7 +2,7 @@
 
 **Version**: v0.1.0 (MVP)  
 **Status**: 🟢 **RELEASE READY**  
-**Last Updated**: 2026-06-07  
+**Last Updated**: 2026-06-08  
 **Repository**: GitHub (ready for push)
 
 ---
@@ -17,6 +17,24 @@ DocuBrowse is a modern document search and browsing application for the `/mnt/da
 - Search latency: <150ms typical
 - UI load time: <1s
 - Responsive across all device sizes
+
+---
+
+## Session Summary — 2026-06-08
+
+**Work completed this session:**
+
+- **`docubrowser.py`** — new CLI launcher; main user entry point modeled after repo-browser.py. Commands: `start`, `stop`, `restart`, `status`, `rescan`, `embed`, `open`; `duplist`/`dupclean` stubbed for Phase 2.
+- **`ensure_ollama.py`** — new Ollama prerequisite gate (ported from repo-browser). Checks binary → service → `nomic-embed-text:latest` model; prompts to install/start/pull as needed. Wired into `start`, `rescan`, and `embed`.
+- **`README.md`** — fully rewritten: navigation table linking all 14 sections, per-section `↑ Top` links, updated to reflect `docubrowser.py` as entry point, CLI reference table, config file docs, accurate file structure.
+- **`LICENSE`** — GPL-3.0 full text added.
+- **SPDX headers** — `GPL-3.0-or-later` identifier + copyright notice added to all 13 `.py` files.
+- **Housekeeping** — `readme.md` → `README.md`, `chmod 755` all `.py` files.
+
+**Commits this session:**
+- `9812c30` feat: add CLI launcher and Ollama prerequisite gate
+- `0ed92af` docs: rewrite README with nav table and per-section top links
+- `50173f3` license: adopt GNU General Public License v3.0
 
 ---
 
