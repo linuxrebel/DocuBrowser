@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 James Sparenberg
 """
 Generate synthetic test PDFs for E2E testing.
 Creates 100 PDFs with varying content, lengths, and topics.

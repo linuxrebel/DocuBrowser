@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 James Sparenberg
 """
 Setup script: Generate 100 test PDFs and populate database.
 Usage: python3 setup_test_data.py

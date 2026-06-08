@@ -463,7 +463,11 @@ ollama pull nomic-embed-text:latest
 
 [↑ Top](#top)
 
-MIT (placeholder — add your license here)
+This project is licensed under the **GNU General Public License v3.0 or later** (GPL-3.0-or-later).
+
+Copyright (C) 2026 James Sparenberg
+
+You may copy, distribute, and modify this software under the terms of the GPL-3.0. See the [LICENSE](LICENSE) file for the full license text, or visit https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 

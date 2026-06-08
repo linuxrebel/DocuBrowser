@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 James Sparenberg
 """
 DocuBrowse search server.
 HTTP server on port 8643 with merged keyword + semantic search.
