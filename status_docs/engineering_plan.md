@@ -327,7 +327,7 @@
 ```
 DocuBrowse Server
 ├── doc_search.py (HTTP)
-├── docs.db (SQLite)
+├── du-docs.db (SQLite)
 └── Ollama service (embeddings)
 ```
 

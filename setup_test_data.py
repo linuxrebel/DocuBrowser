@@ -41,7 +41,7 @@ def create_test_pdfs():
 
 def populate_database():
     """Extract metadata from PDFs and populate database."""
-    db_path = './docs.db'
+    db_path = './du-docs.db'
     db = get_db(db_path)
 
     print("Extracting metadata and populating database...")
@@ -109,10 +109,10 @@ def main():
     print("Setup Complete!")
     print("=" * 60)
     print("\nNext steps:")
-    print("  1. Start server: python3 doc_search.py ./docs.db 8643")
+    print("  1. Start server: python3 doc_search.py ./du-docs.db 8643")
     print("  2. Open browser: http://localhost:8643")
     print("  3. Search for: 'database', 'api', 'cloud', etc.")
-    print("\nDatabase location: ./docs.db")
+    print("\nDatabase location: ./du-docs.db")
     print("Test PDFs location: ./test_pdfs_live/")
     print("=" * 60 + "\n")
 

@@ -37,7 +37,7 @@ from urllib.error import URLError
 # ─── Defaults ────────────────────────────────────────────────────────────────
 
 DEFAULT_PORT    = 8643
-DEFAULT_DB      = Path(__file__).parent / "docs.db"
+DEFAULT_DB      = Path(__file__).parent / "du-docs.db"
 DEFAULT_DOC_DIR = "/mnt/data/Documents"
 PID_FILE        = Path("/tmp/docubrowse.pid")
 SCAN_PID_FILE   = Path("/tmp/docubrowse_scan.pid")   # PGID of running scan
