@@ -1,6 +1,11 @@
-# DocuBrowse v0.1.0
+# DocuBrowse v0.2.0
 
 <a name="top"></a>
+
+> ⚠️ **Alpha — Active Work in Progress**
+> This tool is functional but under active development. Interfaces, commands, and
+> file formats may change between versions. Expect rough edges, and check
+> `status_docs/project_status.md` for current state before picking up work.
 
 A fast document search and browsing application with semantic search. DocuBrowse indexes your filesystem documents using a combination of keyword matching (SQLite FTS5) and AI-powered semantic similarity (Ollama + nomic-embed-text:latest).
 
@@ -14,8 +19,8 @@ A fast document search and browsing application with semantic search. DocuBrowse
 | [CLI Reference](#cli-reference) | [Configuration](#configuration) |
 | [Architecture](#architecture) | [API Endpoints](#api-endpoints) |
 | [Search Algorithm](#search-algorithm) | [File Structure](#file-structure) |
-| [Development](#development) | [Troubleshooting](#troubleshooting) |
-| [Known Limitations](#known-limitations) | [Roadmap](#roadmap) |
+| [Development](#development) | [AI-Assisted Development](#ai-assisted-development) |
+| [Troubleshooting](#troubleshooting) | [Known Limitations](#known-limitations) |
 | [Roadmap](#roadmap) | [Performance Notes](#performance-notes) |
 | [Browser Support](#browser-support) | [Keyboard Shortcuts](#keyboard-shortcuts) |
 | [License](#license) | |
@@ -373,6 +378,41 @@ ollama pull nomic-embed-text:latest
 
 ---
 
+## AI-Assisted Development
+
+[↑ Top](#top)
+
+DocuBrowse is developed with Claude as an active coding partner. To resume a coding session with full context — so the AI understands the architecture, pitfalls, and current state — load these three files at the start of each session:
+
+| File | What it contains |
+|------|-----------------|
+| `.claude/CLAUDE.md` | Project rules, key files, hard-won lessons (ProcessPoolExecutor pitfalls, memory management, SIGALRM limitations, blacklist design) |
+| `status_docs/project_status.md` | Current version, what's complete, what's in progress, session history |
+| `status_docs/DECISIONS.md` | Deferred decisions, known problem files, architecture choices with rationale |
+
+### How to load them
+
+**Claude (claude.ai or Claude Desktop):**
+Open each file in a text editor, copy the contents, and paste into the conversation at the start of the session. Or, if you have filesystem access configured, simply say: "Read `.claude/CLAUDE.md`, `status_docs/project_status.md`, and `status_docs/DECISIONS.md`."
+
+**Any AI assistant:**
+```bash
+# Print all three to stdout for easy copy/paste
+cat .claude/CLAUDE.md status_docs/project_status.md status_docs/DECISIONS.md
+```
+
+### What the AI will know after loading
+
+- Which files do what and how they interact
+- Why ProcessPoolExecutor workers must be at module level (pickling)
+- Why SIGALRM doesn't work in C extensions and what to use instead (`resource.setrlimit`)
+- The sliding window executor pattern and why bulk-submit is wrong
+- The scan blacklist: what it is, how it's populated, how to retry a file
+- All deferred features and the reasoning behind each deferral
+- The current scan status and any known stuck/problem files
+
+---
+
 ## Troubleshooting
 
 [↑ Top](#top)
@@ -497,4 +537,4 @@ You may copy, distribute, and modify this software under the terms of the GPL-3.
 
 ---
 
-**DocuBrowse v0.1.0** — Built for fast, intelligent document search on your local filesystem.
+**DocuBrowse v0.2.0** — Built for fast, intelligent document search on your local filesystem.
