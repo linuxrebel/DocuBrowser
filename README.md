@@ -118,7 +118,7 @@ Usage: docubrowser.py <command> [options]
 | `rescan` | Scan document directory and update the index; generates embeddings unless `--no-embed` |
 | `embed` | Generate/refresh embeddings for documents not yet embedded |
 | `open` | Open the DocuBrowse UI in your default browser |
-| `purge` | Scan index for PII and remove matching documents |
+| `purge` | Scan index for PII and remove matching documents ( --dry-run scans without changes being made) |
 | `duplist` | *(Not yet implemented)* List duplicate documents |
 | `dupclean` | *(Not yet implemented)* Interactive TUI to remove duplicates |
 
