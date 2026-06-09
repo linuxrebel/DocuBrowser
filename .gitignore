@@ -83,3 +83,5 @@ docs.db-shm
 docs.db-wal
 docs.db-journal
 !docs.db.example
+scan_blacklist.txt
+pii_blacklist.txt
