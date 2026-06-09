@@ -438,6 +438,8 @@ def cmd_rescan(config: dict, args):
         print()
         _run_embed(db_path, embed_workers=args.embed_workers)
 
+    _offer_purge(db_path)
+
 
 def cmd_scan(config: dict, args):
     """scan — scan only, no embedding. Equivalent to rescan --no-embed."""
@@ -474,6 +476,55 @@ def cmd_open(config: dict, args):
     import webbrowser
     print(f"Opening {url} ...")
     webbrowser.open(url)
+
+
+def _offer_purge(db_path: str):
+    """Prompt the user to run a PII scan after a completed scan/rescan.
+
+    Choices:
+      y        — live purge (remove matching documents immediately)
+      n        — skip
+      D/Enter  — dry-run (default): show matches, no changes;
+                 if matches found, offer to proceed live.
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from purge_pii import run_purge
+    except ImportError:
+        return  # purge_pii.py missing — silently skip
+
+    print()
+    print("─" * 50)
+    print("PII Scan — check index for personal information")
+    print("  [y] Purge now  — remove matching documents")
+    print("  [n] Skip")
+    print("  [D] Dry-run    — show matches only, no changes  (default)")
+    print()
+
+    try:
+        answer = input("Choice [D]: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+
+    if answer == 'n':
+        return
+
+    dry_run = answer not in ('y', 'yes')
+    print()
+    found = run_purge(db_path, dry_run=dry_run)
+
+    # After a dry-run that found matches, offer to proceed live
+    if dry_run and found:
+        print()
+        try:
+            followup = input("Proceed with live purge? [y/N]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        if followup in ('y', 'yes'):
+            print()
+            run_purge(db_path, dry_run=False)
 
 
 def cmd_purge(config: dict, args):
