@@ -32,8 +32,10 @@ PII_BLACKLIST_FILENAME = "pii_blacklist.txt"
 # Each entry: (display_name, compiled_regex)
 
 _PII_PATTERNS = [
+    # Negative lookbehind for digit or hyphen prevents ISBN/phone substring matches.
+    # ISBNs have more digits before the SSN-like suffix (e.g. 978-90-5940-365-9).
     ("SSN",
-     re.compile(r'\b\d{3}-\d{2}-\d{4}\b')),
+     re.compile(r'(?<![0-9\-])\b\d{3}-\d{2}-\d{4}\b(?![0-9\-])')),
 
     ("Credit Card",
      re.compile(r'\b(?:\d{4}[\s\-]){3}\d{4}\b')),
