@@ -33,6 +33,7 @@ def init_db(conn):
             file_ext TEXT,
             title TEXT,
             author TEXT,
+            subject TEXT,
             description TEXT,
             content_snippet TEXT,
             created_at TEXT DEFAULT (datetime('now')),
@@ -70,8 +71,10 @@ def init_db(conn):
         );
 
         -- FTS5 virtual table (contentless, smaller footprint)
+        -- NOTE: if this table already exists without author/subject columns,
+        -- the migration block below will drop and recreate it.
         CREATE VIRTUAL TABLE IF NOT EXISTS doc_fts USING fts5(
-            name, title, description, content_snippet, tags,
+            name, title, author, subject, description, content_snippet, tags,
             content='', content_rowid='rowid'
         );
     ''')
@@ -82,14 +85,15 @@ def init_db(conn):
 
     # Add columns that might be missing in older schemas
     expected_cols = {
-        'title': 'TEXT',
-        'author': 'TEXT',
-        'description': 'TEXT',
+        'title':           'TEXT',
+        'author':          'TEXT',
+        'subject':         'TEXT',
+        'description':     'TEXT',
         'content_snippet': 'TEXT',
-        'modified_at': 'TEXT',
-        'indexed_at': 'TEXT',
-        'doc_type': 'TEXT',
-        'updated_at': 'TEXT',
+        'modified_at':     'TEXT',
+        'indexed_at':      'TEXT',
+        'doc_type':        'TEXT',
+        'updated_at':      'TEXT',
     }
 
     for col, col_type in expected_cols.items():
@@ -97,10 +101,42 @@ def init_db(conn):
             try:
                 conn.execute(f'ALTER TABLE documents ADD COLUMN {col} {col_type}')
             except sqlite3.OperationalError:
-                # Column already exists or other issue
                 pass
 
     conn.commit()
+
+    # FTS5 schema migration: if doc_fts is missing author/subject columns,
+    # drop and recreate it with the full schema, then repopulate from documents.
+    # This is safe because doc_fts is a contentless derived index — all data
+    # lives in the documents and doc_tags tables.
+    try:
+        conn.execute("SELECT author FROM doc_fts LIMIT 0")
+    except sqlite3.OperationalError:
+        conn.execute("DROP TABLE IF EXISTS doc_fts")
+        conn.execute("""
+            CREATE VIRTUAL TABLE doc_fts USING fts5(
+                name, title, author, subject, description, content_snippet, tags,
+                content='', content_rowid='rowid'
+            )
+        """)
+        # Repopulate index from existing documents + tags
+        conn.execute("""
+            INSERT INTO doc_fts
+                (rowid, name, title, author, subject, description, content_snippet, tags)
+            SELECT
+                d.id,
+                COALESCE(d.name, ''),
+                COALESCE(d.title, ''),
+                COALESCE(d.author, ''),
+                COALESCE(d.subject, ''),
+                COALESCE(d.description, ''),
+                COALESCE(d.content_snippet, ''),
+                COALESCE(GROUP_CONCAT(dt.tag, ' '), '')
+            FROM documents d
+            LEFT JOIN doc_tags dt ON d.id = dt.doc_id
+            GROUP BY d.id
+        """)
+        conn.commit()
 
 
 def get_db(db_path):

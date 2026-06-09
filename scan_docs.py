@@ -253,6 +253,7 @@ def _extract_file(args: tuple) -> dict:
             "file_ext":    ext,
             "title":       result.get("title") or file_path.stem,
             "author":      result.get("author"),
+            "subject":     result.get("subject"),
             "description": result.get("description", ""),
             "snippet":     result.get("snippet", ""),
             "text":        result.get("text", ""),
@@ -308,9 +309,9 @@ def _write_result(conn, result: dict, doc_dir: Path):
     try:
         cursor = conn.execute(
             """INSERT OR REPLACE INTO documents
-               (name, path, size_bytes, file_ext, title, author, description,
-                content_snippet, modified_at, indexed_at, doc_type, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (name, path, size_bytes, file_ext, title, author, subject,
+                description, content_snippet, modified_at, indexed_at, doc_type, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 result["name"],
                 result["path"],
@@ -318,6 +319,7 @@ def _write_result(conn, result: dict, doc_dir: Path):
                 result["file_ext"],
                 result["title"],
                 result.get("author"),
+                result.get("subject"),
                 result.get("description", ""),
                 result.get("snippet", ""),
                 result["modified_at"],
@@ -339,12 +341,14 @@ def _write_result(conn, result: dict, doc_dir: Path):
         tags_str = " ".join(result.get("tags", []))
         conn.execute(
             """INSERT OR REPLACE INTO doc_fts
-               (rowid, name, title, description, tags, content_snippet)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+               (rowid, name, title, author, subject, description, tags, content_snippet)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 doc_id,
                 result["name"],
                 result.get("title", ""),
+                result.get("author") or "",
+                result.get("subject") or "",
                 result.get("description", ""),
                 tags_str,
                 result.get("snippet", ""),
@@ -363,6 +367,7 @@ def scan_directory(
     db_path: str,
     extensions: list = None,
     workers: int = DEFAULT_WORKERS,
+    limit: int = None,
 ):
     """
     Scan *doc_dir* for documents and upsert them into *db_path*.
@@ -372,6 +377,7 @@ def scan_directory(
         db_path:    SQLite database path
         extensions: File extensions to process (default: pdf, txt, md, html)
         workers:    Worker processes for extraction (default: cpu_count capped at 8)
+        limit:      If set, process at most this many unindexed files; next run resumes
     """
     doc_dir = Path(doc_dir)
     if not doc_dir.exists() or not doc_dir.is_dir():
@@ -442,9 +448,19 @@ def scan_directory(
             return 0
     to_process.sort(key=_safe_size)
 
+    # Apply --limit: cap how many files are processed this run.
+    # Already-indexed files were skipped above, so the next run naturally
+    # resumes from where this one left off.
+    total_queued = len(to_process)
+    if limit is not None and limit < total_queued:
+        to_process = to_process[:limit]
+
     print(f"  {blacklisted:,} blacklisted (skip — {len(scan_bl)} scan failures, {len(pii_bl)} PII)")
     print(f"  {skipped:,} already up-to-date (skip)")
-    print(f"  {len(to_process):,} to extract")
+    if limit is not None and limit < total_queued:
+        print(f"  {len(to_process):,} to extract (--limit {limit}; {total_queued - limit:,} deferred to next run)")
+    else:
+        print(f"  {len(to_process):,} to extract")
     print()
 
     if not to_process:
@@ -609,6 +625,8 @@ def build_parser():
                    help="Extensions to index (default: pdf txt md html)")
     p.add_argument("--workers", type=int, default=DEFAULT_WORKERS,
                    help=f"Worker processes for extraction (default: {DEFAULT_WORKERS})")
+    p.add_argument("--limit", type=int, default=None, metavar="N",
+                   help="Process at most N unindexed files this run; next run resumes from where this left off")
     return p
 
 
@@ -624,6 +642,7 @@ if __name__ == "__main__":
             args.db_path,
             extensions=args.ext,
             workers=args.workers,
+            limit=args.limit,
         )
     except KeyboardInterrupt:
         print("\nInterrupted.")

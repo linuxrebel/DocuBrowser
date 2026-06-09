@@ -390,6 +390,45 @@ def cmd_rescan(config: dict, args):
         print(f"Embed workers: {args.embed_workers}")
         print()
 
+    # ── Confirmation prompt for unfiltered scans ──────────────────────────────
+    # When no type filter is given, walk the directory and show a file-type
+    # breakdown before proceeding.  Small collections confirm quickly; large
+    # mixed ones give the user a chance to add a type filter instead.
+    if not scan_extensions:
+        from collections import Counter as _Counter
+        print(f"No type filter specified — counting files in {doc_dir} ...")
+        _SUPPORTED = {".pdf", ".html", ".txt", ".md"}
+        _counts: dict = _Counter()
+        try:
+            for _f in Path(doc_dir).rglob("*"):
+                if _f.is_file():
+                    _counts[_f.suffix.lower() or "(no ext)"] += 1
+        except KeyboardInterrupt:
+            print("\nCancelled.")
+            sys.exit(0)
+
+        _total = sum(_counts.values())
+        _supported_total = sum(_counts.get(e, 0) for e in _SUPPORTED)
+        print()
+        for _ext, _cnt in sorted(_counts.items(), key=lambda x: x[1], reverse=True)[:20]:
+            _mark = "  ◀ will scan" if _ext in _SUPPORTED else ""
+            print(f"  {_ext:<14} {_cnt:>7,}{_mark}")
+        if len(_counts) > 20:
+            print(f"  ... and {len(_counts) - 20} more type(s)")
+        print()
+        print(f"  Total files:     {_total:,}")
+        print(f"  Will be scanned: {_supported_total:,}  ({', '.join(sorted(_SUPPORTED))})")
+        print()
+        try:
+            _ans = input(f"Scan all {_supported_total:,} supported files? [y/N]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\nCancelled.")
+            sys.exit(0)
+        if _ans not in ("y", "yes"):
+            print("Scan cancelled.  Tip: narrow with a type, e.g.  scan pdf")
+            sys.exit(0)
+        print()
+
     type_str = ", ".join(scan_extensions) if scan_extensions else "all (pdf txt md html)"
     print(f"Scanning: {doc_dir}")
     print(f"Database: {db_path}")
@@ -399,6 +438,8 @@ def cmd_rescan(config: dict, args):
     cmd = [sys.executable, str(scanner), doc_dir, db_path, "--workers", str(workers)]
     if scan_extensions:
         cmd += ["--ext"] + scan_extensions
+    if getattr(args, "limit", None):
+        cmd += ["--limit", str(args.limit)]
 
     # start_new_session=True gives scan_docs.py its own process group (PGID = PID),
     # so we can kill the entire group (main process + all workers) cleanly.
@@ -546,6 +587,59 @@ def cmd_purge(config: dict, args):
     run_purge(db_path, dry_run=args.dry_run)
 
 
+def cmd_report(config: dict, args):
+    """report — walk doc_dir and print a file-type breakdown, no DB changes."""
+    from collections import Counter
+    doc_dir = args.doc_dir or config["doc_dir"]
+    p = Path(doc_dir)
+    if not p.exists() or not p.is_dir():
+        print(f"ERROR: Directory not found: {doc_dir}")
+        sys.exit(1)
+
+    SUPPORTED = {".pdf", ".html", ".txt", ".md"}
+
+    print(f"File type report: {doc_dir}")
+    print("Scanning directory (no changes made)...")
+    counts: dict = Counter()
+    sizes:  dict = Counter()
+    try:
+        for f in p.rglob("*"):
+            if f.is_file():
+                ext = f.suffix.lower() or "(no ext)"
+                counts[ext] += 1
+                try:
+                    sizes[ext] += f.stat().st_size
+                except OSError:
+                    pass
+    except KeyboardInterrupt:
+        print("\nInterrupted — partial results shown.")
+
+    total_files = sum(counts.values())
+    total_bytes = sum(sizes.values())
+    if not total_files:
+        print("No files found.")
+        return
+
+    print()
+    print(f"  {'Extension':<14} {'Files':>8}  {'% total':>8}  {'Size':>10}  {'Scannable':>9}")
+    print("  " + "─" * 58)
+    for ext, cnt in sorted(counts.items(), key=lambda x: x[1], reverse=True):
+        pct   = cnt * 100.0 / total_files
+        mb    = sizes[ext] / (1024 * 1024)
+        scannable = "  ◀ yes" if ext in SUPPORTED else ""
+        print(f"  {ext:<14} {cnt:>8,}  {pct:>7.1f}%  {mb:>8.1f}MB{scannable}")
+    print("  " + "─" * 58)
+    total_mb = total_bytes / (1024 * 1024)
+    print(f"  {'TOTAL':<14} {total_files:>8,}  {'100.0%':>8}  {total_mb:>8.1f}MB")
+    print()
+    supported_count = sum(counts.get(e, 0) for e in SUPPORTED)
+    print(f"  Scannable now (◀):  {supported_count:,} files")
+    print(f"  Not yet supported:  {total_files - supported_count:,} files")
+    print()
+    print(f"  Tip: run 'docubrowser.py scan pdf' to index PDFs only,")
+    print(f"       or   'docubrowser.py scan' to index all supported types.")
+
+
 # ─── Not-yet-implemented stubs ────────────────────────────────────────────────
 
 def cmd_duplist(config: dict, args):
@@ -621,6 +715,8 @@ def build_parser() -> argparse.ArgumentParser:
               docubrowser.py rescan --workers 4 --embed-workers 8
               docubrowser.py stop
               docubrowser.py stopall                           stop scans, embeds, and server
+              docubrowser.py report                            show file-type breakdown (no DB changes)
+              docubrowser.py report --doc-dir /mnt/data/Docs
               docubrowser.py purge --dry-run                  preview PII matches
               docubrowser.py purge                             remove PII documents interactively
 
@@ -696,6 +792,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_rescan.add_argument("--embed-workers", metavar="N", type=int,
                           default=_default_embed_workers, dest="embed_workers",
                           help=f"Parallel threads for Ollama embedding (default: {_default_embed_workers}, GPU-aware)")
+    p_rescan.add_argument("--limit", metavar="N", type=int, default=None,
+                          help="Process at most N unindexed files this run; next run resumes where this left off")
 
     # scan (scan-only alias — no embedding step)
     p_scan = sub.add_parser(
@@ -721,6 +819,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan.add_argument("--workers", metavar="N", type=int,
                         default=_default_scan_workers,
                         help=f"Parallel worker processes (default: {_default_scan_workers})")
+    p_scan.add_argument("--limit", metavar="N", type=int, default=None,
+                        help="Process at most N unindexed files this run; next run resumes where this left off")
 
     # embed
     p_embed = sub.add_parser("embed", help="Generate/refresh embeddings for unembedded documents")
@@ -758,6 +858,26 @@ def build_parser() -> argparse.ArgumentParser:
     p_purge.add_argument("--dry-run", action="store_true",
                          help="Report matches without removing anything")
 
+    # report
+    p_report = sub.add_parser(
+        "report",
+        help="Scan directory and report file-type counts (no DB changes)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            Walks the document directory and prints a breakdown of every file
+            type found — count, percentage, total size, and whether each type
+            is currently supported for indexing.  No database is touched.
+
+            Example:
+              report
+              report --doc-dir /mnt/data/Documents
+        """),
+    )
+    p_report.add_argument("--doc-dir", metavar="DIR", dest="doc_dir",
+                          help="Directory to report on (overrides config)")
+    p_report.add_argument("--db", metavar="PATH",
+                          help="Ignored (report does not use the database; accepted for CLI consistency)")
+
     # duplist (stub)
     sub.add_parser("duplist", help="List duplicate documents [Not yet implemented]")
 
@@ -778,6 +898,7 @@ COMMANDS = {
     "embed":    cmd_embed,
     "open":     cmd_open,
     "purge":    cmd_purge,
+    "report":   cmd_report,
     "duplist":  cmd_duplist,
     "dupclean": cmd_dupclean,
 }

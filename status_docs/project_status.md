@@ -20,6 +20,21 @@ DocuBrowse is a modern document search and browsing application for the `/mnt/da
 
 ---
 
+## Session Summary — 2026-06-09 (Author/Subject Fields, Scan UX)
+
+### Author/Subject as first-class searchable fields
+- **`pdf_extractor.py`** — extracts `Subject` from pdfplumber metadata and pypdf metadata; `'subject': None` default in result dict
+- **`docubrowse_db.py`** — added `subject TEXT` column to `documents`; added `author`, `subject` to `doc_fts` virtual table; migration block: drops and recreates FTS table if `author` column missing, repopulates from `documents`
+- **`scan_docs.py`** — passes `subject` through `_extract_file` return dict; updated `INSERT OR REPLACE` for both `documents` (13 params) and `doc_fts` (8 columns incl. author/subject)
+- **`doc_search.py`** — both browse path (empty query) and search path (scored results) now SELECT `d.author, d.subject`; keyword scoring adds 0.7 boost for author match, 0.5 for subject match, 0.1/0.05 per token; result dicts include `"author"` and `"subject"` fields
+
+### Scan UX improvements
+- **`docubrowser.py`** — unfiltered `scan`/`rescan` (no type arg) shows file-type breakdown and prompts y/N before proceeding; `--limit N` flag added to `scan`/`rescan` (processes first N unindexed files; next run naturally skips those); `report` subcommand added (walks doc dir, prints extension breakdown with count/percent/size/scannable marker, no DB changes)
+- **`scan_docs.py`** — `limit` param added to `scan_directory()`; after sort, truncates `to_process` to limit and prints deferred count
+
+### Root cause: non-PDF files in DB
+- Investigation confirmed scan #1 (unfiltered) pre-dated the `scan pdf` run — HTML files were from that earlier session, not a filter bug. Extension filter in `scan_docs.py` was already correct. Preventive fix: confirmation prompt for unfiltered scans.
+
 ## Session Summary — 2026-06-08 (UX & Privacy Hardening)
 
 ### Open file from UI (xdg-open)
