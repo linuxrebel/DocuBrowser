@@ -64,11 +64,14 @@ Then decide: index as plaintext, route to appropriate extractor, or skip.
 **Fix applied (2026-06-08)**: Switched from SIGALRM to kernel-level `resource.setrlimit()` in `_worker_init`:
 - `RLIMIT_AS = 6 GB` — malloc fails with MemoryError when exceeded (works in C code)
 - `RLIMIT_CPU = FILE_TIMEOUT_SECS` — SIGXCPU kills the worker on CPU time overrun  
-**To investigate later**:
-- What is the actual page count and file size?  `pdfinfo` or `pdftotext -l 1` to check
-- Does `mutool info` (mupdf-tools) reveal unusual structure?
-- Could we pre-screen PDFs with `pdfinfo` and skip ones with >1000 pages or exotic structures before handing to pdfplumber?
-- Alternative extractor: try `pypdf` (lighter than pdfminer) or `pdftotext` (Poppler CLI) as fallback when pdfplumber fails/times out
+**Root cause identified (2026-06-08)**: The PDF uses a **two-page spread layout** — each PDF "page" renders two logical pages side by side on a single wide canvas (confirmed visually; Kindle also struggles with this file). pdfplumber performs full spatial layout analysis per page: it maps every character's x/y coordinate, detects columns, and infers reading order. On a double-width spread, that's ~2× the layout graph per page, and the column-inference algorithm enters a pathological state trying to reconcile text spanning the gutter between the two logical pages. This is a print-layout PDF, not a reflowable document.
+
+**To investigate / fix**:
+- Pre-screen with `pdfinfo` for unusual page dimensions (width > 2× standard = spread layout). Flag these before handing to pdfplumber.
+- For spread-layout PDFs: use `pdftotext` (Poppler CLI) as fallback — Poppler's layout engine handles spreads much better than pdfminer.
+- Alternatively: pass `layout=False` to pdfplumber's `extract_text()` to skip spatial analysis entirely (much faster/lighter, but text order may be degraded).
+- Could also crop each page to left/right halves before extraction using pdfplumber's crop API.
+- Check page dimensions: `pdfinfo Security_of_Cloud-based_systems.pdf | grep 'Page size'`
 
 ---
 
