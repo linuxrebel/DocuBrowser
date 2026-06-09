@@ -1,0 +1,9 @@
+# DocuBrowse scan blacklist
+# Files listed here are skipped during scanning.
+# Added automatically when extraction fails; edit manually to retry a file.
+# Format: one absolute path per line. Lines starting with # are comments.
+
+# Added 2026-06-08 — spread-layout PDF (two pages side-by-side per PDF page).
+# pdfplumber's spatial layout analysis enters a pathological state on this
+# structure, consuming 8+ GB RAM. See status_docs/DECISIONS.md for details.
+/mnt/data/Documents/tech-classes/security/Against Security - Self Security/Cloud/Security_of_Cloud-based_systems.pdf

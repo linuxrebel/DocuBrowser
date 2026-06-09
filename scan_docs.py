@@ -51,6 +51,32 @@ FILE_TIMEOUT_SECS = _MAX_PAGES * _SECS_PER_PAGE   # default: 300 s (5 min)
 # Progress display: compact bar in TTY, verbose per-file when piped/logged
 _IS_TTY = sys.stdout.isatty()
 
+# Blacklist: files that have failed extraction are automatically appended here
+# and skipped on future scans.  Lives next to the database.
+BLACKLIST_FILENAME = "scan_blacklist.txt"
+
+
+def _load_blacklist(db_path: Path) -> set:
+    """Load the set of blacklisted absolute paths from scan_blacklist.txt."""
+    bl_path = db_path.parent / BLACKLIST_FILENAME
+    if not bl_path.exists():
+        return set()
+    paths = set()
+    for line in bl_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            paths.add(line)
+    return paths
+
+
+def _blacklist_add(db_path: Path, file_path: str, reason: str) -> None:
+    """Append a failed file to the blacklist with a timestamped comment."""
+    bl_path = db_path.parent / BLACKLIST_FILENAME
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    entry = f"# Added {timestamp} — {reason}\n{file_path}\n"
+    with open(bl_path, "a", encoding="utf-8") as fh:
+        fh.write(entry)
+
 
 def _worker_init():
     """Module-level so ProcessPoolExecutor can pickle it. Workers ignore
@@ -352,10 +378,17 @@ def scan_directory(
         extensions = DEFAULT_EXTENSIONS
     extensions = [e if e.startswith(".") else f".{e}" for e in extensions]
 
+    db_path = Path(db_path)
     conn = get_db(str(db_path))
     _log, _log_path = _setup_scan_logger()
     if _log_path:
         print(f"Log:      {_log_path}")
+
+    # Load blacklist — paths that previously failed extraction
+    blacklist = _load_blacklist(db_path)
+    bl_path   = db_path.parent / BLACKLIST_FILENAME
+    if blacklist:
+        print(f"Blacklist: {len(blacklist):,} file(s) will be skipped  ({bl_path})")
 
     # Collect candidate files (respects extensions)
     print(f"Scanning  {doc_dir}")
@@ -377,7 +410,11 @@ def scan_directory(
 
     to_process = []
     skipped    = 0
+    blacklisted = 0
     for f in all_files:
+        if str(f) in blacklist:
+            blacklisted += 1
+            continue
         try:
             mtime = datetime.fromtimestamp(f.stat().st_mtime).isoformat()
         except OSError:
@@ -397,6 +434,7 @@ def scan_directory(
             return 0
     to_process.sort(key=_safe_size)
 
+    print(f"  {blacklisted:,} blacklisted (skip)")
     print(f"  {skipped:,} already up-to-date (skip)")
     print(f"  {len(to_process):,} to extract")
     print()
@@ -442,6 +480,7 @@ def scan_directory(
         except BrokenProcessPool:
             failed += 1
             _log.error("KILLED (resource limit)  %s", fname)
+            _blacklist_add(db_path, fname, "killed by resource limit (RLIMIT_AS/RLIMIT_CPU)")
             if _IS_TTY:
                 print(_progress_bar(completed, total, start_time, failed),
                       end="", flush=True)
@@ -449,6 +488,7 @@ def scan_directory(
         except Exception as exc:
             failed += 1
             _log.error("FUTURE ERROR  %s  —  %s", fname, exc)
+            _blacklist_add(db_path, fname, f"future error: {exc}")
             if _IS_TTY:
                 print(_progress_bar(completed, total, start_time, failed),
                       end="", flush=True)
@@ -468,6 +508,7 @@ def scan_directory(
         else:
             failed += 1
             _log.warning("FAILED  %s  —  %s", name, result["error"])
+            _blacklist_add(db_path, result["path"], f"extraction failed: {result['error']}")
 
         # Terminal output: progress bar only (TTY) or nothing per-file (non-TTY)
         if _IS_TTY:
