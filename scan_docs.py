@@ -53,12 +53,16 @@ _IS_TTY = sys.stdout.isatty()
 
 # Blacklist: files that have failed extraction are automatically appended here
 # and skipped on future scans.  Lives next to the database.
-BLACKLIST_FILENAME = "scan_blacklist.txt"
+BLACKLIST_FILENAME     = "scan_blacklist.txt"
+PII_BLACKLIST_FILENAME = "pii_blacklist.txt"
 
 
-def _load_blacklist(db_path: Path) -> set:
-    """Load the set of blacklisted absolute paths from scan_blacklist.txt."""
-    bl_path = db_path.parent / BLACKLIST_FILENAME
+def _load_blacklist(db_path: Path, filename: str = BLACKLIST_FILENAME) -> set:
+    """Load the set of blacklisted absolute paths from a blacklist file.
+    
+    Works for both scan_blacklist.txt and pii_blacklist.txt — same format.
+    """
+    bl_path = db_path.parent / filename
     if not bl_path.exists():
         return set()
     paths = set()
@@ -384,11 +388,15 @@ def scan_directory(
     if _log_path:
         print(f"Log:      {_log_path}")
 
-    # Load blacklist — paths that previously failed extraction
-    blacklist = _load_blacklist(db_path)
-    bl_path   = db_path.parent / BLACKLIST_FILENAME
-    if blacklist:
-        print(f"Blacklist: {len(blacklist):,} file(s) will be skipped  ({bl_path})")
+    # Load both blacklists — scan failures and PII-flagged files are both skipped.
+    # pii_blacklist.txt is permanent; scan_blacklist.txt entries can be removed to retry.
+    scan_bl = _load_blacklist(db_path, BLACKLIST_FILENAME)
+    pii_bl  = _load_blacklist(db_path, PII_BLACKLIST_FILENAME)
+    blacklist = scan_bl | pii_bl
+    if scan_bl:
+        print(f"Scan blacklist: {len(scan_bl):,} file(s)  ({db_path.parent / BLACKLIST_FILENAME})")
+    if pii_bl:
+        print(f"PII blacklist:  {len(pii_bl):,} file(s)  ({db_path.parent / PII_BLACKLIST_FILENAME})")
 
     # Collect candidate files (respects extensions)
     print(f"Scanning  {doc_dir}")
@@ -434,7 +442,7 @@ def scan_directory(
             return 0
     to_process.sort(key=_safe_size)
 
-    print(f"  {blacklisted:,} blacklisted (skip)")
+    print(f"  {blacklisted:,} blacklisted (skip — {len(scan_bl)} scan failures, {len(pii_bl)} PII)")
     print(f"  {skipped:,} already up-to-date (skip)")
     print(f"  {len(to_process):,} to extract")
     print()
