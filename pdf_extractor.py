@@ -59,13 +59,14 @@ def extract_pdf(pdf_path: str) -> Dict:
         }
 
     result = {
-        'title': pdf_path.stem,
-        'author': None,
-        'text': '',
+        'title':   pdf_path.stem,
+        'author':  None,
+        'subject': None,
+        'text':    '',
         'snippet': '',
         'page_count': 0,
         'success': False,
-        'error': None
+        'error':   None
     }
 
     try:
@@ -89,8 +90,9 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
 
             # Extract metadata
             if pdf.metadata:
-                result['title'] = pdf.metadata.get('Title') or result['title']
-                result['author'] = pdf.metadata.get('Author')
+                result['title']   = pdf.metadata.get('Title')   or result['title']
+                result['author']  = pdf.metadata.get('Author')  or None
+                result['subject'] = pdf.metadata.get('Subject') or None
 
             # Extract text — capped at MAX_PAGES to bound memory and time
             text_parts = []
@@ -129,8 +131,9 @@ def _extract_pypdf(pdf_path: Path, result: Dict) -> Dict:
 
             # Extract metadata
             if reader.metadata:
-                result['title'] = reader.metadata.get('/Title') or result['title']
-                result['author'] = reader.metadata.get('/Author')
+                result['title']   = reader.metadata.get('/Title')   or result['title']
+                result['author']  = reader.metadata.get('/Author')  or None
+                result['subject'] = reader.metadata.get('/Subject') or None
 
             # Extract text — capped at MAX_PAGES
             text_parts = []
@@ -205,8 +208,9 @@ if __name__ == '__main__':
         pdf_file = sys.argv[1]
         print(f"Extracting from: {pdf_file}")
         result = extract_pdf(pdf_file)
-        print(f"  Title: {result['title']}")
-        print(f"  Author: {result['author']}")
+        print(f"  Title:   {result['title']}")
+        print(f"  Author:  {result['author']}")
+        print(f"  Subject: {result['subject']}")
         print(f"  Pages: {result['page_count']}")
         print(f"  Success: {result['success']}")
         if result['error']:

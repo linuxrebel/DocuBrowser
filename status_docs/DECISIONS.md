@@ -108,6 +108,17 @@ See Completed Decisions table.
 
 ## Other Known Deferred Decisions
 
+### Book metadata — author, subject, ISBN search
+**Decision**: Deferred to Phase 2b  
+**Requirement**: Users need to search by author and subject matter for books in the corpus (EPUB, MOBI, AZW3, PDF books). ISBNs should be extracted and stored but NOT indexed as searchable text (SSN regex false-positive risk — ISBNs match similar patterns).  
+**What's needed**:
+- Extract book metadata (title, author, subject, ISBN, publisher) from ebook formats via `ebooklib` (EPUB), `KindleUnpack` or `mobi` lib (MOBI/AZW3), and PDF metadata fields
+- Store `author` and `subject` as first-class columns in the `documents` table (currently only `title`, `author` exist — verify `author` is actually populated for books)
+- Ensure FTS5 index covers `author` and `subject` fields so keyword search hits them
+- Add `isbn` column (stored, not FTS-indexed) for dedup and lookup
+- Search UI: add author/subject filter or boost exact-match on `author` field  
+**When to address**: Phase 2b, alongside ebook extraction work.
+
 ### ETA / progress bar accuracy
 **Decision**: Current ETA is a simple elapsed-time average; starts low then climbs as
 large PDFs are hit after small/failed ones are processed quickly.  
@@ -176,3 +187,7 @@ Are these duplicates of each other? Web archive variants?
 | Two blacklist files | scan_blacklist.txt (retriable failures) vs pii_blacklist.txt (permanent PII); scan loads both; purge writes only to PII list | 2026-06-08 |
 | SSN regex false positive | ISBN substrings (e.g. 978-90-5940-365-9) matched SSN pattern; fixed with negative lookbehind/lookahead for adjacent digits/hyphens | 2026-06-08 |
 | Post-scan PII prompt | After every scan/rescan, offer y/n/D (dry-run default); dry-run with hits offers immediate live purge | 2026-06-08 |
+| Non-PDF files in DB (root cause) | Files came from unfiltered scan #1, not a filter bug. Extension filter was correct. Fix: confirmation prompt for unfiltered scans now shows file-type breakdown before proceeding. | 2026-06-09 |
+| Author/subject fields | Added to documents table, FTS index, pdf_extractor, scan_docs, and doc_search scoring (author +0.7, subject +0.5). ISBN stored but NOT FTS-indexed (SSN regex false-positive risk). | 2026-06-09 |
+| Scan --limit N | Processes first N unindexed files; mtime check skips already-indexed files before applying limit, so next run naturally resumes from where last run stopped. | 2026-06-09 |
+| report subcommand | Walks doc dir, prints extension breakdown (count/percent/size/scannable). No DB changes. | 2026-06-09 |

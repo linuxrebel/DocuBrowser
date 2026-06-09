@@ -1,5 +1,8 @@
 # DocuBrowse — Claude Instructions
 
+## Communication Style
+After reading status docs or context files, do NOT summarize or repeat back what was learned unless James explicitly asks. Just confirm you're up to date and ask what to work on.
+
 ## QA Requirement
 **Always run the QA agent after making code changes, before telling the user the code is ready to run.**
 

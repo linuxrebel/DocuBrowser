@@ -184,7 +184,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
             # Get paginated results
             all_docs = conn.execute('''
-                SELECT d.id, d.name, d.title, d.description, d.path,
+                SELECT d.id, d.name, d.title, d.author, d.subject, d.description, d.path,
                        d.modified_at, GROUP_CONCAT(dt.tag, ',') as tags
                 FROM documents d
                 LEFT JOIN doc_tags dt ON d.id = dt.doc_id
@@ -195,11 +195,13 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
             results = []
             for doc_row in all_docs:
-                doc_id, name, title, desc, path, modified_at, tags_str = doc_row
+                doc_id, name, title, author, subject, desc, path, modified_at, tags_str = doc_row
                 results.append({
                     "id": doc_id,
                     "name": name,
                     "title": title,
+                    "author": author or "",
+                    "subject": subject or "",
                     "description": desc or "",
                     "path": path,
                     "tags": [t.strip() for t in (tags_str or '').split(',') if t.strip()],
@@ -228,7 +230,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         # Get all documents
         all_docs = conn.execute('''
-            SELECT d.id, d.name, d.title, d.description, d.path,
+            SELECT d.id, d.name, d.title, d.author, d.subject, d.description, d.path,
                    d.modified_at, GROUP_CONCAT(dt.tag, ',') as tags,
                    de.embedding
             FROM documents d
@@ -241,23 +243,29 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         q_lower = q.lower()
 
         for doc_row in all_docs:
-            doc_id, name, title, desc, path, modified_at, tags_str, embedding_blob = doc_row
+            doc_id, name, title, author, subject, desc, path, modified_at, tags_str, embedding_blob = doc_row
 
             fts_score = 0.0
             sem_score = 0.0
 
             # Keyword/FTS matching
             if mode in ['both', 'keyword']:
-                name_lower = (name or '').lower()
-                title_lower = (title or '').lower()
-                desc_lower = (desc or '').lower()
-                tags_lower = (tags_str or '').lower()
+                name_lower    = (name    or '').lower()
+                title_lower   = (title   or '').lower()
+                author_lower  = (author  or '').lower()
+                subject_lower = (subject or '').lower()
+                desc_lower    = (desc    or '').lower()
+                tags_lower    = (tags_str or '').lower()
 
                 # Simple keyword matching with boosts
                 if q_lower in title_lower:
                     fts_score += 0.8
                 elif q_lower in name_lower:
                     fts_score += 0.6
+                if q_lower in author_lower:
+                    fts_score += 0.7   # strong — searching by author name is explicit intent
+                if q_lower in subject_lower:
+                    fts_score += 0.5
                 if q_lower in desc_lower:
                     fts_score += 0.3
                 if q_lower in tags_lower:
@@ -267,6 +275,10 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 for token in q_lower.split():
                     if token in title_lower:
                         fts_score += 0.1
+                    if token in author_lower:
+                        fts_score += 0.1
+                    if token in subject_lower:
+                        fts_score += 0.05
                     if token in desc_lower:
                         fts_score += 0.05
 
@@ -296,6 +308,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                     "id": doc_id,
                     "name": name,
                     "title": title or name,
+                    "author": author or "",
+                    "subject": subject or "",
                     "description": desc or "",
                     "path": path,
                     "tags": [t.strip() for t in tags_str.split(',') if t.strip()] if tags_str else [],
