@@ -26,6 +26,7 @@ unguarded stat() call in sort key, NameError from conditionally-defined variable
 - doc_search.py       — HTTP search server (port 8643)
 - docubrowse_db.py    — SQLite schema
 - scan_blacklist.txt  — auto-populated list of files that failed extraction (skip on rescan)
+- pii_blacklist.txt   — files removed by `purge` command for containing PII (never ingest; separate from scan_blacklist.txt so users can't accidentally re-enable them)
 
 ## Development Rules
 - Any deferred decision or skipped feature → add to status_docs/DECISIONS.md

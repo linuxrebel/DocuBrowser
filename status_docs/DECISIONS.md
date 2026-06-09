@@ -87,12 +87,21 @@ addresses tied to individuals, etc.) so they are never indexed or surfaced in se
 2. Post-scan tag: index but mark as `pii=true`; filter out of all search results and open calls.
 3. Directory-level blacklist: define paths that are known to contain sensitive docs and skip
    them at scan time (simplest, least precise).
-**Notes**: Option 1 (regex pre-filter) is probably the right MVP. Common patterns: SSN
-(`\d{3}-\d{2}-\d{4}`), CCN (Luhn-valid 16-digit groups), DOB with name nearby.
-False positive rate will be nonzero — need a way to override / whitelist specific files.
-`scan_blacklist.txt` could serve double duty, or a separate `scan_whitelist.txt`.
-**Priority**: High — PII in a local search index is a privacy risk even if the server
-is localhost-only. Address before any network-accessible deployment.
+**Decided approach (2026-06-08)**:
+- **Two separate blacklist files**: `scan_blacklist.txt` (extraction failures, retriable)
+  and `pii_blacklist.txt` (PII-flagged, never ingest).
+- `scan_docs.py` loads both at startup and skips all entries from either.
+- The `purge` command writes only to `pii_blacklist.txt` — never to `scan_blacklist.txt`.
+- Rationale: a user editing `scan_blacklist.txt` to retry failed files cannot accidentally
+  re-enable a PII document. The files have distinct purposes and must stay separate.
+- `purge` workflow: iterate DB descriptions → regex match → delete from DB
+  (`documents`, `doc_tags`, `doc_embeddings`) → append to `pii_blacklist.txt` with
+  timestamp, pattern matched, and reason. Support `--dry-run` flag.
+- Limitation of first pass: only the stored description (~300 chars) is checked.
+  PII buried deeper in a document won't be caught without re-opening the file.
+- Common regex patterns to implement: SSN (`\d{3}-\d{2}-\d{4}`),
+  CCN (Luhn-valid 15–16 digit groups), explicit DOB patterns.
+**Priority**: High — address before any network-accessible deployment.
 
 ### BUG: Scanner ingesting non-PDF files despite PDF-only intent
 **Observed**: Scan picked up HTML, DOCX, and other formats — not just PDFs.  
