@@ -163,9 +163,11 @@ def run_purge(db_path: str, dry_run: bool = False) -> None:
     for doc_id, path, name, matches in hits:
         pattern_names = ", ".join(m[0] for m in matches)
         try:
-            # FTS virtual table is not FK-cascade-linked — delete explicitly first
-            conn.execute("DELETE FROM doc_fts WHERE rowid = ?", (doc_id,))
-            # Cascade deletes doc_tags and doc_embeddings via FK ON DELETE CASCADE
+            # Cascade deletes doc_tags and doc_embeddings via FK ON DELETE CASCADE.
+            # doc_fts is a contentless FTS5 virtual table — SQLite does not support
+            # direct DELETE on contentless FTS5.  The search handler does not query
+            # doc_fts directly (it does Python-side keyword matching), so orphaned
+            # FTS entries for deleted documents are harmless.
             conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
             to_blacklist.append((path, pattern_names, name))
         except Exception as exc:
