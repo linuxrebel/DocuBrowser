@@ -409,15 +409,17 @@ def cmd_rescan(config: dict, args):
 
         _total = sum(_counts.values())
         _supported_total = sum(_counts.get(e, 0) for e in _SUPPORTED)
+        _unscan_total = _total - _supported_total
         print()
-        for _ext, _cnt in sorted(_counts.items(), key=lambda x: x[1], reverse=True)[:20]:
-            _mark = "  ◀ will scan" if _ext in _SUPPORTED else ""
-            print(f"  {_ext:<14} {_cnt:>7,}{_mark}")
-        if len(_counts) > 20:
-            print(f"  ... and {len(_counts) - 20} more type(s)")
+        for _ext in sorted(_SUPPORTED):
+            _cnt = _counts.get(_ext, 0)
+            if _cnt:
+                print(f"  {_ext:<14} {_cnt:>7,}  ◀ will scan")
+        if _unscan_total:
+            print(f"  {'(unscannable)':<14} {_unscan_total:>7,}")
         print()
         print(f"  Total files:     {_total:,}")
-        print(f"  Will be scanned: {_supported_total:,}  ({', '.join(sorted(_SUPPORTED))})")
+        print(f"  Will be scanned: {_supported_total:,}")
         print()
         try:
             _ans = input(f"Scan all {_supported_total:,} supported files? [y/N]: ").strip().lower()
@@ -620,21 +622,34 @@ def cmd_report(config: dict, args):
         print("No files found.")
         return
 
-    print()
-    print(f"  {'Extension':<14} {'Files':>8}  {'% total':>8}  {'Size':>10}  {'Scannable':>9}")
-    print("  " + "─" * 58)
+    # Split into scannable (listed individually) and unscannable (collapsed)
+    unscan_count = 0
+    unscan_bytes = 0
+    scannable_rows = []
     for ext, cnt in sorted(counts.items(), key=lambda x: x[1], reverse=True):
-        pct   = cnt * 100.0 / total_files
-        mb    = sizes[ext] / (1024 * 1024)
-        scannable = "  ◀ yes" if ext in SUPPORTED else ""
-        print(f"  {ext:<14} {cnt:>8,}  {pct:>7.1f}%  {mb:>8.1f}MB{scannable}")
-    print("  " + "─" * 58)
+        if ext in SUPPORTED:
+            scannable_rows.append((ext, cnt, sizes[ext]))
+        else:
+            unscan_count += cnt
+            unscan_bytes += sizes[ext]
+
+    print()
+    print(f"  {'Extension':<14} {'Files':>8}  {'% total':>8}  {'Size':>10}")
+    print("  " + "─" * 48)
+    for ext, cnt, sz in scannable_rows:
+        pct = cnt * 100.0 / total_files
+        mb  = sz / (1024 * 1024)
+        print(f"  {ext:<14} {cnt:>8,}  {pct:>7.1f}%  {mb:>8.1f}MB")
+    if unscan_count:
+        pct = unscan_count * 100.0 / total_files
+        mb  = unscan_bytes / (1024 * 1024)
+        print(f"  {'(unscannable)':<14} {unscan_count:>8,}  {pct:>7.1f}%  {mb:>8.1f}MB")
+    print("  " + "─" * 48)
     total_mb = total_bytes / (1024 * 1024)
+    supported_count = sum(c for _, c, _ in scannable_rows)
     print(f"  {'TOTAL':<14} {total_files:>8,}  {'100.0%':>8}  {total_mb:>8.1f}MB")
     print()
-    supported_count = sum(counts.get(e, 0) for e in SUPPORTED)
-    print(f"  Scannable now (◀):  {supported_count:,} files")
-    print(f"  Not yet supported:  {total_files - supported_count:,} files")
+    print(f"  Scannable: {supported_count:,}   Unscannable: {unscan_count:,}")
     print()
     print(f"  Tip: run 'docubrowser.py scan pdf' to index PDFs only,")
     print(f"       or   'docubrowser.py scan' to index all supported types.")
