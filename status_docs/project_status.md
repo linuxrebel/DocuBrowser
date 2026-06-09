@@ -1,6 +1,6 @@
 # DocuBrowse Project Status
 
-**Version**: v0.2.0 (Scan Engine Hardening)  
+**Version**: v0.2.1 (UX & Privacy Hardening)  
 **Status**: 🟡 **IN PROGRESS — scanning large corpus**  
 **Last Updated**: 2026-06-08  
 **Repository**: GitHub (pushed)
@@ -17,6 +17,41 @@ DocuBrowse is a modern document search and browsing application for the `/mnt/da
 - Search latency: <150ms typical
 - UI load time: <1s
 - Responsive across all device sizes
+
+---
+
+## Session Summary — 2026-06-08 (UX & Privacy Hardening)
+
+### Open file from UI (xdg-open)
+- **`doc_search.py`** — new `GET /api/open?path=...` endpoint; validates path against DB index (security whitelist), runs `xdg-open`; all error paths return JSON; fixed `Content-Length` missing from `error_response()`
+- **`index.html`** — title click opens file; path row also clickable with hover styling; full path shown on tooltip; `📋` clipboard icon copies path
+
+### PII purge
+- **`purge_pii.py`** (new) — post-ingest PII scanner; checks stored description + content_snippet (~800 chars) against six regex patterns: SSN, Credit Card, Date of Birth, Medical Record Number, Driver License, Passport Number
+  - `--dry-run` flag: report matches, touch nothing
+  - All-or-nothing transaction: commit DB first, write `pii_blacklist.txt` after — files never diverge on partial failure
+  - Passport regex requires keyword anchor (`passport`, `pass no`) — avoids firmware/part-number false positives
+  - SSN regex uses negative lookbehind/lookahead — avoids ISBN substring matches (978-90-5940-365-9 was triggering)
+- **`scan_docs.py`** — loads both `scan_blacklist.txt` and `pii_blacklist.txt` at startup; summary line reports counts from each separately
+- **`docubrowser.py`** — `purge` command wired up; `_offer_purge()` prompts after every scan/rescan: `[y]` live / `[n]` skip / `[D]` dry-run (default); dry-run with hits offers immediate live purge follow-up
+
+### Bugs caught by QA agent
+- `error_response()` sent plain text but JS called `.json()` unconditionally — fixed: `handle_open` errors return JSON
+- `error_response()` missing `Content-Length` header — fixed
+- Partial-delete commit risk: successful deletes committed while failed ones left DB/blacklist out of sync — fixed with all-or-nothing transaction + rollback on any error
+- Passport regex `[A-Z]{1,2}\d{7,9}` no anchor — would delete docs with firmware version strings — fixed with keyword anchor
+- FTS5 contentless table does not support `DELETE` — removed FTS delete; orphaned entries harmless (search never queries FTS directly)
+
+### Commits this sub-session
+- `954e13f` docs: update README — alpha disclaimer, nav, AI-assisted dev section, v0.2.0
+- `58d054e` docs: log observed bugs and UX issues from live scan (2026-06-08)
+- `5c1053f` feat: open files via xdg-open on click (title + path row)
+- `17811cc` docs: log PII filtering requirement
+- `22cfee5` docs: design decision — separate pii_blacklist.txt from scan_blacklist.txt
+- `2b11557` feat: add purge command — detect and remove PII from index
+- `97883ac` fix: tighten SSN regex to reject ISBN substrings
+- `1199491` fix: remove FTS5 delete — contentless tables don't support DELETE
+- `1d14d77` feat: offer PII purge automatically after every scan/rescan
 
 ---
 

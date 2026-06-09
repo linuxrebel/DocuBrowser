@@ -118,6 +118,7 @@ Usage: docubrowser.py <command> [options]
 | `rescan` | Scan document directory and update the index; generates embeddings unless `--no-embed` |
 | `embed` | Generate/refresh embeddings for documents not yet embedded |
 | `open` | Open the DocuBrowse UI in your default browser |
+| `purge` | Scan index for PII and remove matching documents |
 | `duplist` | *(Not yet implemented)* List duplicate documents |
 | `dupclean` | *(Not yet implemented)* Interactive TUI to remove duplicates |
 
@@ -139,6 +140,12 @@ Usage: docubrowser.py <command> [options]
 ./docubrowser.py rescan --doc-dir /mnt/data/Documents
 ./docubrowser.py rescan --no-embed
 ./docubrowser.py stop
+
+# Scan index for PII (dry-run by default — safe to run anytime)
+./docubrowser.py purge --dry-run
+
+# Live purge (prompts for confirmation before removing anything)
+./docubrowser.py purge
 ```
 
 ---
@@ -210,6 +217,7 @@ work_dir = /home/james/git/AI/DocuBrowse
 | `scan_docs.py` | Document discovery and metadata extraction |
 | `pdf_extractor.py` | PDF-specific metadata extractor |
 | `embed_docs.py` | Sends documents to Ollama for embedding; stores in DB |
+| `purge_pii.py` | Scans index for PII patterns; removes matches and records in `pii_blacklist.txt` |
 
 ---
 
@@ -319,8 +327,11 @@ DocuBrowse/
 ├── scan_docs.py            # Document scanner + indexer
 ├── pdf_extractor.py        # PDF metadata extraction
 ├── embed_docs.py           # Embedding generation pipeline
+├── purge_pii.py            # Post-ingest PII scanner and purge tool
 ├── index.html              # Frontend UI (dark/light theme)
 ├── docs.db                 # SQLite database (gitignored)
+├── scan_blacklist.txt      # Files that failed extraction (retriable)
+├── pii_blacklist.txt       # Files removed for PII (permanent, never re-ingest)
 ├── docubrowse.config       # Local config (optional)
 ├── README.md               # This file
 ├── status_docs/            # Project planning documents
