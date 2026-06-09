@@ -54,6 +54,24 @@ Then decide: index as plaintext, route to appropriate extractor, or skip.
 
 ---
 
+## Problem Files Requiring Investigation
+
+### Security_of_Cloud-based_systems.pdf
+**Full path**: `/mnt/data/Documents/tech-classes/security/Against Security - Self Security/Cloud/Security_of_Cloud-based_systems.pdf`  
+**Symptom**: pdfplumber allocated **8.7 GB RAM** and ran for **16+ minutes** without completing or timing out. File opens normally in a PDF reader — it is a valid PDF.  
+**Root cause (theory)**: Complex internal PDF structure (deep cross-reference tables, large font objects, or elaborate content streams) causing pdfplumber/pdfminer to build a pathological in-memory object graph. This is distinct from file size — the issue is structural complexity, not page count.  
+**Why SIGALRM didn't save us**: pdfplumber spends the majority of its time in C extensions (pdfminer's C layer). Python's signal handler only runs between bytecodes; it is never called while C code is executing in a tight loop.  
+**Fix applied (2026-06-08)**: Switched from SIGALRM to kernel-level `resource.setrlimit()` in `_worker_init`:
+- `RLIMIT_AS = 6 GB` — malloc fails with MemoryError when exceeded (works in C code)
+- `RLIMIT_CPU = FILE_TIMEOUT_SECS` — SIGXCPU kills the worker on CPU time overrun  
+**To investigate later**:
+- What is the actual page count and file size?  `pdfinfo` or `pdftotext -l 1` to check
+- Does `mutool info` (mupdf-tools) reveal unusual structure?
+- Could we pre-screen PDFs with `pdfinfo` and skip ones with >1000 pages or exotic structures before handing to pdfplumber?
+- Alternative extractor: try `pypdf` (lighter than pdfminer) or `pdftotext` (Poppler CLI) as fallback when pdfplumber fails/times out
+
+---
+
 ## Other Known Deferred Decisions
 
 ### ETA / progress bar accuracy
@@ -115,7 +133,7 @@ Are these duplicates of each other? Web archive variants?
 | OOM protection | 4 workers, 4 GB/worker estimate, 4 GB OS reserve, 15% pause threshold | 2026-06-08 |
 | Scan log verbosity | Per-file FAILED/OK → log file only; terminal shows progress bar + summary | 2026-06-08 |
 | Log location | Tries /var/log/docubrowser.log; falls back to ~/.local/share/docubrowser/ | 2026-06-08 |
-| Per-file timeout | SIGALRM = MAX_PAGES × 2s (300s default); prevents corrupt PDF hangs | 2026-06-08 |
+| Per-file timeout | SIGALRM (pure-Python) + RLIMIT_AS 6GB + RLIMIT_CPU 3000s (C-extension backstop) | 2026-06-08 |
 | Scan process group | start_new_session=True + SCAN_PID_FILE + os.killpg() for clean kill | 2026-06-08 |
 | Semaphore warning suppression | Scan stderr → log file; resource_tracker warnings never reach terminal | 2026-06-08 |
 | stopall command | Kills scans + embeds + server; auto-invoked at start of every rescan | 2026-06-08 |

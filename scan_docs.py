@@ -22,6 +22,7 @@ import signal
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
+from concurrent.futures.process import BrokenProcessPool
 from datetime import datetime
 from pathlib import Path
 
@@ -53,8 +54,41 @@ _IS_TTY = sys.stdout.isatty()
 
 def _worker_init():
     """Module-level so ProcessPoolExecutor can pickle it. Workers ignore
-    SIGINT — the parent process handles Ctrl-C and shuts down cleanly."""
+    SIGINT — the parent process handles Ctrl-C and shuts down cleanly.
+
+    Resource limits (kernel-enforced, bypass Python signal handler issues):
+      RLIMIT_AS  — virtual address space cap; malloc() fails with MemoryError
+                   when pdfplumber tries to exceed it, even inside C extensions.
+      RLIMIT_CPU — CPU-time cap; OS sends SIGXCPU → worker dies; executor
+                   raises BrokenProcessPool on that future (caught in loop).
+    SIGALRM is unreliable for C-heavy workloads (signal deferred until Python
+    eval loop regains control, which never happens in tight C loops).
+    """
+    import resource
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    # 6 GB virtual address space cap per worker.  When pdfplumber/pdfminer's
+    # C extensions exceed this, malloc() fails.  Deep C code typically does
+    # NOT propagate this as a Python MemoryError — it usually crashes the
+    # worker process with SIGSEGV or SIGBUS.  That causes BrokenProcessPool
+    # on the associated future, which _handle_result catches.
+    _6GB = 6 * 1024 ** 3
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (_6GB, _6GB))
+    except (ValueError, OSError):
+        pass   # ignore if already lower or unsupported
+
+    # RLIMIT_CPU is a TOTAL LIFETIME CPU budget for the worker process, not
+    # a per-file limit.  We set it generously (10× FILE_TIMEOUT_SECS) as a
+    # last-resort backstop for a completely runaway worker, not as a per-file
+    # timer.  Per-file timing is handled by SIGALRM in _extract_file (for
+    # pure-Python paths) and RLIMIT_AS (for C-extension paths).
+    _cpu_limit = FILE_TIMEOUT_SECS * 10
+    try:
+        resource.setrlimit(resource.RLIMIT_CPU,
+                           (_cpu_limit, _cpu_limit + 5))
+    except (ValueError, OSError):
+        pass
 
 
 def _setup_scan_logger() -> tuple:
@@ -396,10 +430,30 @@ def scan_directory(
             f = executor.submit(_extract_file, item)
             in_flight[f] = item[0]
 
-    def _handle_result(future):
+    def _handle_result(future, fname="unknown"):
         nonlocal completed, extracted, failed
         completed += 1
-        result = future.result()
+
+        # Worker killed by RLIMIT_AS (SIGSEGV/SIGBUS) or RLIMIT_CPU (SIGXCPU)
+        # raises BrokenProcessPool on the future.  Re-raise after logging so
+        # the executor loop can detect a fully broken pool and bail out.
+        try:
+            result = future.result()
+        except BrokenProcessPool:
+            failed += 1
+            _log.error("KILLED (resource limit)  %s", fname)
+            if _IS_TTY:
+                print(_progress_bar(completed, total, start_time, failed),
+                      end="", flush=True)
+            raise   # let executor loop decide whether pool is recoverable
+        except Exception as exc:
+            failed += 1
+            _log.error("FUTURE ERROR  %s  —  %s", fname, exc)
+            if _IS_TTY:
+                print(_progress_bar(completed, total, start_time, failed),
+                      end="", flush=True)
+            return
+
         name   = result["name"]
         label  = f"[{completed:>{width}}/{total}]"
 
@@ -430,9 +484,26 @@ def scan_directory(
             while in_flight:
                 done, _ = wait(list(in_flight.keys()), return_when=FIRST_COMPLETED)
                 for future in done:
-                    del in_flight[future]
-                    _handle_result(future)
+                    fname = in_flight.pop(future, "unknown")
+                    try:
+                        _handle_result(future, fname)
+                    except BrokenProcessPool:
+                        # Worker died (resource limit). Log and commit progress.
+                        # If the pool is still alive, _fill_queue will submit
+                        # to a replacement worker; if fully broken, executor.submit
+                        # will raise BrokenProcessPool and the outer handler fires.
+                        _log.error("Executor broken — all workers died. "
+                                   "Committing progress and stopping.")
+                        conn.commit()
+                        raise
                 _fill_queue(executor)
+    except BrokenProcessPool:
+        if _IS_TTY:
+            print()
+        print(f"\nExecutor broken — {extracted} extracted, {failed} failed. "
+              f"Progress saved. Re-run to continue.")
+        conn.close()
+        sys.exit(1)
     except KeyboardInterrupt:
         if _IS_TTY:
             print()  # move past progress bar
