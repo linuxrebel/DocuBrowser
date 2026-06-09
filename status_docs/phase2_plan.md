@@ -201,7 +201,7 @@ DocuBrowse/
 │   ├── screenshot-dark.png
 │   └── screenshot-light.png
 ├── .gitignore
-└── docs.db                    # (gitignored)
+└── du-docs.db                    # (gitignored)
 ```
 
 ---

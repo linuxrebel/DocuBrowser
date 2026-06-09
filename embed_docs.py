@@ -251,7 +251,7 @@ def build_parser():
     p = argparse.ArgumentParser(
         description="Generate Ollama embeddings for DocuBrowse documents",
     )
-    p.add_argument("db_path", help="Path to SQLite database (docs.db)")
+    p.add_argument("db_path", help="Path to SQLite database (du-docs.db)")
     p.add_argument("--limit",   type=int, default=None,
                    help="Maximum documents to embed this run")
     p.add_argument("--workers", type=int, default=DEFAULT_WORKERS,

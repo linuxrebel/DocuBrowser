@@ -208,7 +208,7 @@ DocuBrowse is a modern document search and browsing application for the `/mnt/da
            ↓
 ┌─────────────────────────────────────────┐
 │   Data Layer                            │
-│  - docs.db (SQLite FTS5 + embeddings)   │
+│  - du-docs.db (SQLite FTS5 + embeddings)   │
 │  - Ollama (nomic-embed-text embeddings) │
 └─────────────────────────────────────────┘
 ```
@@ -299,7 +299,7 @@ DocuBrowse/
 ├── embed_docs.py           # Embedding generation pipeline
 ├── scan_docs.py            # Document discovery
 ├── index.html              # Complete UI (511+ lines)
-├── docs.db                 # SQLite database
+├── du-docs.db                 # SQLite database
 ├── README.md               # User documentation
 ├── PROJECT_STATUS.md       # This file
 ├── .gitignore              # (to be added)
@@ -386,7 +386,7 @@ DocuBrowse/
 ```bash
 # Start the server
 cd /mnt/data/git/AI/DocuBrowse
-python3 doc_search.py ./docs.db 8643
+python3 doc_search.py ./du-docs.db 8643
 
 # Optional: Generate embeddings for semantic search
 python3 embed_docs.py

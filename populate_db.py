@@ -15,7 +15,7 @@ def main():
     print("=" * 70)
     print()
 
-    db = get_db('./docs.db')
+    db = get_db('./du-docs.db')
 
     topics = [
         'Database', 'API', 'Cloud', 'Security', 'Testing',
@@ -95,10 +95,10 @@ def main():
     print("=" * 70)
     print(f"Documents added: {doc_count}")
     print(f"Unique tags: {tag_count}")
-    print(f"Database file: ./docs.db")
+    print(f"Database file: ./du-docs.db")
     print()
     print("Next steps:")
-    print("  1. python3 doc_search.py ./docs.db 8643")
+    print("  1. python3 doc_search.py ./du-docs.db 8643")
     print("  2. Open http://localhost:8643 in your browser")
     print("  3. Try searching: 'database', 'api', 'cloud', etc.")
     print()

@@ -46,10 +46,7 @@ htmlcov/
 # Documentation
 docs/_build/
 
-# Database (keep docs.db for MVP, exclude in Phase 2)
-# Uncomment when expanded: docs.db.backup
-# Uncomment when expanded: docs.db.wal
-# Uncomment when expanded: docs.db.journal
+# Database
 
 # Temporary files
 *.tmp
@@ -77,11 +74,9 @@ profile.prof
 # embeddings.cache
 # semantic_index.pkl
 
-# Database (track template only, ignore working copy)
-docs.db
-docs.db-shm
-docs.db-wal
-docs.db-journal
-!docs.db.example
+du-docs.db
+du-docs.db-shm
+du-docs.db-wal
+du-docs.db-journal
 scan_blacklist.txt
 pii_blacklist.txt

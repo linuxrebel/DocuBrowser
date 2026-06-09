@@ -166,7 +166,7 @@ If neither exists, built-in defaults are used.
 ```ini
 # docubrowse.config
 doc_dir = /mnt/data/Documents
-db_path = /home/james/git/AI/DocuBrowse/docs.db
+db_path = /home/james/git/AI/DocuBrowse/du-docs.db
 port    = 8643
 work_dir = /home/james/git/AI/DocuBrowse
 ```
@@ -176,7 +176,7 @@ work_dir = /home/james/git/AI/DocuBrowse
 | Key | Default |
 |-----|---------|
 | `doc_dir` | `/mnt/data/Documents` |
-| `db_path` | `<script dir>/docs.db` |
+| `db_path` | `<script dir>/du-docs.db` |
 | `port` | `8643` |
 | `work_dir` | `<script dir>` |
 
@@ -201,7 +201,7 @@ work_dir = /home/james/git/AI/DocuBrowse
            │ SQLite + Ollama HTTP
            ↓
 ┌─────────────────────────────────────┐
-│  docs.db  (SQLite FTS5 + BLOBs)    │
+│  du-docs.db  (SQLite FTS5 + BLOBs)    │
 │  Ollama   (nomic-embed-text:latest) │
 └─────────────────────────────────────┘
 ```
@@ -329,7 +329,7 @@ DocuBrowse/
 ├── embed_docs.py           # Embedding generation pipeline
 ├── purge_pii.py            # Post-ingest PII scanner and purge tool
 ├── index.html              # Frontend UI (dark/light theme)
-├── docs.db                 # SQLite database (gitignored)
+├── du-docs.db                 # SQLite database (gitignored)
 ├── scan_blacklist.txt      # Files that failed extraction (retriable)
 ├── pii_blacklist.txt       # Files removed for PII (permanent, never re-ingest)
 ├── docubrowse.config       # Local config (optional)

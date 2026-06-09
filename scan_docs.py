@@ -618,8 +618,8 @@ def build_parser():
     )
     p.add_argument("doc_dir",  help="Directory containing documents to scan")
     p.add_argument("db_path",  nargs="?",
-                   default="/mnt/data/git/AI/DocuBrowse/docs.db",
-                   help="Path to SQLite database (default: docs.db in repo)")
+                   default="/mnt/data/git/AI/DocuBrowse/du-docs.db",
+                   help="Path to SQLite database (default: du-docs.db in repo)")
     p.add_argument("--ext",    nargs="+", default=None,
                    metavar="EXT",
                    help="Extensions to index (default: pdf txt md html)")

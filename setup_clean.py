@@ -9,7 +9,7 @@ from pathlib import Path
 
 # Clean up old files
 print("Cleaning up old files...")
-for pattern in ['docs.db', 'test_docs.db', 'test_*.db']:
+for pattern in ['du-docs.db', 'test_du-docs.db', 'test_*.db']:
     for f in Path('.').glob(pattern):
         f.unlink()
         print(f"  Removed: {f}")
@@ -24,7 +24,7 @@ for dir_name in ['test_pdfs_live', 'test_pdfs', 'test_docs']:
 print("\nCreating fresh database...")
 
 # Create database
-db = sqlite3.connect('./docs.db')
+db = sqlite3.connect('./du-docs.db')
 db.row_factory = sqlite3.Row
 
 # Create schema
@@ -99,5 +99,5 @@ tag_count = db.execute('SELECT COUNT(DISTINCT tag) FROM doc_tags').fetchone()[0]
 print(f"\n✓ Success!")
 print(f"  Documents: {doc_count}")
 print(f"  Unique tags: {tag_count}")
-print(f"  Database: ./docs.db")
-print(f"\nReady! Run: python3 doc_search.py ./docs.db 8643")
+print(f"  Database: ./du-docs.db")
+print(f"\nReady! Run: python3 doc_search.py ./du-docs.db 8643")

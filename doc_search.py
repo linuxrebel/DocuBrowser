@@ -441,8 +441,8 @@ def main():
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <database_path> [port]")
         print(f"\nExample:")
-        print(f"  {sys.argv[0]} /mnt/data/git/AI/DocuBrowse/docs.db")
-        print(f"  {sys.argv[0]} /mnt/data/git/AI/DocuBrowse/docs.db 8643")
+        print(f"  {sys.argv[0]} /mnt/data/git/AI/DocuBrowse/du-docs.db")
+        print(f"  {sys.argv[0]} /mnt/data/git/AI/DocuBrowse/du-docs.db 8643")
         sys.exit(1)
 
     db_path = sys.argv[1]
