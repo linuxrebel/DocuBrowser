@@ -77,31 +77,8 @@ Then decide: index as plaintext, route to appropriate extractor, or skip.
 
 ## Observed Bugs / UX Issues (2026-06-08 live scan)
 
-### FEATURE: PII filtering — exclude documents containing personal information
-**Requested**: Before or during indexing, detect and exclude documents that contain PII
-(Social Security numbers, credit card numbers, passport numbers, medical record numbers,
-addresses tied to individuals, etc.) so they are never indexed or surfaced in search results.
-**Approaches to evaluate**:
-1. Pre-scan filter: run a lightweight regex pass over extracted text before inserting into DB;
-   skip or flag any file that matches PII patterns.
-2. Post-scan tag: index but mark as `pii=true`; filter out of all search results and open calls.
-3. Directory-level blacklist: define paths that are known to contain sensitive docs and skip
-   them at scan time (simplest, least precise).
-**Decided approach (2026-06-08)**:
-- **Two separate blacklist files**: `scan_blacklist.txt` (extraction failures, retriable)
-  and `pii_blacklist.txt` (PII-flagged, never ingest).
-- `scan_docs.py` loads both at startup and skips all entries from either.
-- The `purge` command writes only to `pii_blacklist.txt` — never to `scan_blacklist.txt`.
-- Rationale: a user editing `scan_blacklist.txt` to retry failed files cannot accidentally
-  re-enable a PII document. The files have distinct purposes and must stay separate.
-- `purge` workflow: iterate DB descriptions → regex match → delete from DB
-  (`documents`, `doc_tags`, `doc_embeddings`) → append to `pii_blacklist.txt` with
-  timestamp, pattern matched, and reason. Support `--dry-run` flag.
-- Limitation of first pass: only the stored description (~300 chars) is checked.
-  PII buried deeper in a document won't be caught without re-opening the file.
-- Common regex patterns to implement: SSN (`\d{3}-\d{2}-\d{4}`),
-  CCN (Luhn-valid 15–16 digit groups), explicit DOB patterns.
-**Priority**: High — address before any network-accessible deployment.
+### ✅ FEATURE: PII filtering — IMPLEMENTED (2026-06-08)
+See Completed Decisions table.
 
 ### BUG: Scanner ingesting non-PDF files despite PDF-only intent
 **Observed**: Scan picked up HTML, DOCX, and other formats — not just PDFs.  
@@ -124,11 +101,8 @@ addresses tied to individuals, etc.) so they are never indexed or surfaced in se
 3. Make type filters available via `/api/search?type=pdf`  
 **Priority**: Medium — search quality issue; filter is the cleanest fix.
 
-### FEATURE: Show full file path in UI; clicking opens file in file manager
-**Requested**: Replace or augment the current path display with the full absolute path. Clicking the path (or title) should open the file using the OS default application (like double-clicking in a file manager).  
-**How to implement**: The path is already returned by `/api/search` as `path`. On click, issue a request to a new API endpoint (e.g. `GET /api/open?path=<url-encoded-path>`) that runs `xdg-open <path>` on the server side (Linux). macOS equivalent: `open`. Windows: `start`.  
-**Security note**: The server is local-only (port 8643, no auth), so `xdg-open` is safe here. Should still validate the path is within the indexed doc dir to prevent traversal.  
-**Priority**: High — this is a core usability feature. Users currently have to copy-paste the path to open a document.
+### ✅ FEATURE: Open files from UI — IMPLEMENTED (2026-06-08)
+See Completed Decisions table.
 
 ---
 
@@ -197,3 +171,8 @@ Are these duplicates of each other? Web archive variants?
 | Scan process group | start_new_session=True + SCAN_PID_FILE + os.killpg() for clean kill | 2026-06-08 |
 | Semaphore warning suppression | Scan stderr → log file; resource_tracker warnings never reach terminal | 2026-06-08 |
 | stopall command | Kills scans + embeds + server; auto-invoked at start of every rescan | 2026-06-08 |
+| Open files from UI | GET /api/open validates path against DB index, runs xdg-open; title + path row clickable; 📋 copies path | 2026-06-08 |
+| PII purge command | purge_pii.py — regex scan of stored description/snippet; dry-run + live mode; all-or-nothing transaction; writes pii_blacklist.txt after commit | 2026-06-08 |
+| Two blacklist files | scan_blacklist.txt (retriable failures) vs pii_blacklist.txt (permanent PII); scan loads both; purge writes only to PII list | 2026-06-08 |
+| SSN regex false positive | ISBN substrings (e.g. 978-90-5940-365-9) matched SSN pattern; fixed with negative lookbehind/lookahead for adjacent digits/hyphens | 2026-06-08 |
+| Post-scan PII prompt | After every scan/rescan, offer y/n/D (dry-run default); dry-run with hits offers immediate live purge | 2026-06-08 |
