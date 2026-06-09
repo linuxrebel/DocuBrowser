@@ -75,6 +75,37 @@ Then decide: index as plaintext, route to appropriate extractor, or skip.
 
 ---
 
+## Observed Bugs / UX Issues (2026-06-08 live scan)
+
+### BUG: Scanner ingesting non-PDF files despite PDF-only intent
+**Observed**: Scan picked up HTML, DOCX, and other formats — not just PDFs.  
+**Expected**: MVP scans PDFs only.  
+**Likely cause**: `scan_docs.py` probably doesn't filter by extension before queuing files, or the extension filter is too broad.  
+**Fix**: Check `scan_docs.py` — ensure extension whitelist is enforced before files enter the processing queue. For now, non-PDF formats will fail extraction gracefully and hit the blacklist, but they waste worker time and pollute the DB.  
+**Priority**: Medium — scan still completes, but wastes time.
+
+### BUG: Three document categories in UI (PDF, PDF-Books, Books) with inconsistent data
+**Observed**: UI shows three separate categories with different data sets. Unclear how the categorization is being applied or where it comes from.  
+**Needs investigation**: Check how `scan_docs.py` or `docubrowse_db.py` assigns tags/categories. Is this coming from directory structure? File metadata? A heuristic?  
+**Priority**: Medium — confusing UX, may indicate duplicate indexing or schema issue.
+
+### BUG: Searching "docx" returns PDF results
+**Observed**: A DOCX-term search surfaces PDF documents.  
+**Likely cause**: Hybrid semantic search is dominant (70%) — "docx" is semantically similar to documents about documentation, file formats, or Microsoft Office, which may describe PDFs in the index. The keyword component (30%) isn't enough to suppress unrelated results.  
+**Options to address**:  
+1. Add a file-type filter to the search UI (checkbox or dropdown: PDF / DOCX / HTML / All)  
+2. Boost FTS exact-match on `name` field (filename contains "docx" → strong keyword signal)  
+3. Make type filters available via `/api/search?type=pdf`  
+**Priority**: Medium — search quality issue; filter is the cleanest fix.
+
+### FEATURE: Show full file path in UI; clicking opens file in file manager
+**Requested**: Replace or augment the current path display with the full absolute path. Clicking the path (or title) should open the file using the OS default application (like double-clicking in a file manager).  
+**How to implement**: The path is already returned by `/api/search` as `path`. On click, issue a request to a new API endpoint (e.g. `GET /api/open?path=<url-encoded-path>`) that runs `xdg-open <path>` on the server side (Linux). macOS equivalent: `open`. Windows: `start`.  
+**Security note**: The server is local-only (port 8643, no auth), so `xdg-open` is safe here. Should still validate the path is within the indexed doc dir to prevent traversal.  
+**Priority**: High — this is a core usability feature. Users currently have to copy-paste the path to open a document.
+
+---
+
 ## Other Known Deferred Decisions
 
 ### ETA / progress bar accuracy
