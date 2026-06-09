@@ -77,6 +77,23 @@ Then decide: index as plaintext, route to appropriate extractor, or skip.
 
 ## Observed Bugs / UX Issues (2026-06-08 live scan)
 
+### FEATURE: PII filtering — exclude documents containing personal information
+**Requested**: Before or during indexing, detect and exclude documents that contain PII
+(Social Security numbers, credit card numbers, passport numbers, medical record numbers,
+addresses tied to individuals, etc.) so they are never indexed or surfaced in search results.
+**Approaches to evaluate**:
+1. Pre-scan filter: run a lightweight regex pass over extracted text before inserting into DB;
+   skip or flag any file that matches PII patterns.
+2. Post-scan tag: index but mark as `pii=true`; filter out of all search results and open calls.
+3. Directory-level blacklist: define paths that are known to contain sensitive docs and skip
+   them at scan time (simplest, least precise).
+**Notes**: Option 1 (regex pre-filter) is probably the right MVP. Common patterns: SSN
+(`\d{3}-\d{2}-\d{4}`), CCN (Luhn-valid 16-digit groups), DOB with name nearby.
+False positive rate will be nonzero — need a way to override / whitelist specific files.
+`scan_blacklist.txt` could serve double duty, or a separate `scan_whitelist.txt`.
+**Priority**: High — PII in a local search index is a privacy risk even if the server
+is localhost-only. Address before any network-accessible deployment.
+
 ### BUG: Scanner ingesting non-PDF files despite PDF-only intent
 **Observed**: Scan picked up HTML, DOCX, and other formats — not just PDFs.  
 **Expected**: MVP scans PDFs only.  
