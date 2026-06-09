@@ -17,6 +17,7 @@ Commands:
   rescan      Scan documents and update the index
   embed       Generate/refresh embeddings for unembedded documents
   open        Open the DocuBrowse UI in your browser
+  purge       Scan index for PII and remove matching documents
   duplist     List duplicate documents         [Not yet implemented]
   dupclean    Clean up duplicate documents     [Not yet implemented]
 """
@@ -475,6 +476,25 @@ def cmd_open(config: dict, args):
     webbrowser.open(url)
 
 
+def cmd_purge(config: dict, args):
+    """purge — scan index for PII patterns and remove matching documents."""
+    db_path = args.db or config["db_path"]
+
+    if not Path(db_path).exists():
+        print(f"ERROR: Database not found: {db_path}")
+        print("Run 'docubrowser.py rescan' first.")
+        sys.exit(1)
+
+    try:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from purge_pii import run_purge
+    except ImportError as exc:
+        print(f"ERROR: Could not load purge_pii.py: {exc}")
+        sys.exit(1)
+
+    run_purge(db_path, dry_run=args.dry_run)
+
+
 # ─── Not-yet-implemented stubs ────────────────────────────────────────────────
 
 def cmd_duplist(config: dict, args):
@@ -550,6 +570,8 @@ def build_parser() -> argparse.ArgumentParser:
               docubrowser.py rescan --workers 4 --embed-workers 8
               docubrowser.py stop
               docubrowser.py stopall                           stop scans, embeds, and server
+              docubrowser.py purge --dry-run                  preview PII matches
+              docubrowser.py purge                             remove PII documents interactively
 
             Tip: run 'docubrowser.py <command> --help' for per-command options.
             """),
@@ -663,6 +685,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_stopall = sub.add_parser("stopall", help="Stop all running scans, embeds, and the server")
     p_stopall.add_argument("--port", metavar="PORT", type=int, help="Port (used to find server)")
 
+    # purge
+    p_purge = sub.add_parser(
+        "purge",
+        help="Scan index for PII patterns and remove matching documents",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            Checks stored description/snippet text (~800 chars) for:
+              SSN, Credit Card, Passport Number, Date of Birth,
+              Medical Record Number, Driver License
+
+            Removed documents are added to pii_blacklist.txt and will
+            never be re-ingested, even after a rescan.
+
+            Examples:
+              purge               interactive — prompts before deleting
+              purge --dry-run     show matches, make no changes
+        """),
+    )
+    p_purge.add_argument("--db", metavar="PATH", help="Database path")
+    p_purge.add_argument("--dry-run", action="store_true",
+                         help="Report matches without removing anything")
+
     # duplist (stub)
     sub.add_parser("duplist", help="List duplicate documents [Not yet implemented]")
 
@@ -682,6 +726,7 @@ COMMANDS = {
     "rescan":   cmd_rescan,
     "embed":    cmd_embed,
     "open":     cmd_open,
+    "purge":    cmd_purge,
     "duplist":  cmd_duplist,
     "dupclean": cmd_dupclean,
 }
