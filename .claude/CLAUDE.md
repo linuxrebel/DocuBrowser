@@ -18,13 +18,14 @@ unguarded stat() call in sort key, NameError from conditionally-defined variable
 - Status doc: status_docs/project_status.md
 
 ## Key Files
-- docubrowser.py      — CLI launcher (scan, rescan, embed, start, stop, status)
-- scan_docs.py        — PDF/text extraction, ProcessPoolExecutor, progress bar
+- docubrowser.py      — CLI launcher (scan, rescan, embed, start, stop, stopall, status)
+- scan_docs.py        — PDF/text extraction, ProcessPoolExecutor, progress bar, blacklist
 - embed_docs.py       — Ollama embedding, ThreadPoolExecutor
 - pdf_extractor.py    — pdfplumber extraction, MAX_PAGES cap
 - hardware_utils.py   — CPU/GPU/RAM detection, worker count formula, wait_for_memory
 - doc_search.py       — HTTP search server (port 8643)
 - docubrowse_db.py    — SQLite schema
+- scan_blacklist.txt  — auto-populated list of files that failed extraction (skip on rescan)
 
 ## Development Rules
 - Any deferred decision or skipped feature → add to status_docs/DECISIONS.md
@@ -82,3 +83,50 @@ unguarded stat() call in sort key, NameError from conditionally-defined variable
   the DB, and exits cleanly.
 - Forcibly killed workers (e.g. `kill <pid>`) leave leaked semaphores behind. Python's
   resource_tracker will print a UserWarning at shutdown and clean them up — harmless.
+- Scan stderr is redirected to the log file (in docubrowser.py's Popen call) so
+  resource_tracker warnings never appear on the terminal when `stopall` is used.
+
+### Worker Timeouts — SIGALRM Does Not Work in C Extensions
+- **SIGALRM is unreliable for pdfplumber/pdfminer** — Python's signal handler only runs
+  between bytecodes. If the C extension is in a tight loop (e.g. spatial layout analysis
+  on a complex PDF), SIGALRM fires at the OS level but Python never acts on it.
+  Confirmed: a worker ran 16+ minutes past its 300s SIGALRM timeout.
+- **Use `resource.setrlimit()` instead** — kernel-enforced, bypasses Python entirely:
+  - `RLIMIT_AS = 6 GB` — caps virtual address space. Deep C code that exceeds this
+    typically crashes the worker with SIGSEGV/SIGBUS (not MemoryError). Executor raises
+    `BrokenProcessPool` on the associated future.
+  - `RLIMIT_CPU = FILE_TIMEOUT_SECS * 10` — total lifetime CPU budget (NOT per-file).
+    Acts as last-resort backstop for a completely runaway worker process.
+- Set both limits in `_worker_init()` (module-level, runs inside the worker process).
+- **BrokenProcessPool must be caught** — when a worker is killed by resource limits,
+  `future.result()` raises `BrokenProcessPool`. Catch it in `_handle_result`, log it,
+  auto-blacklist the file, and re-raise so the executor loop can detect a fully broken pool.
+- **Capture filename BEFORE `del in_flight[future]`** — use `in_flight.pop(future, "unknown")`
+  and pass `fname` explicitly to `_handle_result(future, fname)`. After del, the lookup
+  returns "unknown" — a real bug that was caught by QA.
+
+### Scan Blacklist
+- `scan_blacklist.txt` lives next to the DB. One absolute path per line; `#` = comment.
+- Loaded at scan start; blacklisted files are skipped before queuing.
+- **Auto-populated**: any file that fails extraction (BrokenProcessPool, future error, or
+  `result['success'] == False`) is automatically appended with a timestamp and reason.
+- To retry a file: remove its line from the blacklist. It will be re-scanned on next run.
+- Pre-seeded with `Security_of_Cloud-based_systems.pdf` (spread-layout PDF — two logical
+  pages side-by-side per PDF page; causes pathological pdfplumber memory use).
+
+### Spread-Layout PDFs
+- PDFs with two pages rendered side-by-side on a single wide canvas cause pdfplumber's
+  spatial layout analysis to enter a pathological state (8+ GB RAM, infinite runtime).
+  The file appears valid in PDF readers — the issue is structural, not corruption.
+- Detection: page width > ~850 points (standard = 612). Check with `pdfinfo`.
+- Conversion tool: `mutool poster -x 2 input.pdf output.pdf` splits each spread page
+  into two standard pages. After conversion, remove from blacklist and rescan.
+- Future fix: pre-screen page dimensions with `pdfinfo` before handing to pdfplumber;
+  pass `layout=False` to `extract_text()` for spread-layout files as a lightweight fallback.
+
+### Process Management
+- `start_new_session=True` in Popen gives the scan its own PGID.
+- SCAN_PID_FILE (`/tmp/docubrowse_scan.pid`) stores the PGID for group kill.
+- `_stop_running_scans()` uses `os.killpg(pgid, SIGTERM)` to kill parent + all workers.
+- `cmd_stopall()` kills scans, embeds, and server in one command.
+- Every `rescan` auto-calls `_stop_running_scans()` first — no zombie workers.

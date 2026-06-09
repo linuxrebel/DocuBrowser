@@ -60,7 +60,11 @@ DocuBrowse is a modern document search and browsing application for the `/mnt/da
 - `9812c30` feat: add CLI launcher and Ollama prerequisite gate
 - `0ed92af` docs: rewrite README with nav table and per-section top links
 - `50173f3` license: adopt GNU General Public License v3.0
-- *(pending)* fix: scan engine hardening — OOM, timeouts, clean stop, semaphore suppression
+- `954a197` fix: scan engine hardening — OOM, timeouts, clean stop, semaphore suppression
+- `1077f22` chore: ignore SQLite WAL/SHM files
+- `89475bb` docs: spread-layout PDF root cause documented
+- `1f2d335` fix: replace SIGALRM with setrlimit; handle BrokenProcessPool
+- `1fe0f4b` feat: scan blacklist — auto-skip and auto-add failed files
 
 ---
 
