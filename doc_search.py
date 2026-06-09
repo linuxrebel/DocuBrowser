@@ -10,6 +10,7 @@ import json
 import math
 import sqlite3
 import struct
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -101,6 +102,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_tags()
             elif path == '/api/search':
                 self.handle_search(query)
+            elif path == '/api/open':
+                self.handle_open(query)
             elif path == '/api/config':
                 self.handle_config()
             else:
@@ -322,6 +325,34 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             "has_more": has_more
         })
 
+    def handle_open(self, query: dict):
+        """GET /api/open?path=<encoded-path> - Open a file with xdg-open."""
+        path = query.get('path', [''])[0].strip()
+        if not path:
+            self.json_response({"ok": False, "error": "Missing path parameter"})
+            return
+
+        # Security: path must be in the index (not arbitrary filesystem access)
+        conn = get_db(self.db_path)
+        row = conn.execute('SELECT id FROM documents WHERE path = ?', (path,)).fetchone()
+        conn.close()
+        if not row:
+            self.json_response({"ok": False, "error": "Path not in document index"})
+            return
+
+        p = Path(path)
+        if not p.exists():
+            self.json_response({"ok": False, "error": f"File not found on disk: {path}"})
+            return
+
+        try:
+            subprocess.Popen(['xdg-open', str(p)],
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+            self.json_response({"ok": True, "path": path})
+        except Exception as e:
+            self.json_response({"ok": False, "error": f"xdg-open failed: {e}"})
+
     def handle_config(self):
         """GET /api/config - Return current configuration."""
         self.json_response({
@@ -383,10 +414,12 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
     def error_response(self, code: int, message: str):
         """Send an error response."""
+        content = f"{code}: {message}".encode('utf-8')
         self.send_response(code)
         self.send_header('Content-Type', 'text/plain; charset=utf-8')
+        self.send_header('Content-Length', len(content))
         self.end_headers()
-        self.wfile.write(f"{code}: {message}".encode('utf-8'))
+        self.wfile.write(content)
 
 
 def main():
