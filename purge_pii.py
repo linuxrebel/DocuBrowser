@@ -86,7 +86,9 @@ def _scan_text(text: str) -> list:
     return hits
 
 
-def run_purge(db_path: str, dry_run: bool = False) -> None:
+def run_purge(db_path: str, dry_run: bool = False) -> int:
+    """Run the PII purge.  Returns the number of matching documents found
+    (dry-run) or removed (live).  Returns 0 if nothing matched."""
     db_path = Path(db_path)
     if not db_path.exists():
         print(f"ERROR: Database not found: {db_path}")
@@ -126,7 +128,7 @@ def run_purge(db_path: str, dry_run: bool = False) -> None:
         print("NOTE: Only the stored description/snippet (~800 chars) was checked.")
         print("PII buried deeper in a file will not be caught by this pass.")
         conn.close()
-        return
+        return 0
 
     print(f"Found {len(hits):,} document(s) with potential PII:\n")
     for doc_id, path, name, matches in hits:
@@ -138,9 +140,8 @@ def run_purge(db_path: str, dry_run: bool = False) -> None:
 
     if dry_run:
         print(f"DRY RUN complete — {len(hits):,} document(s) would be removed.")
-        print("Re-run without --dry-run to apply.")
         conn.close()
-        return
+        return len(hits)
 
     # Interactive confirmation before any destructive action
     pii_bl = db_path.parent / PII_BLACKLIST_FILENAME
@@ -175,7 +176,6 @@ def run_purge(db_path: str, dry_run: bool = False) -> None:
             print(f"  \033[91mERROR\033[0m    {name}: {exc}", file=sys.stderr)
 
     if errors:
-        # Roll back the entire batch — don't leave a partial state
         conn.rollback()
         conn.close()
         print(f"\n{errors} error(s) during delete — rolled back all changes.")
@@ -200,6 +200,7 @@ def run_purge(db_path: str, dry_run: bool = False) -> None:
     print("NOTE: Only the stored description/snippet (~800 chars) was checked.")
     print("Documents with PII buried deeper may not have been detected.")
     print("After cleaning the source files, run rescan then purge again.")
+    return removed
 
 
 def build_parser():
