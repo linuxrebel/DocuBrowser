@@ -805,7 +805,7 @@ async function openSettings() {
     } else if (cfg.configSource) {
       status.innerHTML = `<span class="warn">⚠ Using config: ${esc(cfg.configSource)}</span><br>Copy to /etc for system-wide use`;
     } else {
-      status.innerHTML = `<span class="warn">⚠ No config file found — set values below</span>`;
+      status.innerHTML = `<span class="ok">Using built-in defaults — save to create a config file</span>`;
     }
     document.getElementById('saveMsg').style.display = 'none';
   } catch (e) {
@@ -827,11 +827,8 @@ async function saveConfig() {
       body: JSON.stringify({docPath, workDir})
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const msg = document.getElementById('saveMsg');
-    msg.textContent = data.message || 'Config saved successfully';
-    msg.style.display = 'block';
-    setTimeout(() => { msg.style.display = 'none'; }, 3000);
+    await res.json();
+    closeSettings();
     showToast('Config saved');
   } catch (e) {
     console.error('Config save error:', e);
