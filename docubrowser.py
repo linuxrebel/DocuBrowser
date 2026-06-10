@@ -15,6 +15,7 @@ Commands:
   restart     Restart the DocuBrowse server
   status      Show server status and index stats
   rescan      Scan documents and update the index
+  scan-file   Extract and index a single file, then embed it
   embed       Generate/refresh embeddings for unembedded documents
   open        Open the DocuBrowse UI in your browser
   purge       Scan index for PII and remove matching documents
@@ -655,6 +656,49 @@ def cmd_report(config: dict, args):
     print(f"       or   'docubrowser.py scan' to index all supported types.")
 
 
+def cmd_scan_file(config: dict, args):
+    """scan-file — extract and index a single file, then embed it."""
+    file_path = Path(args.file).resolve()
+    db_path   = args.db      or config["db_path"]
+    doc_dir   = args.doc_dir or config["doc_dir"]
+
+    if not file_path.exists():
+        print(f"ERROR: File not found: {file_path}")
+        sys.exit(1)
+
+    print(f"File:     {file_path}")
+    print(f"Database: {db_path}")
+    print()
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from scan_docs import scan_single_file
+
+    result = scan_single_file(str(file_path), db_path, doc_dir=doc_dir)
+
+    if result.get("removed_from_blacklist"):
+        print("  ✓ Removed from scan_blacklist.txt")
+
+    if not result["success"]:
+        print(f"  ✗ FAILED: {result['error']}")
+        print("  File has been re-added to scan_blacklist.txt.")
+        sys.exit(1)
+
+    doc_type = result.get("doc_type", "unknown")
+    print(f"  ✓ Indexed: {result.get('title') or file_path.stem}")
+    print(f"  doc_type: {doc_type}")
+    if result.get("tags"):
+        print(f"  Tags:     {', '.join(result['tags'])}")
+    if doc_type == "scanned":
+        print("  → Image-only PDF added to ocr_list_pdfs.txt")
+    print()
+
+    if not args.no_embed:
+        _run_embed(db_path, embed_workers=args.embed_workers)
+    else:
+        print("Skipping embedding (--no-embed).")
+        print("Run 'docubrowser.py embed' to generate embeddings later.")
+
+
 # ─── Not-yet-implemented stubs ────────────────────────────────────────────────
 
 def cmd_duplist(config: dict, args):
@@ -734,6 +778,8 @@ def build_parser() -> argparse.ArgumentParser:
               docubrowser.py report --doc-dir /mnt/data/Docs
               docubrowser.py purge --dry-run                  preview PII matches
               docubrowser.py purge                             remove PII documents interactively
+              docubrowser.py scan-file /path/to/file.pdf       index one file + embed
+              docubrowser.py scan-file /path/to/file.pdf --no-embed
 
             Tip: run 'docubrowser.py <command> --help' for per-command options.
             """),
@@ -893,6 +939,32 @@ def build_parser() -> argparse.ArgumentParser:
     p_report.add_argument("--db", metavar="PATH",
                           help="Ignored (report does not use the database; accepted for CLI consistency)")
 
+    # scan-file
+    p_scan_file = sub.add_parser(
+        "scan-file",
+        help="Extract and index a single file, then embed it",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            Extracts and indexes one file. If the file is in scan_blacklist.txt
+            it is removed first (treating this as an explicit retry).
+            PII-blacklisted files are refused.
+
+            Examples:
+              scan-file /mnt/data/Documents/report.pdf
+              scan-file /mnt/data/Documents/report.pdf --no-embed
+              scan-file /path/to/doc.html --doc-dir /mnt/data/Documents
+        """),
+    )
+    p_scan_file.add_argument("file", metavar="FILE", help="Path to the file to index")
+    p_scan_file.add_argument("--db", metavar="PATH", help="Database path")
+    p_scan_file.add_argument("--doc-dir", metavar="DIR", dest="doc_dir",
+                             help="Document root (used for tag derivation; defaults to configured doc_dir)")
+    p_scan_file.add_argument("--no-embed", action="store_true",
+                             help="Skip embedding after indexing")
+    p_scan_file.add_argument("--embed-workers", metavar="N", type=int,
+                             default=_default_embed_workers, dest="embed_workers",
+                             help=f"Parallel threads for Ollama embedding (default: {_default_embed_workers})")
+
     # duplist (stub)
     sub.add_parser("duplist", help="List duplicate documents [Not yet implemented]")
 
@@ -903,19 +975,20 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 COMMANDS = {
-    "start":    cmd_start,
-    "stop":     cmd_stop,
-    "stopall":  cmd_stopall,
-    "restart":  cmd_restart,
-    "status":   cmd_status,
-    "scan":     cmd_scan,
-    "rescan":   cmd_rescan,
-    "embed":    cmd_embed,
-    "open":     cmd_open,
-    "purge":    cmd_purge,
-    "report":   cmd_report,
-    "duplist":  cmd_duplist,
-    "dupclean": cmd_dupclean,
+    "start":     cmd_start,
+    "stop":      cmd_stop,
+    "stopall":   cmd_stopall,
+    "restart":   cmd_restart,
+    "status":    cmd_status,
+    "scan":      cmd_scan,
+    "scan-file": cmd_scan_file,
+    "rescan":    cmd_rescan,
+    "embed":     cmd_embed,
+    "open":      cmd_open,
+    "purge":     cmd_purge,
+    "report":    cmd_report,
+    "duplist":   cmd_duplist,
+    "dupclean":  cmd_dupclean,
 }
 
 
