@@ -1,466 +1,174 @@
 # DocuBrowse Project Status
 
-**Version**: v0.2.1 (UX & Privacy Hardening)  
-**Status**: 🟡 **IN PROGRESS — scanning large corpus**  
-**Last Updated**: 2026-06-08  
-**Repository**: GitHub (pushed)
+**Version**: v0.5.0  
+**Status**: 🟢 **STABLE — daily use, active development**  
+**Last Updated**: 2026-06-09  
+**Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
 
 ## Executive Summary
 
-DocuBrowse is a modern document search and browsing application for the `/mnt/data/Documents` folder (target: 10K files). The MVP (v0.1.0) is feature-complete with dual search modes, pagination, theming, and responsive UI. All core functionality is implemented and tested. Ready for production deployment.
+DocuBrowse indexes a local document corpus (currently `/mnt/data/Documents`, ~10K files)
+using PDF/HTML/TXT/MD extraction, SQLite FTS5 keyword search, and Ollama semantic
+embeddings. The CLI is complete and in daily use. v0.5.0 is the first tagged release.
 
 **Key Metrics**:
-- 135 files committed to git
-- Supports 50-document batches with pagination
+- Supported formats: PDF, HTML, TXT, Markdown
 - Search latency: <150ms typical
-- UI load time: <1s
-- Responsive across all device sizes
+- Worker parallelism: physical-core-aware (tested up to 8 workers)
+- PDF resilience: pdfplumber primary, pypdf fallback for >8,000-object files, layout=False secondary fallback, scanned PDF detection
 
 ---
 
-## Session Summary — 2026-06-09 (Author/Subject Fields, Scan UX)
+## v0.5.0 — What's in this release
 
-### Author/Subject as first-class searchable fields
-- **`pdf_extractor.py`** — extracts `Subject` from pdfplumber metadata and pypdf metadata; `'subject': None` default in result dict
-- **`docubrowse_db.py`** — added `subject TEXT` column to `documents`; added `author`, `subject` to `doc_fts` virtual table; migration block: drops and recreates FTS table if `author` column missing, repopulates from `documents`
-- **`scan_docs.py`** — passes `subject` through `_extract_file` return dict; updated `INSERT OR REPLACE` for both `documents` (13 params) and `doc_fts` (8 columns incl. author/subject)
-- **`doc_search.py`** — both browse path (empty query) and search path (scored results) now SELECT `d.author, d.subject`; keyword scoring adds 0.7 boost for author match, 0.5 for subject match, 0.1/0.05 per token; result dicts include `"author"` and `"subject"` fields
+### PDF Extraction Hardening (2026-06-09)
+- **pypdf pre-check**: Before calling pdfplumber, read trailer `/Size` via pypdf. If >8,000 objects, route to pypdf (lazy-loading) instead — fixes Security_of_Cloud-based_systems.pdf class of hang (root cause: ExifTool metadata appended 22,421 xref objects without GC; pdfminer builds complete object map on open).
+- **layout=False fallback**: After default pdfplumber extraction yields no text, retry with `layout=False` to skip spatial analysis on complex/spread-layout PDFs.
+- **Scanned PDF detection**: If both passes yield no text, check `pdf.pages[0].images`. Image-only PDFs are indexed as `doc_type='scanned'` with placeholder text; path appended to `ocr_list_pdfs.txt`.
+- **Import fix**: `pypdf` imported independently of pdfplumber (both `HAS_*` flags can be True simultaneously). `_extract_file` now forwards `doc_type` in its return dict.
 
-### Scan UX improvements
-- **`docubrowser.py`** — unfiltered `scan`/`rescan` (no type arg) shows file-type breakdown and prompts y/N before proceeding; `--limit N` flag added to `scan`/`rescan` (processes first N unindexed files; next run naturally skips those); `report` subcommand added (walks doc dir, prints extension breakdown with count/percent/size/scannable marker, no DB changes)
-- **`scan_docs.py`** — `limit` param added to `scan_directory()`; after sort, truncates `to_process` to limit and prints deferred count
+### New Commands (2026-06-09)
+- **`scan-file --file PATH`**: Extract and index one file in the main process (no executor). Auto-removes from `scan_blacklist.txt` if listed (explicit retry). Refuses `pii_blacklist.txt` entries. Embeds afterward unless `--no-embed`. `--file` uses `nargs='+'` so paths with spaces work without quoting.
+- **`report`**: Walk doc directory, print extension breakdown (count/percent/size/scannable label). No DB changes.
+- **`stopall`**: Kill all running scans, embeds, and the server.
 
-### Root cause: non-PDF files in DB
-- Investigation confirmed scan #1 (unfiltered) pre-dated the `scan pdf` run — HTML files were from that earlier session, not a filter bug. Extension filter in `scan_docs.py` was already correct. Preventive fix: confirmation prompt for unfiltered scans.
+### Scan UX (2026-06-09)
+- **`--limit N`**: Process at most N unindexed files per run; next run resumes naturally (already-indexed files are skipped before applying limit).
+- **Unfiltered scan prompt**: `scan`/`rescan` without a type filter shows file-type breakdown and prompts y/N before proceeding.
+- **Report subcommand**: Scannable types listed individually; all others collapsed to single `(unscannable)` line.
 
-## Session Summary — 2026-06-08 (UX & Privacy Hardening)
+### DB rename (2026-06-09)
+- Database renamed from `docs.db` → `du-docs.db`. Example file moved to `du-docs.db.example`. All references updated.
 
-### Open file from UI (xdg-open)
-- **`doc_search.py`** — new `GET /api/open?path=...` endpoint; validates path against DB index (security whitelist), runs `xdg-open`; all error paths return JSON; fixed `Content-Length` missing from `error_response()`
-- **`index.html`** — title click opens file; path row also clickable with hover styling; full path shown on tooltip; `📋` clipboard icon copies path
-
-### PII purge
-- **`purge_pii.py`** (new) — post-ingest PII scanner; checks stored description + content_snippet (~800 chars) against six regex patterns: SSN, Credit Card, Date of Birth, Medical Record Number, Driver License, Passport Number
-  - `--dry-run` flag: report matches, touch nothing
-  - All-or-nothing transaction: commit DB first, write `pii_blacklist.txt` after — files never diverge on partial failure
-  - Passport regex requires keyword anchor (`passport`, `pass no`) — avoids firmware/part-number false positives
-  - SSN regex uses negative lookbehind/lookahead — avoids ISBN substring matches (978-90-5940-365-9 was triggering)
-- **`scan_docs.py`** — loads both `scan_blacklist.txt` and `pii_blacklist.txt` at startup; summary line reports counts from each separately
-- **`docubrowser.py`** — `purge` command wired up; `_offer_purge()` prompts after every scan/rescan: `[y]` live / `[n]` skip / `[D]` dry-run (default); dry-run with hits offers immediate live purge follow-up
-
-### Bugs caught by QA agent
-- `error_response()` sent plain text but JS called `.json()` unconditionally — fixed: `handle_open` errors return JSON
-- `error_response()` missing `Content-Length` header — fixed
-- Partial-delete commit risk: successful deletes committed while failed ones left DB/blacklist out of sync — fixed with all-or-nothing transaction + rollback on any error
-- Passport regex `[A-Z]{1,2}\d{7,9}` no anchor — would delete docs with firmware version strings — fixed with keyword anchor
-- FTS5 contentless table does not support `DELETE` — removed FTS delete; orphaned entries harmless (search never queries FTS directly)
-
-### Commits this sub-session
-- `954e13f` docs: update README — alpha disclaimer, nav, AI-assisted dev section, v0.2.0
-- `58d054e` docs: log observed bugs and UX issues from live scan (2026-06-08)
-- `5c1053f` feat: open files via xdg-open on click (title + path row)
-- `17811cc` docs: log PII filtering requirement
-- `22cfee5` docs: design decision — separate pii_blacklist.txt from scan_blacklist.txt
-- `2b11557` feat: add purge command — detect and remove PII from index
-- `97883ac` fix: tighten SSN regex to reject ISBN substrings
-- `1199491` fix: remove FTS5 delete — contentless tables don't support DELETE
-- `1d14d77` feat: offer PII purge automatically after every scan/rescan
+### Author/Subject fields (2026-06-09)
+- `documents` table: `subject TEXT` column added.
+- `doc_fts` virtual table: `author`, `subject` columns added; migration drops/recreates FTS and repopulates if column is missing.
+- `pdf_extractor.py`: extracts `Subject` from pdfplumber and pypdf metadata.
+- `scan_docs.py`: passes `subject` through `_extract_file` return dict; updated INSERT for both tables.
+- `doc_search.py`: both browse and search paths SELECT `d.author, d.subject`; keyword scoring adds 0.7 boost (author phrase), 0.5 (subject phrase), 0.1/0.05 per token.
 
 ---
 
-## Session Summary — 2026-06-08 (Scan Engine Hardening)
+## Session History
 
-**Work completed this session:**
+### 2026-06-09 (continued) — PDF hardening, scan-file, packaging
+- Investigated Security_of_Cloud-based_systems.pdf hang: confirmed pdfminer hangs on 22,421-object xref traversal at `open()` time. pypdf opens in 0.05s (lazy load).
+- Implemented pypdf pre-check in `pdf_extractor.py`: trailer `/Size` >8,000 → skip pdfplumber, use pypdf.
+- Added `scan_single_file()` to `scan_docs.py` with `_blacklist_remove()`.
+- Added `scan-file` subcommand to `docubrowser.py`.
+- Fixed `--file` argument to use `nargs='+'` after argparse hyphen-in-path parsing failure.
+- Tagged v0.5.0, wrote README/INSTALL/project_status docs, created release tgz.
 
-### Reliability & OOM protection
-- **`hardware_utils.py`** (new) — CPU/GPU/RAM detection, `recommended_scan_workers()` formula (4 GB/worker + 4 GB OS reserve, cap 8), `wait_for_memory()` with pause/resume thresholds (15%/25%). Warn-zone messages log-only; critical pause to stderr only (no progress bar corruption).
-- **`scan_docs.py`** — Full rewrite of scanner core:
-  - ProcessPoolExecutor with `forkserver` + module-level `_worker_init()` (picklable; workers ignore SIGINT)
-  - Sliding window executor (`wait(FIRST_COMPLETED)`, `MAX_IN_FLIGHT = workers`) — no bulk memory pre-queuing
-  - Per-file SIGALRM timeout: `MAX_PAGES × 2s` (default 300s) — corrupt/looping PDFs can't hang the scan
-  - Sort files ascending by size (`_safe_size` with OSError guard) — small files finish first, index useful sooner
-  - All per-file FAILED/OK output → log file only; terminal shows progress bar + summary only
-  - `_setup_scan_logger()`: tries `/var/log/docubrowser.log`, falls back to `~/.local/share/docubrowser/`
-  - KeyboardInterrupt caught at executor loop level: commits progress, closes DB, exits cleanly
-- **`pdf_extractor.py`** — `MAX_PAGES = 150` cap on pdfplumber/PyPDF2 (large speedup, memory reduction). Fixed `HAS_PYPDF` NameError (both flags initialized unconditionally before try/except).
-- **`embed_docs.py`** — minor hardening; `import signal` added.
+### 2026-06-09 (morning) — Author/subject, scan UX, DB rename, triage
+- Added author/subject as first-class fields in DB, FTS, extractor, scanner, search scoring.
+- Added `--limit N`, `report` subcommand, unfiltered scan confirmation prompt.
+- Renamed DB to `du-docs.db`.
+- Wrote and ran `triage_blacklist.py` one-off script to reclassify existing blacklist: identified scanned PDFs vs truly broken ones, moved scanned to `ocr_list_pdfs.txt`.
+- Added `ocr_list_pdfs.txt` to `.gitignore`.
+- Added `layout=False` fallback in `_extract_pdfplumber`.
+- Added scanned PDF detection (`doc_type='scanned'`) in `_extract_pdfplumber`.
 
-### Process management
-- **`docubrowser.py`** — major additions:
-  - `SCAN_PID_FILE` tracks scan PGID; `_stop_running_scans()` kills entire process group via `os.killpg()`
-  - `cmd_stopall()` — kills scans, embeds, and server in one command
-  - `cmd_rescan()` — auto-kills any running scan before starting a new one (no more zombie workers)
-  - `start_new_session=True` on scan `Popen` → scan gets own PGID → group kill works
-  - Scan stderr redirected to log file — Python `resource_tracker` "leaked semaphore" warnings suppressed from terminal
-- **`README.md`** — added Troubleshooting section: inotify limit disable/re-enable commands
+### 2026-06-08 — Scan hardening, PII purge, open from UI
+- `hardware_utils.py` — CPU/GPU/RAM detection, `recommended_scan_workers()` (4 GB/worker + 4 GB OS reserve, cap 8), `wait_for_memory()`.
+- ProcessPoolExecutor hardening: `forkserver` start method → `fork` (nested function pickling), module-level `_worker_init`, SIGINT ignore, RLIMIT_AS 6 GB, RLIMIT_CPU 3000s.
+- SIGALRM replaced with `resource.setrlimit()` after confirming SIGALRM is unreliable in C extensions.
+- Sliding window executor pattern (`wait(FIRST_COMPLETED)`, MAX_IN_FLIGHT = workers).
+- `stopall`, `cmd_rescan` auto-kills, scan PID file, process group kill.
+- `purge_pii.py` — SSN/CC/DOB/MRN/DL/Passport regex scan; all-or-nothing transaction; `pii_blacklist.txt`.
+- `GET /api/open` — validates path against DB index, runs xdg-open.
+- Post-scan PII prompt — y/n/D (dry-run default).
 
-### Engineering docs
-- **`.claude/CLAUDE.md`** (new) — QA requirement, project context, key files, dev rules, and all hard-won lessons (ProcessPoolExecutor pitfalls, memory management, PDF extraction, progress bar, Ctrl-C, sort order)
-- **`status_docs/DECISIONS.md`** (new) — deferred decisions log: ETA improvements, worker formula, ebook extraction, inotify, sensitive files, no-extension files
-
-**Bugs caught by QA agent (would have been production issues):**
-- `_worker_init` nested inside `scan_directory()` → PicklingError at executor startup → moved to module level
-- Bare `lambda f: f.stat().st_size` in sort key → OSError crash if file disappears → replaced with `_safe_size()`
-- `HAS_PYPDF` NameError when pdfplumber is installed → flags now initialized unconditionally
-- SIGALRM defensive cancel missing → stale alarm risk → `signal.alarm(0)` added before handler install
-
-**Commits this session:**
-- `9812c30` feat: add CLI launcher and Ollama prerequisite gate
-- `0ed92af` docs: rewrite README with nav table and per-section top links
-- `50173f3` license: adopt GNU General Public License v3.0
-- `954a197` fix: scan engine hardening — OOM, timeouts, clean stop, semaphore suppression
-- `1077f22` chore: ignore SQLite WAL/SHM files
-- `89475bb` docs: spread-layout PDF root cause documented
-- `1f2d335` fix: replace SIGALRM with setrlimit; handle BrokenProcessPool
-- `1fe0f4b` feat: scan blacklist — auto-skip and auto-add failed files
+### 2026-06-07 — MVP (v0.1.0)
+- SQLite schema with FTS5, doc_tags, doc_embeddings.
+- HTTP search server (port 8643) with hybrid search (70/30 semantic/keyword).
+- PDF extraction with pdfplumber.
+- Ollama embedding pipeline (nomic-embed-text:latest, 768-dim).
+- Single-file frontend (index.html) with dark/light theme, pagination, tag cloud, alphabetic index bar.
 
 ---
 
-## Project State
+## Current State
 
-### ✅ Completed (MVP v0.1.0)
+### ✅ Complete
 
-**Core Infrastructure**
-- [x] SQLite database schema with FTS5 full-text search
-- [x] Document table with metadata (title, author, description, path, modified_at)
-- [x] Tag system for document organization
-- [x] Embedding storage (768-dim vectors via nomic-embed-text)
-- [x] HTTP search server on port 8643
+**Indexing**
+- [x] PDF extraction (pdfplumber + pypdf fallback)
+- [x] HTML extraction (script/style strip, entity decode)
+- [x] TXT/Markdown extraction
+- [x] Author, subject, title metadata
+- [x] Auto-generated tags (extension + directory names + content keywords)
+- [x] Scanned PDF detection → ocr_list_pdfs.txt
+- [x] Scan blacklist (auto-populated on failure, retriable)
+- [x] PII blacklist (permanent, never re-ingest)
+- [x] `scan-file` for single-file retry
+- [x] `--limit N` for batch scanning
 
-**Document Processing**
-- [x] PDF metadata extraction (pdfplumber-based)
-- [x] Automatic title/author/description detection
-- [x] Document scanning from filesystem
+**Search**
+- [x] FTS5 keyword search (title, author, subject, tags, snippet)
+- [x] Semantic search (cosine similarity, 768-dim vectors)
+- [x] Hybrid mode (70% semantic + 30% keyword, merged rank)
+- [x] Author/subject scoring boosts
 
-**Search Functionality**
-- [x] Full-text search (FTS5 keyword matching)
-- [x] Semantic search (Ollama embeddings + cosine similarity)
-- [x] Hybrid mode (70% semantic + 30% keyword)
-- [x] Relevance scoring with threshold filtering
-- [x] Query pagination (50 docs/page)
+**Server & UI**
+- [x] HTTP server port 8643
+- [x] Dark/light theme, pagination, tag cloud, alphabetic bar
+- [x] Click to open file (xdg-open), copy path to clipboard
+- [x] `/api/stats`, `/api/search`, `/api/tags`, `/api/open`
 
-**User Interface**
-- [x] Responsive grid layout (1/2/3+ columns based on screen size)
-- [x] Dark/light theme toggle with CSS variables
-- [x] Pagination controls (Back/Next buttons at top)
-- [x] Alphabetic index bar (A-Z, 0-9) for quick navigation
-- [x] Tag filtering and display
-- [x] Score badges (relevance percentages)
-- [x] Scroll-to-top button for UX
-- [x] Smooth transitions and hover effects
-- [x] Mobile-responsive design
+**Operations**
+- [x] PII purge (dry-run + live)
+- [x] stopall, auto-kill on rescan
+- [x] report subcommand
+- [x] Hardware-aware worker count
+- [x] Memory pressure pause/resume
 
-**Quality Assurance**
-- [x] E2E integration testing
-- [x] UI/UX validation (light/dark themes, responsiveness)
-- [x] Search quality validation
-- [x] Error handling for missing files
-- [x] Port conflict detection with user-friendly messages
+### 📋 Pending
 
----
-
-### 📋 Pending (Phase 2+)
-
-**Phase 2b: Format Expansion** (Deferred)
-- [ ] HTML extractor with boilerplate stripping
-- [ ] TXT/Markdown extractor
+**Phase 2b — Format Expansion**
 - [ ] DOCX extractor (python-docx)
-- [ ] Expand from 100 to 10K documents
+- [ ] EPUB/MOBI metadata (ebooklib, KindleUnpack)
+- [ ] No-extension file classification (magic bytes)
+- [ ] File-type filter in search UI (`?type=pdf`)
 
-**Phase 3: Advanced Features** (Deferred)
-- [ ] Config persistence (load/save from disk)
-- [ ] Advanced filtering (date range, type, author)
-- [ ] Export functionality (CSV/JSON results)
-- [ ] Duplicate detection and cleanup
+**Phase 2 — Housekeeping**
+- [ ] `duplist` / `dupclean` (content hash deduplication)
+- [ ] Sliding window ETA on progress bar
+- [ ] ETA display format: `Xh Ym` when >60 min
 
-**Future (Phase 3+)** (Deferred)
-- [ ] Binary file relationship detection
-- [ ] Document similarity clustering
-- [ ] Full-text export
-- [ ] API authentication (keys/tokens)
-
----
-
-## Engineering Architecture
-
-### System Design
-
-```
-┌─────────────────────────────────────────┐
-│   Browser (index.html)                  │
-│  - Dark/light theme toggle              │
-│  - Pagination controls                  │
-│  - Alphabetic index bar                 │
-│  - Real-time search & filtering         │
-└──────────┬──────────────────────────────┘
-           │ HTTP REST API
-           ↓
-┌─────────────────────────────────────────┐
-│   Search Server (doc_search.py)         │
-│  - /api/search (pagination + ranking)   │
-│  - /api/stats (database info)           │
-│  - /api/tags (tag cloud)                │
-│  - /api/config (settings)               │
-└──────────┬──────────────────────────────┘
-           │ SQLite + Ollama HTTP
-           ↓
-┌─────────────────────────────────────────┐
-│   Data Layer                            │
-│  - du-docs.db (SQLite FTS5 + embeddings)   │
-│  - Ollama (nomic-embed-text embeddings) │
-└─────────────────────────────────────────┘
-```
-
-### Database Schema
-
-**documents** table:
-- `id` (PK)
-- `name` (filename)
-- `title` (extracted metadata)
-- `author` (extracted metadata)
-- `description` (first 300 chars of content)
-- `path` (full filesystem path)
-- `created_at`, `modified_at` (timestamps)
-- `extracted_at` (metadata extraction timestamp)
-
-**doc_tags** table (many-to-many):
-- `doc_id` → documents.id
-- `tag` (string, indexed)
-
-**doc_embeddings** table:
-- `doc_id` → documents.id
-- `embedding` (768-dimensional BLOB)
-- `model` (nomic-embed-text)
-
-**doc_fts** virtual table:
-- FTS5 index on (title, description, tags)
-- Enables fast keyword matching
-
-### Search Algorithm
-
-**Hybrid relevance scoring**:
-```
-final_score = 0.3 × keyword_score + 0.7 × semantic_score
-
-keyword_score:
-  - Title match: +0.8
-  - Filename match: +0.6
-  - Description match: +0.3
-  - Tags match: +0.4
-  - Token substring: +0.1 per token
-
-semantic_score:
-  - Cosine similarity (query embedding vs document embedding)
-  - Range: 0.0–1.0
-  - Min threshold for semantic-only: 0.30
-```
-
-### API Contract
-
-**GET /api/search**
-```json
-Request:
-  ?q=QUERY&offset=0&mode=both|keyword|semantic
-
-Response:
-{
-  "documents": [
-    {
-      "id": 1,
-      "name": "doc.pdf",
-      "title": "Document Title",
-      "description": "...",
-      "path": "/mnt/data/Documents/doc.pdf",
-      "tags": ["tag1", "tag2"],
-      "modified_at": "2026-06-07T...",
-      "score": 0.95,
-      "fts_score": 0.8,
-      "sem_score": 0.98
-    }
-  ],
-  "query": "QUERY",
-  "count": 50,
-  "total": 312,
-  "offset": 0,
-  "has_more": true,
-  "mode": "both"
-}
-```
-
-### File Structure
-
-```
-DocuBrowse/
-├── doc_search.py           # HTTP server (port 8643)
-├── docubrowse_db.py        # Database schema & migrations
-├── pdf_extractor.py        # PDF metadata extraction
-├── embed_docs.py           # Embedding generation pipeline
-├── scan_docs.py            # Document discovery
-├── index.html              # Complete UI (511+ lines)
-├── du-docs.db                 # SQLite database
-├── README.md               # User documentation
-├── PROJECT_STATUS.md       # This file
-├── .gitignore              # (to be added)
-└── test_pdfs_live/         # 100 sample PDFs
-```
+**Phase 3+**
+- [ ] OCR integration for scanned PDFs
+- [ ] Config persistence in UI
+- [ ] Result export (CSV/JSON)
+- [ ] API key authentication
+- [ ] Docker deployment
 
 ---
 
-## Technical Decisions
+## File Inventory (core source)
 
-### Why SQLite FTS5?
-- **Pros**: No external dependencies, fast keyword search, integrated with Python
-- **Cons**: Limited linguistic stemming, no distributed indexing
-- **Decision**: Sufficient for MVP; hybrid mode mitigates limitations
-
-### Why Ollama (not OpenAI/Anthropic API)?
-- **Pros**: Local/offline, no API costs, privacy-preserving, customizable models
-- **Cons**: Requires local setup, slower than cloud APIs
-- **Decision**: Aligns with observability expertise; privacy-first approach
-
-### Why nomic-embed-text (not BERT/GPT)?
-- **Pros**: 768 dimensions (efficient), good semantic similarity, Apache 2.0 licensed
-- **Cons**: Less powerful than foundation models
-- **Decision**: Right balance of capability vs resource consumption for local deployment
-
-### Pagination Strategy (50 docs/page)
-- **Rationale**: Balances UI responsiveness with data volume; matches repo-browser pattern
-- **Trade-off**: Users must paginate through large result sets
-- **Future**: Could implement server-side caching or infinite scroll
-
-### Dark/Light Theme
-- **Implementation**: CSS variables + localStorage
-- **Scope**: Reduced eye strain, accessibility
-- **Note**: Settings don't persist across session restarts (Phase 3)
+| File | Purpose |
+|------|---------|
+| `docubrowser.py` | CLI entry point — all commands |
+| `doc_search.py` | HTTP server, search API |
+| `docubrowse_db.py` | SQLite schema and migrations |
+| `scan_docs.py` | Document discovery, extraction, DB writes |
+| `pdf_extractor.py` | PDF extraction (pdfplumber + pypdf) |
+| `hardware_utils.py` | CPU/GPU/RAM detection, worker formula |
+| `embed_docs.py` | Ollama embedding pipeline |
+| `purge_pii.py` | PII scanner and purge |
+| `ensure_ollama.py` | Ollama prerequisite checker |
+| `index.html` | Frontend UI |
 
 ---
 
-## Performance Profile
+## Known Issues
 
-| Metric | Target | Actual |
-|--------|--------|--------|
-| Search latency (100 docs) | <150ms | ~80ms |
-| UI load time | <1s | ~500ms |
-| Document batch size | 50 | 50 |
-| Max simultaneous connections | N/A | Limited by HTTP server |
-| Database size (100 PDFs) | ~200MB | ~122MB |
+See `status_docs/DECISIONS.md` for full details. Key open items:
 
----
-
-## Known Limitations & Workarounds
-
-### Current (MVP)
-1. **PDF-only**: HTML, TXT, DOCX deferred to Phase 2b
-2. **No semantic search**: Requires Ollama installation and embeddings
-3. **No persistence**: Theme preference resets on page reload
-4. **Binary tracking**: Document relationships not detected
-5. **Single-user**: No authentication or multi-tenant support
-
-### Workarounds Available
-- Use keyword-only search if semantic unavailable
-- Manually configure theme each session
-- Tag documents for organization
-- Document dependencies in file paths
-
----
-
-## Deployment Checklist
-
-- [x] Code reviewed and tested
-- [x] Database schema finalized
-- [x] UI/UX validated (responsive, accessible)
-- [x] API endpoints documented
-- [x] Error handling implemented
-- [x] README and docs complete
-- [x] Git commit and tag created
-- [ ] GitHub repository created (user action)
-- [ ] CI/CD configured (deferred)
-- [ ] Production environment setup (deferred)
-
----
-
-## Quick Start for Developers
-
-```bash
-# Start the server
-cd /mnt/data/git/AI/DocuBrowse
-python3 doc_search.py ./du-docs.db 8643
-
-# Optional: Generate embeddings for semantic search
-python3 embed_docs.py
-
-# Open in browser
-open http://localhost:8643
-```
-
----
-
-## Roadmap & Next Steps
-
-### Immediate (Post-MVP)
-1. Push to GitHub
-2. Set up CI/CD (GitHub Actions)
-3. Document deployment process
-
-### Short-term (Phase 2b, ~2 weeks)
-1. HTML extractor (with BeautifulSoup boilerplate detection)
-2. TXT/Markdown extractor
-3. DOCX extractor
-4. Expand testing to 10K documents
-
-### Medium-term (Phase 3, ~4 weeks)
-1. Config persistence
-2. Advanced filtering
-3. Result export (CSV/JSON)
-4. Duplicate detection
-
-### Long-term (Phase 3+)
-1. Binary relationship detection
-2. Document clustering
-3. API authentication
-4. Distributed deployment
-
----
-
-## Team Context
-
-**Primary Developer**: James (Linux Observability & Troubleshooting)  
-**Technology Stack**: Python 3.8+, SQLite3, HTTP, Ollama, HTML/CSS/JS  
-**Development Environment**: Fedora Linux, VS Code  
-**Repository**: GitHub (public, MIT license planned)
-
----
-
-## Success Criteria
-
-✅ **MVP v0.1.0**
-- [x] Search 100 PDFs with <150ms latency
-- [x] Responsive UI on desktop/mobile
-- [x] Dark/light theme
-- [x] Pagination and filtering
-- [x] Documentation and README
-
-🎯 **Phase 2b**
-- [ ] Support 10K documents
-- [ ] Multiple file formats
-- [ ] Same performance profile
-
-📊 **Full Release**
-- [ ] Production deployment
-- [ ] API documentation
-- [ ] User guide and training
-- [ ] Performance monitoring
-
----
-
-## Contact & Support
-
-**Questions**: Open an issue on GitHub  
-**Contributions**: Pull requests welcome  
-**License**: (To be specified; currently MIT placeholder)
-
----
-
-**Status**: 🟢 Ready to ship. All MVP features complete, tested, and documented.
+1. **ETA drifts high** — progress bar ETA uses simple average; large PDFs hit late inflate it. Fix: sliding window average (deferred).
+2. **Scanned PDFs not searchable** — indexed with placeholder; OCR deferred to Phase 3.
+3. **`duplist`/`dupclean` not implemented** — stubs only.
+4. **No file-type filter in search UI** — searching "docx" returns semantically similar PDFs. Fix: `?type=` filter (deferred).
+5. **ocr_list_pdfs.txt may have duplicate lines** — multiple scan runs of the same image-only PDF append the path again. OCR processing must deduplicate on read.

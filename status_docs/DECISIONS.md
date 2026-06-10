@@ -56,22 +56,21 @@ Then decide: index as plaintext, route to appropriate extractor, or skip.
 
 ## Problem Files Requiring Investigation
 
-### Security_of_Cloud-based_systems.pdf
+### ✅ Security_of_Cloud-based_systems.pdf — RESOLVED
 **Full path**: `/mnt/data/Documents/tech-classes/security/Against Security - Self Security/Cloud/Security_of_Cloud-based_systems.pdf`  
 **Symptom**: pdfplumber allocated **8.7 GB RAM** and ran for **16+ minutes** without completing or timing out. File opens normally in a PDF reader — it is a valid PDF.  
-**Root cause (theory)**: Complex internal PDF structure (deep cross-reference tables, large font objects, or elaborate content streams) causing pdfplumber/pdfminer to build a pathological in-memory object graph. This is distinct from file size — the issue is structural complexity, not page count.  
+**Root cause**: The PDF has 22,421 objects for 434 pages (10× normal). Each ExifTool metadata update appended a new xref section with a `/Prev` chain without garbage-collecting old objects. pdfminer (used by pdfplumber) builds a complete object map at `open()` time, traversing the entire chain — this hangs on 22k objects. pypdf lazy-loads and opens in 0.05s.  
 **Why SIGALRM didn't save us**: pdfplumber spends the majority of its time in C extensions (pdfminer's C layer). Python's signal handler only runs between bytecodes; it is never called while C code is executing in a tight loop.  
 **Fix applied (2026-06-08)**: Switched from SIGALRM to kernel-level `resource.setrlimit()` in `_worker_init`:
 - `RLIMIT_AS = 6 GB` — malloc fails with MemoryError when exceeded (works in C code)
 - `RLIMIT_CPU = FILE_TIMEOUT_SECS` — SIGXCPU kills the worker on CPU time overrun  
 **Root cause identified (2026-06-08)**: The PDF uses a **two-page spread layout** — each PDF "page" renders two logical pages side by side on a single wide canvas (confirmed visually; Kindle also struggles with this file). pdfplumber performs full spatial layout analysis per page: it maps every character's x/y coordinate, detects columns, and infers reading order. On a double-width spread, that's ~2× the layout graph per page, and the column-inference algorithm enters a pathological state trying to reconcile text spanning the gutter between the two logical pages. This is a print-layout PDF, not a reflowable document.
 
-**To investigate / fix**:
-- Pre-screen with `pdfinfo` for unusual page dimensions (width > 2× standard = spread layout). Flag these before handing to pdfplumber.
-- For spread-layout PDFs: use `pdftotext` (Poppler CLI) as fallback — Poppler's layout engine handles spreads much better than pdfminer.
-- Alternatively: pass `layout=False` to pdfplumber's `extract_text()` to skip spatial analysis entirely (much faster/lighter, but text order may be degraded).
-- Could also crop each page to left/right halves before extraction using pdfplumber's crop API.
-- Check page dimensions: `pdfinfo Security_of_Cloud-based_systems.pdf | grep 'Page size'`
+**Fix applied (2026-06-09)**: Added pypdf pre-check in `pdf_extractor.extract_pdf()`:
+- Before calling pdfplumber, open the file with pypdf and read `reader.trailer.get('/Size', 0)`.
+- If object count > 8,000, skip pdfplumber entirely and use `_extract_pypdf()` instead.
+- `layout=False` fallback also added as secondary mitigation for complex-layout PDFs.
+- File successfully indexed via `docubrowser.py scan-file`.
 
 ---
 
@@ -187,10 +186,14 @@ Are these duplicates of each other? Web archive variants?
 | Two blacklist files | scan_blacklist.txt (retriable failures) vs pii_blacklist.txt (permanent PII); scan loads both; purge writes only to PII list | 2026-06-08 |
 | SSN regex false positive | ISBN substrings (e.g. 978-90-5940-365-9) matched SSN pattern; fixed with negative lookbehind/lookahead for adjacent digits/hyphens | 2026-06-08 |
 | Post-scan PII prompt | After every scan/rescan, offer y/n/D (dry-run default); dry-run with hits offers immediate live purge | 2026-06-08 |
-| layout=False fallback root cause | Security_of_Cloud-based_systems.pdf (439x669 pts) causes pdfplumber to spin despite NOT being a spread-layout by dimension. Exact trigger unknown — suspect complex content streams or deeply nested font encoding causing quadratic layout analysis. Need to profile: run pdfplumber under py-spy or cProfile on that file, capture where time is spent. Implementing layout=False fallback now as mitigation; root cause investigation deferred. | 2026-06-09 |
+| layout=False fallback root cause | RESOLVED. Security_of_Cloud-based_systems.pdf has 22,421 PDF objects for 434 pages (10× normal). Caused by ExifTool metadata updates — each update appends a new xref table without garbage-collecting old objects (/Prev chain). pdfminer (used by pdfplumber) builds a complete object map upfront on open(), hanging on the 22k object traversal. pypdf lazy-loads and opens in 0.05s. Fix: pre-check /Size from xref via pypdf; if > 8,000 objects skip pdfplumber and use pypdf directly. layout=False fallback also kept as secondary mitigation. | 2026-06-09 |
 | Scanned PDF detection (pypdf fallback) | pypdf fallback path does not detect scanned PDFs (PyPDF2 has no .images API — would need /XObject inspection). Acceptable: pdfplumber is always present in production; pypdf path is dead code. If pypdf ever becomes primary, revisit. | 2026-06-09 |
 | ocr_list_pdfs.txt deduplication | _ocr_list_add() appends without deduplication — repeated scans could produce duplicate lines. OCR processing must handle duplicates. triage_blacklist.py deduplicates on read. | 2026-06-09 |
 | Non-PDF files in DB (root cause) | Files came from unfiltered scan #1, not a filter bug. Extension filter was correct. Fix: confirmation prompt for unfiltered scans now shows file-type breakdown before proceeding. | 2026-06-09 |
 | Author/subject fields | Added to documents table, FTS index, pdf_extractor, scan_docs, and doc_search scoring (author +0.7, subject +0.5). ISBN stored but NOT FTS-indexed (SSN regex false-positive risk). | 2026-06-09 |
 | Scan --limit N | Processes first N unindexed files; mtime check skips already-indexed files before applying limit, so next run naturally resumes from where last run stopped. | 2026-06-09 |
 | report subcommand | Walks doc dir, prints extension breakdown (count/percent/size/scannable). No DB changes. | 2026-06-09 |
+| pypdf pre-check for bloated PDFs | pdf_extractor reads trailer /Size via pypdf before calling pdfplumber; if >8,000 objects routes to pypdf directly. Fixes ExifTool-bloated PDFs that hang pdfminer at open(). | 2026-06-09 |
+| scan-file subcommand | Single-file scan in main process (no executor). Auto-removes from scan_blacklist.txt. Refuses pii_blacklist.txt. Handles scanned PDFs. | 2026-06-09 |
+| --file nargs='+' | argparse positional with spaces in path fails when path contains ' - '; changed to --file nargs='+' with " ".join(args.file) so quoting is not required. | 2026-06-09 |
+| DB rename docs.db → du-docs.db | Avoids collision with other projects using generic 'docs.db' name. Example file renamed to du-docs.db.example. | 2026-06-09 |

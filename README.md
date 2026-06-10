@@ -1,29 +1,27 @@
-# DocuBrowse v0.2.0
+# DocuBrowse v0.5.0
 
 <a name="top"></a>
 
-> ⚠️ **Alpha — Active Work in Progress**
-> This tool is functional but under active development. Interfaces, commands, and
-> file formats may change between versions. Expect rough edges, and check
-> `status_docs/project_status.md` for current state before picking up work.
+> ⚠️ **Alpha — Active Development**
+> Functional and in daily use, but interfaces and commands may change between versions.
+> Check `status_docs/project_status.md` for current state before picking up dev work.
 
-A fast document search and browsing application with semantic search. DocuBrowse indexes your filesystem documents using a combination of keyword matching (SQLite FTS5) and AI-powered semantic similarity (Ollama + nomic-embed-text:latest).
+A fast, local document search and browsing tool. DocuBrowse indexes your filesystem using
+SQLite FTS5 keyword search and AI-powered semantic similarity (Ollama + nomic-embed-text).
+Supports PDF, HTML, TXT, and Markdown files. Runs entirely on your machine — no cloud,
+no API keys.
 
 ---
 
 ## Navigation
 
-| | |
-|---|---|
-| [Features](#features) | [Quick Start](#quick-start) |
-| [CLI Reference](#cli-reference) | [Configuration](#configuration) |
-| [Architecture](#architecture) | [API Endpoints](#api-endpoints) |
-| [Search Algorithm](#search-algorithm) | [File Structure](#file-structure) |
-| [Development](#development) | [AI-Assisted Development](#ai-assisted-development) |
-| [Troubleshooting](#troubleshooting) | [Known Limitations](#known-limitations) |
-| [Roadmap](#roadmap) | [Performance Notes](#performance-notes) |
-| [Browser Support](#browser-support) | [Keyboard Shortcuts](#keyboard-shortcuts) |
-| [License](#license) | |
+| | | |
+|---|---|---|
+| [Features](#features) | [Quick Start](#quick-start) | [CLI Reference](#cli-reference) |
+| [Configuration](#configuration) | [Architecture](#architecture) | [API Endpoints](#api-endpoints) |
+| [Search Algorithm](#search-algorithm) | [File Structure](#file-structure) | [Troubleshooting](#troubleshooting) |
+| [Known Limitations](#known-limitations) | [Roadmap](#roadmap) | [AI-Assisted Dev](#ai-assisted-development) |
+| [License](#license) | | |
 
 ---
 
@@ -32,28 +30,28 @@ A fast document search and browsing application with semantic search. DocuBrowse
 [↑ Top](#top)
 
 ### 🔍 Dual Search Modes
-- **Keyword Search**: Fast full-text search using SQLite FTS5
-- **Semantic Search**: AI-powered similarity matching via Ollama embeddings
-- **Hybrid Mode** (default): Combines both — 70% semantic + 30% keyword
+- **Keyword Search** — fast full-text search via SQLite FTS5 (title, author, subject, tags, snippet)
+- **Semantic Search** — AI-powered similarity via Ollama embeddings (nomic-embed-text:latest)
+- **Hybrid Mode** (default) — 70% semantic + 30% keyword, merged and re-ranked
 
-### 📚 Document Management
-- PDF indexing (MVP); HTML, TXT, DOCX coming in Phase 2b
-- Automatic metadata extraction (title, author, description)
-- Tag-based organization and filtering
-- Responsive grid layout (1/2/3+ columns by screen size)
+### 📚 Document Indexing
+- **Formats**: PDF, HTML, TXT, Markdown
+- **PDF intelligence**: pdfplumber (preferred) with pypdf fallback for bloated-object files; `layout=False` retry for complex layouts; scanned (image-only) PDFs detected and routed to `ocr_list_pdfs.txt`
+- **Metadata**: title, author, subject extracted from PDF metadata fields; auto-generated tags from directory structure and content keywords
+- **PII protection**: post-ingest scanner detects SSN, credit card, DOB, MRN, driver license, passport patterns; removes matching documents and permanently blacklists them
 
 ### 🎨 User Interface
-- **Dark/Light Theme** toggle
-- **Pagination Controls**: Back/Next (50 docs per page)
-- **Alphabetic Index Bar**: Jump to documents by first letter (A-Z, 0-9)
-- **Tag Cloud**: Popular tags with counts for filtering
-- **Score Badges**: Relevance percentages (0–100%) on each result
-- **Scroll-to-Top Button**: Smooth return to navigation
+- Dark/Light theme toggle
+- Paginated results (50 docs/page) with Back/Next controls
+- Alphabetic index bar (A–Z, 0–9) for quick navigation
+- Tag cloud for filtering by topic
+- Relevance score badges (0–100%) on every result
+- Click document title to open the file; 📋 icon copies path to clipboard
 
 ### ⚡ Performance
 - Search latency: <150ms typical
-- UI load time: <1s
-- 50-doc paginated batches keep the UI responsive
+- Parallel PDF extraction with `ProcessPoolExecutor` (physical-core-aware worker count)
+- Memory-safe: kernel-enforced RLIMIT_AS (6 GB/worker) + pause/resume on free-RAM threshold
 
 ---
 
@@ -62,40 +60,31 @@ A fast document search and browsing application with semantic search. DocuBrowse
 [↑ Top](#top)
 
 ### Prerequisites
-- Python 3.8+
-- Ollama — `docubrowser.py` will offer to install it automatically if missing
-- Modern web browser (Chrome, Firefox, Safari, Edge)
+- Python 3.10+
+- `pdfplumber` — `pip install pdfplumber`
+- `pypdf` — `pip install pypdf`
+- Ollama — installed automatically by `docubrowser.py start` if missing
+- Modern browser (Chrome, Firefox, Safari, Edge)
+
+See [INSTALL.md](INSTALL.md) for a full step-by-step guide.
 
 ### First Run
 
 ```bash
-cd /home/james/git/AI/DocuBrowse
+cd /path/to/DocuBrowse
 
-# Start the server (checks Ollama, then launches)
+# Scan and index your documents
+./docubrowser.py rescan
+
+# Start the server
 ./docubrowser.py start
 
-# Open the UI in your browser
+# Open the UI
 ./docubrowser.py open
 ```
 
-`docubrowser.py start` automatically:
-1. Verifies the Ollama binary is installed (offers to install if not)
-2. Confirms the Ollama service is running (starts it in the background if not)
-3. Confirms `nomic-embed-text:latest` is pulled (offers to pull if not)
-4. Launches the search server on port 8643
-
-### Indexing Your Documents
-
-```bash
-# Scan documents and generate embeddings (targets /mnt/data/Documents by default)
-./docubrowser.py rescan
-
-# Or skip embedding for a faster scan
-./docubrowser.py rescan --no-embed
-
-# Generate/refresh embeddings separately
-./docubrowser.py embed
-```
+`docubrowser.py start` automatically verifies Ollama is installed, running, and has
+`nomic-embed-text:latest` — installing/starting/pulling as needed.
 
 ---
 
@@ -103,50 +92,87 @@ cd /home/james/git/AI/DocuBrowse
 
 [↑ Top](#top)
 
-`docubrowser.py` is the main entry point for all DocuBrowse operations.
-
 ```
 Usage: docubrowser.py <command> [options]
 ```
 
+### Commands
+
 | Command | Description |
 |---------|-------------|
-| `start` | Start the DocuBrowse server (runs Ollama check first) |
+| `start` | Start the search server (runs Ollama check first) |
 | `stop` | Stop the server |
 | `restart` | Stop then start |
 | `status` | Show server status, document count, embedding count, tag count |
-| `rescan` | Scan document directory and update the index; generates embeddings unless `--no-embed` |
-| `embed` | Generate/refresh embeddings for documents not yet embedded |
+| `scan [TYPE ...]` | Scan and index documents (no embedding) |
+| `rescan [TYPE ...]` | Scan + generate embeddings |
+| `scan-file --file PATH` | Extract and index a single file, then embed it |
+| `embed` | Generate/refresh embeddings for un-embedded documents |
 | `open` | Open the DocuBrowse UI in your default browser |
-| `purge` | Scan index for PII and remove matching documents ( --dry-run scans without changes being made) |
+| `purge` | Scan index for PII and remove matching documents |
+| `report` | Walk doc directory and show file-type breakdown (no DB changes) |
+| `stopall` | Stop all running scans, embeds, and the server |
 | `duplist` | *(Not yet implemented)* List duplicate documents |
-| `dupclean` | *(Not yet implemented)* Interactive TUI to remove duplicates |
+| `dupclean` | *(Not yet implemented)* Interactive duplicate cleanup |
 
 ### Global Options
 
 ```
---db PATH      Path to SQLite database (overrides config)
+--db PATH      SQLite database path (overrides config)
 --port PORT    Server port (overrides config)
---config FILE  Path to config file
+--config FILE  Config file path
 ```
 
 ### Command Examples
 
 ```bash
+# Server management
 ./docubrowser.py start
-./docubrowser.py start --port 9000 --db /data/custom.db
-
+./docubrowser.py start --port 9000
 ./docubrowser.py status
-./docubrowser.py rescan --doc-dir /mnt/data/Documents
-./docubrowser.py rescan --no-embed
 ./docubrowser.py stop
+./docubrowser.py stopall
 
-# Scan index for PII (dry-run by default — safe to run anytime)
-./docubrowser.py purge --dry-run
+# Scanning
+./docubrowser.py scan                          # scan all supported types
+./docubrowser.py scan pdf                      # PDFs only
+./docubrowser.py scan pdf txt                  # PDFs and plain text
+./docubrowser.py scan --limit 100              # first 100 unindexed files only
+./docubrowser.py rescan                        # scan + embed all types
+./docubrowser.py rescan pdf --workers 4        # PDFs only, 4 workers
+./docubrowser.py rescan --no-embed             # scan without embedding step
+./docubrowser.py rescan --doc-dir /data/docs
 
-# Live purge (prompts for confirmation before removing anything)
-./docubrowser.py purge
+# Single-file indexing (useful for retrying blacklisted files)
+./docubrowser.py scan-file --file /path/to/document.pdf
+./docubrowser.py scan-file --file /path/with spaces/doc.pdf   # no quoting needed
+./docubrowser.py scan-file --file /path/to/doc.pdf --no-embed
+
+# Reporting and maintenance
+./docubrowser.py report                         # file-type breakdown, no DB changes
+./docubrowser.py embed                          # embed any un-embedded docs
+./docubrowser.py purge --dry-run               # preview PII matches (safe)
+./docubrowser.py purge                         # remove PII documents (prompts)
 ```
+
+### scan / rescan Type Filters
+
+```
+Types: pdf  txt  md  html  (default: all four)
+
+Examples:
+  rescan pdf             PDFs only
+  rescan pdf txt         PDFs and plain text
+  rescan                 all supported types (prompts if unfiltered)
+```
+
+### scan-file Details
+
+`scan-file` is designed for retrying individual problem files:
+- Removes the file from `scan_blacklist.txt` if listed (explicit retry)
+- Refuses files in `pii_blacklist.txt` (permanent PII block)
+- Detects scanned (image-only) PDFs → adds to `ocr_list_pdfs.txt`
+- Paths with spaces work without quoting: `--file` accepts multiple tokens and rejoins them
 
 ---
 
@@ -154,21 +180,21 @@ Usage: docubrowser.py <command> [options]
 
 [↑ Top](#top)
 
-DocuBrowse reads from the first config file it finds:
+DocuBrowse reads the first config file it finds:
 
 1. `/etc/docubrowse.config` (system-wide)
-2. `./docubrowse.config` (local, next to `docubrowser.py`)
+2. `./docubrowse.config` (next to `docubrowser.py`)
 
-If neither exists, built-in defaults are used.
+If neither exists, built-in defaults apply.
 
 ### Config File Format
 
 ```ini
 # docubrowse.config
-doc_dir = /mnt/data/Documents
-db_path = /home/james/git/AI/DocuBrowse/du-docs.db
-port    = 8643
-work_dir = /home/james/git/AI/DocuBrowse
+doc_dir  = /mnt/data/Documents
+db_path  = /home/user/DocuBrowse/du-docs.db
+port     = 8643
+work_dir = /home/user/DocuBrowse
 ```
 
 ### Defaults
@@ -188,36 +214,47 @@ work_dir = /home/james/git/AI/DocuBrowse
 
 ```
 ┌─────────────────────────────────────┐
-│  docubrowser.py  (CLI launcher)     │
+│  docubrowser.py  (CLI entry point)  │
 │  ensure_ollama.py (prereq check)    │
 └──────────┬──────────────────────────┘
-           │ subprocess
+           │ subprocess / direct call
            ↓
-┌─────────────────────────────────────┐
-│  doc_search.py  (HTTP server :8643) │
-│  GET /  GET /api/search             │
-│  GET /api/stats  /api/tags          │
-└──────────┬──────────────────────────┘
-           │ SQLite + Ollama HTTP
-           ↓
-┌─────────────────────────────────────┐
-│  du-docs.db  (SQLite FTS5 + BLOBs)    │
-│  Ollama   (nomic-embed-text:latest) │
-└─────────────────────────────────────┘
+┌──────────────────────┐  ┌─────────────────────────────────┐
+│  scan_docs.py        │  │  doc_search.py  (HTTP :8643)    │
+│  ProcessPoolExecutor │  │  GET /  /api/search             │
+│  pdf_extractor.py    │  │  GET /api/stats  /api/tags      │
+│  embed_docs.py       │  │  GET /api/open  /api/config     │
+└──────────┬───────────┘  └──────────────┬──────────────────┘
+           │                              │
+           └──────────┬───────────────────┘
+                      ↓
+        ┌──────────────────────────────────┐
+        │  du-docs.db  (SQLite FTS5)       │
+        │  Ollama  (nomic-embed-text)      │
+        └──────────────────────────────────┘
 ```
 
 ### Key Scripts
 
 | Script | Role |
 |--------|------|
-| `docubrowser.py` | CLI launcher — start/stop/rescan/status/embed |
+| `docubrowser.py` | CLI launcher — all commands |
 | `ensure_ollama.py` | Checks/installs Ollama binary, service, and model |
-| `doc_search.py` | HTTP server; serves UI and search API |
+| `doc_search.py` | HTTP server; search API and UI |
 | `docubrowse_db.py` | SQLite schema and migrations |
-| `scan_docs.py` | Document discovery and metadata extraction |
-| `pdf_extractor.py` | PDF-specific metadata extractor |
-| `embed_docs.py` | Sends documents to Ollama for embedding; stores in DB |
-| `purge_pii.py` | Scans index for PII patterns; removes matches and records in `pii_blacklist.txt` |
+| `scan_docs.py` | Document discovery, extraction, and DB writes |
+| `pdf_extractor.py` | PDF-specific extraction with pdfplumber/pypdf |
+| `hardware_utils.py` | CPU/GPU/RAM detection, worker count formula |
+| `embed_docs.py` | Sends text to Ollama; stores 768-dim vectors |
+| `purge_pii.py` | Scans index for PII; removes and blacklists matches |
+
+### Blacklist Files
+
+| File | Purpose | Permanent? |
+|------|---------|-----------|
+| `scan_blacklist.txt` | Files that failed extraction | No — remove line to retry |
+| `pii_blacklist.txt` | Files removed for containing PII | Yes — never re-ingest |
+| `ocr_list_pdfs.txt` | Image-only PDFs needing OCR | N/A — informational |
 
 ---
 
@@ -233,8 +270,8 @@ Base URL: `http://localhost:8643`
 | `GET` | `/api/stats` | Total docs, embedded count, unique tag count |
 | `GET` | `/api/tags` | Tag list with counts (≥3 occurrences) |
 | `GET` | `/api/search` | Search with pagination |
+| `GET` | `/api/open` | Open a file with xdg-open (validates against DB) |
 | `GET` | `/api/config` | Current server configuration |
-| `POST` | `/api/config` | Save configuration (stub) |
 
 ### Search Parameters
 
@@ -257,16 +294,18 @@ GET /api/search?q=QUERY&offset=0&mode=both
       "id": 1,
       "name": "doc.pdf",
       "title": "Document Title",
-      "description": "First 300 chars of content...",
+      "author": "Jane Smith",
+      "subject": "Cloud Security",
+      "description": "First 500 chars of content...",
       "path": "/mnt/data/Documents/doc.pdf",
-      "tags": ["tag1", "tag2"],
-      "modified_at": "2026-06-07T...",
+      "tags": ["pdf", "security", "cloud"],
+      "modified_at": "2026-06-07T14:30:00",
       "score": 0.95,
       "fts_score": 0.8,
       "sem_score": 0.98
     }
   ],
-  "query": "QUERY",
+  "query": "cloud security",
   "count": 50,
   "total": 312,
   "offset": 0,
@@ -279,7 +318,7 @@ GET /api/search?q=QUERY&offset=0&mode=both
 
 ```bash
 curl "http://localhost:8643/api/stats"
-curl "http://localhost:8643/api/search?q=database&mode=both"
+curl "http://localhost:8643/api/search?q=kubernetes&mode=both"
 curl "http://localhost:8643/api/search?q=&offset=50"
 ```
 
@@ -289,8 +328,6 @@ curl "http://localhost:8643/api/search?q=&offset=50"
 
 [↑ Top](#top)
 
-Results are ranked by a merged score:
-
 ```
 final_score = 0.3 × keyword_score + 0.7 × semantic_score
 ```
@@ -299,18 +336,23 @@ final_score = 0.3 × keyword_score + 0.7 × semantic_score
 
 | Match | Boost |
 |-------|-------|
-| Query in title | +0.8 |
-| Query in filename | +0.6 |
-| Query in tags | +0.4 |
-| Query in description | +0.3 |
-| Token in title | +0.1 per token |
-| Token in description | +0.05 per token |
+| Full phrase in title | +0.8 |
+| Full phrase in filename | +0.6 |
+| Full phrase in author | +0.7 |
+| Full phrase in subject | +0.5 |
+| Full phrase in tags | +0.4 |
+| Full phrase in description | +0.3 |
+| Per token in title | +0.1 |
+| Per token in author | +0.1 |
+| Per token in subject | +0.05 |
+| Per token in description | +0.05 |
 
 ### Semantic Scoring
 
 - Cosine similarity between query embedding and document embedding
 - Range: 0.0–1.0
-- Minimum threshold for semantic-only mode: **0.30**
+- Minimum threshold (semantic-only mode): **0.30**
+- Embeddings: 768-dimensional float32 vectors (nomic-embed-text:latest)
 
 ---
 
@@ -320,107 +362,30 @@ final_score = 0.3 × keyword_score + 0.7 × semantic_score
 
 ```
 DocuBrowse/
-├── docubrowser.py          # CLI launcher (main entry point)
-├── ensure_ollama.py        # Ollama prerequisite checker
-├── doc_search.py           # HTTP server + search logic
-├── docubrowse_db.py        # SQLite schema + migrations
-├── scan_docs.py            # Document scanner + indexer
-├── pdf_extractor.py        # PDF metadata extraction
+├── docubrowser.py          # CLI entry point (all commands)
+├── ensure_ollama.py        # Ollama prerequisite checker/installer
+├── doc_search.py           # HTTP search server (port 8643)
+├── docubrowse_db.py        # SQLite schema and migrations
+├── scan_docs.py            # Scanner: discovery, extraction, DB writes
+├── pdf_extractor.py        # PDF extraction (pdfplumber + pypdf fallback)
+├── hardware_utils.py       # CPU/GPU/RAM detection, worker formula
 ├── embed_docs.py           # Embedding generation pipeline
-├── purge_pii.py            # Post-ingest PII scanner and purge tool
-├── index.html              # Frontend UI (dark/light theme)
-├── du-docs.db                 # SQLite database (gitignored)
-├── scan_blacklist.txt      # Files that failed extraction (retriable)
-├── pii_blacklist.txt       # Files removed for PII (permanent, never re-ingest)
-├── docubrowse.config       # Local config (optional)
+├── purge_pii.py            # PII scanner and purge tool
+├── index.html              # Frontend UI (single-file, dark/light theme)
+├── du-docs.db              # SQLite database (gitignored)
+├── du-docs.db.example      # Empty schema for new installs
+├── scan_blacklist.txt      # Failed-extraction skiplist (gitignored)
+├── pii_blacklist.txt       # PII-removed files — permanent (gitignored)
+├── ocr_list_pdfs.txt       # Image-only PDFs needing OCR (gitignored)
+├── docubrowse.config       # Local config (optional, gitignored)
+├── INSTALL.md              # Step-by-step install guide
 ├── README.md               # This file
-├── status_docs/            # Project planning documents
-├── data_grooming/          # Duplicate detection tools
-│   ├── dedup_detector.py
-│   └── dupe_clean.py
+├── LICENSE                 # GPL-3.0
+├── status_docs/            # Project planning and decision logs
+│   ├── project_status.md   # Current version, session history
+│   └── DECISIONS.md        # Deferred decisions and known issues
 └── test_pdfs_live/         # 100 sample PDFs for testing
 ```
-
----
-
-## Development
-
-[↑ Top](#top)
-
-### Adding New Document Formats (Phase 2b)
-
-1. Create `<format>_extractor.py` returning:
-   ```python
-   {"title": ..., "author": ..., "description": ..., "success": True}
-   ```
-2. Update `scan_docs.py` to route the new extension to your extractor
-3. Re-index: `./docubrowser.py rescan`
-
-### Testing Search Quality
-
-```bash
-# Keyword search
-curl "http://localhost:8643/api/search?q=database&mode=keyword"
-
-# Semantic search
-curl "http://localhost:8643/api/search?q=data storage&mode=semantic"
-
-# Hybrid (default)
-curl "http://localhost:8643/api/search?q=database&mode=both"
-
-# Browse all (paginated)
-curl "http://localhost:8643/api/search?q=&offset=0"
-```
-
-### Ollama Setup (Manual)
-
-`./docubrowser.py start` handles this automatically, but you can also do it manually:
-
-```bash
-# Install Ollama (Linux)
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Start the service
-ollama serve
-
-# Pull the embedding model
-ollama pull nomic-embed-text:latest
-```
-
----
-
-## AI-Assisted Development
-
-[↑ Top](#top)
-
-DocuBrowse is developed with Claude as an active coding partner. To resume a coding session with full context — so the AI understands the architecture, pitfalls, and current state — load these three files at the start of each session:
-
-| File | What it contains |
-|------|-----------------|
-| `.claude/CLAUDE.md` | Project rules, key files, hard-won lessons (ProcessPoolExecutor pitfalls, memory management, SIGALRM limitations, blacklist design) |
-| `status_docs/project_status.md` | Current version, what's complete, what's in progress, session history |
-| `status_docs/DECISIONS.md` | Deferred decisions, known problem files, architecture choices with rationale |
-
-### How to load them
-
-**Claude (claude.ai or Claude Desktop):**
-Open each file in a text editor, copy the contents, and paste into the conversation at the start of the session. Or, if you have filesystem access configured, simply say: "Read `.claude/CLAUDE.md`, `status_docs/project_status.md`, and `status_docs/DECISIONS.md`."
-
-**Any AI assistant:**
-```bash
-# Print all three to stdout for easy copy/paste
-cat .claude/CLAUDE.md status_docs/project_status.md status_docs/DECISIONS.md
-```
-
-### What the AI will know after loading
-
-- Which files do what and how they interact
-- Why ProcessPoolExecutor workers must be at module level (pickling)
-- Why SIGALRM doesn't work in C extensions and what to use instead (`resource.setrlimit`)
-- The sliding window executor pattern and why bulk-submit is wrong
-- The scan blacklist: what it is, how it's populated, how to retry a file
-- All deferred features and the reasoning behind each deferral
-- The current scan status and any known stuck/problem files
 
 ---
 
@@ -428,23 +393,59 @@ cat .claude/CLAUDE.md status_docs/project_status.md status_docs/DECISIONS.md
 
 [↑ Top](#top)
 
-### Inotify watch limit errors
+### Inotify watch limit
 
-When scanning large document collections (thousands of files), you may see errors like:
-
+Large document collections may trigger:
 ```
 OSError: [Errno 28] inotify watch limit reached
-Failed to add inotify watch: No space left on device
 ```
-
-This is a Linux kernel limit on the number of filesystem watches, not a disk space issue. Disable the limit while scanning, then re-enable it when done:
+This is a Linux kernel limit, not a disk space issue.
 
 ```bash
-# Disable inotify limit (before scanning)
+# Increase limit
 sudo sh -c "echo fs.inotify.max_user_instances=0 >> /etc/sysctl.conf" && sudo sysctl -p
 
-# Re-enable after scanning is complete
+# Restore after scanning
 sudo sh -c "echo fs.inotify.max_user_instances=128 >> /etc/sysctl.conf" && sudo sysctl -p
+```
+
+### PDF hangs during scan
+
+Some PDFs cause pdfminer to hang. These are auto-detected and blacklisted. If a specific
+file is causing problems, check:
+
+```bash
+# How many PDF objects does it have? (>8000 is abnormal)
+pdfinfo /path/to/file.pdf | grep -i objects
+
+# Retry the file after it has been blacklisted
+./docubrowser.py scan-file --file /path/to/file.pdf
+```
+
+Files with >8,000 PDF objects (usually caused by repeated ExifTool metadata updates) are
+automatically routed through pypdf instead of pdfminer.
+
+### Image-only (scanned) PDFs
+
+PDFs with no extractable text are detected and added to `ocr_list_pdfs.txt`. They are
+indexed with a placeholder (`[scanned PDF — OCR required]`) so they appear in browse
+but won't match keyword or semantic searches until OCR is run.
+
+### Scan progress appears stuck
+
+Check the log:
+```bash
+tail -f /var/log/docubrowser.log
+# or
+tail -f ~/.local/share/docubrowser/docubrowser.log
+```
+
+### Ollama not starting
+
+```bash
+ollama serve                       # start manually
+ollama list                        # verify model is present
+ollama pull nomic-embed-text:latest  # pull if missing
 ```
 
 ---
@@ -455,11 +456,12 @@ sudo sh -c "echo fs.inotify.max_user_instances=128 >> /etc/sysctl.conf" && sudo 
 
 | Limitation | Status |
 |------------|--------|
-| PDF-only indexing | HTML, TXT, DOCX coming in Phase 2b |
-| No config persistence in UI | Settings reset on page reload (Phase 3) |
-| No duplicate detection UI | `duplist`/`dupclean` stubbed, coming in Phase 2 |
-| No authentication | Local use only; API auth deferred to Phase 3+ |
-| No binary file relationship tracking | Deferred to Phase 3+ |
+| No DOCX/EPUB/MOBI indexing | Deferred to Phase 2b |
+| Scanned PDFs not searchable | Listed in ocr_list_pdfs.txt; OCR deferred |
+| No duplicate detection UI | `duplist`/`dupclean` stubbed |
+| No config persistence in UI | Settings reset on reload |
+| No authentication | Local use only |
+| ETA display drifts high | Uses simple average; sliding window deferred |
 
 ---
 
@@ -468,71 +470,46 @@ sudo sh -c "echo fs.inotify.max_user_instances=128 >> /etc/sysctl.conf" && sudo 
 [↑ Top](#top)
 
 ### Phase 2b — Format Expansion
-- HTML extractor with boilerplate stripping
-- TXT/Markdown extractor
-- DOCX extractor
-- Scale to 10K documents
+- DOCX extractor (python-docx)
+- EPUB/MOBI metadata extraction (ebooklib)
+- No-extension file classification (magic bytes)
+- Scale to 10K+ documents
 
 ### Phase 2 — Housekeeping
-- `duplist` — report duplicate documents by content hash
-- `dupclean` — interactive TUI to choose which duplicates to remove
+- `duplist` / `dupclean` — find and remove duplicate documents
+- Sliding window ETA for progress bar
+- File-type filter in search UI
 
 ### Phase 3 — Polish
-- Config persistence (load/save)
-- Advanced filtering (date range, document type, author)
-- Export results (CSV/JSON)
-- Accessibility (WCAG 2.1 AA)
+- Config persistence
+- Advanced filtering (date range, type, author)
+- Result export (CSV/JSON)
+- OCR integration for scanned PDFs
 
 ### Phase 3+ — Advanced
-- Binary file relationship detection
-- Document similarity clustering
 - API key authentication
-- Docker / containerized deployment
+- Document similarity clustering
+- Docker deployment
 
 ---
 
-## Performance Notes
+## AI-Assisted Development
 
 [↑ Top](#top)
 
-| Metric | 100 docs | 10K docs (projected) |
-|--------|----------|----------------------|
-| Full-text search | ~8ms | ~15ms |
-| Semantic search | ~60ms | ~80ms |
-| Hybrid search | ~70ms | ~90ms |
-| UI load time | ~500ms | ~500ms |
-| DB size | ~122MB | ~500MB |
-| Embedding generation | ~5 min | ~1 hour |
+DocuBrowse is developed with Claude as an active coding partner. To resume a session
+with full context, load these files at the start:
 
-- Embeddings: 768-dimensional float32 vectors stored as BLOBs
-- Batch size: 25 documents per embedding commit
-- Query embeddings computed inline (not cached)
+| File | Contents |
+|------|---------|
+| `.claude/CLAUDE.md` | Project rules, key files, hard-won lessons |
+| `status_docs/project_status.md` | Version, session history, what's in progress |
+| `status_docs/DECISIONS.md` | Deferred decisions, known problem files, rationale |
 
----
-
-## Browser Support
-
-[↑ Top](#top)
-
-| Browser | Support |
-|---------|---------|
-| Chrome / Edge | ✅ Full |
-| Firefox | ✅ Full |
-| Safari | ✅ Full |
-| Mobile (iOS/Android) | ✅ Responsive (1-column grid) |
-
----
-
-## Keyboard Shortcuts
-
-[↑ Top](#top)
-
-| Key | Action |
-|-----|--------|
-| `Enter` | Execute search |
-| `Esc` | Clear search (return to all documents) |
-| Click tag | Filter by that tag |
-| Click document title | Copy file path to clipboard |
+```bash
+# Print all three for copy/paste into any AI assistant
+cat .claude/CLAUDE.md status_docs/project_status.md status_docs/DECISIONS.md
+```
 
 ---
 
@@ -540,12 +517,12 @@ sudo sh -c "echo fs.inotify.max_user_instances=128 >> /etc/sysctl.conf" && sudo 
 
 [↑ Top](#top)
 
-This project is licensed under the **GNU General Public License v3.0 or later** (GPL-3.0-or-later).
+GNU General Public License v3.0 or later (GPL-3.0-or-later).
 
 Copyright (C) 2026 James Sparenberg
 
-You may copy, distribute, and modify this software under the terms of the GPL-3.0. See the [LICENSE](LICENSE) file for the full license text, or visit https://www.gnu.org/licenses/gpl-3.0.html.
+See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.2.0** — Built for fast, intelligent document search on your local filesystem.
+**DocuBrowse v0.5.0** — Fast, local, AI-powered document search.
