@@ -10,9 +10,13 @@ DocuBrowse runs entirely locally — no cloud accounts or API keys required.
 | Requirement | Version | Notes |
 |------------|---------|-------|
 | Python | 3.10+ | 3.12+ recommended |
-| pdfplumber | any | primary PDF extractor |
-| pypdf | 3.x+ | fallback for bloated-object PDFs |
-| Ollama | latest | for semantic search embeddings |
+| pdfplumber | any | PDF extraction (primary) |
+| pypdf | 3.x+ | PDF extraction (fallback for bloated-object PDFs) |
+| python-docx | any | Word document (.docx) extraction |
+| ebooklib | any | EPUB extraction |
+| beautifulsoup4 | any | HTML stripping for EPUB/MOBI |
+| mobi | any | MOBI / AZW3 extraction |
+| Ollama | latest | semantic search embeddings |
 | SQLite | 3.35+ | bundled with Python |
 | nomic-embed-text | latest | embedding model (pulled automatically) |
 
@@ -39,21 +43,48 @@ cd docubrowse-v0.5.0
 
 ## Step 2 — Install Python dependencies
 
+**Core (PDF indexing):**
 ```bash
 pip install pdfplumber pypdf
 ```
 
-Optional but recommended (speeds up HTML extraction):
-
+**Word documents (.docx):**
 ```bash
-pip install beautifulsoup4 lxml
+pip install python-docx
+```
+
+**E-books (.epub, .mobi, .azw3):**
+```bash
+pip install ebooklib beautifulsoup4 mobi
+```
+
+**Install everything at once:**
+```bash
+pip install pdfplumber pypdf python-docx ebooklib beautifulsoup4 mobi
 ```
 
 Verify:
 
 ```bash
-python3 -c "import pdfplumber, pypdf; print('OK')"
+python3 -c "import pdfplumber, pypdf, docx, ebooklib, mobi; print('OK')"
 ```
+
+### DRM-encrypted AZW files
+
+Amazon AZW files downloaded from the Kindle store are DRM-encrypted.
+`mobi.extract()` raises `Book is encrypted` and the file is auto-added
+to `scan_blacklist.txt`.
+
+To index these books you must first strip the DRM from your own legally
+purchased copies:
+
+1. Install [Calibre](https://calibre-ebook.com/) — `sudo dnf install calibre` on Fedora
+2. Install the [DeDRM_tools](https://github.com/noDRM/DeDRM_tools) Calibre plugin
+3. Import the AZW files into Calibre (DRM is stripped on import with the plugin active)
+4. Export as EPUB from Calibre, or use: `ebook-convert book.azw book.epub`
+5. Remove the AZW entry from `scan_blacklist.txt`, then rescan the EPUB
+
+This only affects AZW files. AZW3 files sideloaded without DRM work out of the box.
 
 ---
 

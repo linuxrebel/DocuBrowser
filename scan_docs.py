@@ -29,7 +29,8 @@ from pathlib import Path
 from docubrowse_db import get_db
 
 
-DEFAULT_EXTENSIONS = [".pdf", ".docx", ".txt", ".md", ".html"]
+DEFAULT_EXTENSIONS = [".pdf", ".docx", ".epub", ".mobi", ".azw", ".azw3",
+                      ".txt", ".md", ".html"]
 
 # Physical-core-aware default — hyperthreads don't help pdfplumber
 try:
@@ -251,6 +252,9 @@ def _extract_file(args: tuple) -> dict:
         elif ext == ".docx":
             from docx_extractor import extract_docx
             result = extract_docx(str(file_path))
+        elif ext in (".epub", ".mobi", ".azw", ".azw3"):
+            from ebook_extractor import extract_ebook
+            result = extract_ebook(str(file_path))
         else:
             result = _extract_text_file(file_path)
 
@@ -273,7 +277,7 @@ def _extract_file(args: tuple) -> dict:
             if len(name) > 2:
                 tags.add(name)
 
-        if ext in (".pdf", ".docx"):
+        if ext in (".pdf", ".docx", ".epub", ".mobi", ".azw", ".azw3"):
             from pdf_extractor import generate_keywords
             keywords = generate_keywords(
                 result.get("text", ""), result.get("title", ""), max_keywords=5
