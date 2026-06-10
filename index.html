@@ -269,7 +269,7 @@
   @keyframes slideIn { from { transform:translateX(400px); opacity:0; } to { transform:translateX(0); opacity:1; } }
 
   /* ── Error modal ── */
-  .modal-overlay {
+  .err-overlay {
     position:fixed; inset:0; background:rgba(0,0,0,0.55);
     display:flex; align-items:center; justify-content:center;
     z-index:500; animation:fadeIn 0.15s ease;
@@ -769,7 +769,7 @@ function showToast(msg, duration = 2000) {
 
 function showErrorModal(msg) {
   const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
+  overlay.className = 'err-overlay';
   overlay.innerHTML = `
     <div class="modal-box">
       <div class="modal-icon">⚠️</div>
@@ -779,7 +779,7 @@ function showErrorModal(msg) {
   document.body.appendChild(overlay);
   const dismiss = () => overlay.remove();
   overlay.querySelector('#modalOkBtn').addEventListener('click', dismiss);
-  overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(); });
+  overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(); });  // click backdrop to dismiss
   overlay.querySelector('#modalOkBtn').focus();
 }
 
