@@ -1,4 +1,4 @@
-# DocuBrowse v0.5.0
+# DocuBrowse v0.6.0
 
 <a name="top"></a>
 
@@ -118,8 +118,8 @@ Usage: docubrowser.py <command> [options]
 | `purge` | Scan index for PII and remove matching documents |
 | `report` | Walk doc directory and show file-type breakdown (no DB changes) |
 | `stopall` | Stop all running scans, embeds, and the server |
-| `duplist` | *(Not yet implemented)* List duplicate documents |
-| `dupclean` | *(Not yet implemented)* Interactive duplicate cleanup |
+| `duplist` | List duplicate documents (exact SHA256 + optional near-duplicate) |
+| `dupclean` | Interactive TUI to review and remove duplicate documents |
 
 ### Global Options
 
@@ -159,6 +159,13 @@ Usage: docubrowser.py <command> [options]
 ./docubrowser.py embed                          # embed any un-embedded docs
 ./docubrowser.py purge --dry-run               # preview PII matches (safe)
 ./docubrowser.py purge                         # remove PII documents (prompts)
+
+# Duplicate detection and cleanup
+./docubrowser.py duplist                       # find exact SHA256 duplicates
+./docubrowser.py duplist --near-dups           # also find near-duplicates (cosine ≥97%)
+./docubrowser.py duplist --near-dups --threshold 0.95
+./docubrowser.py dupclean                      # interactive Keep A/Keep B/Keep Both TUI
+./docubrowser.py dupclean --near-dups          # include near-duplicates in cleanup
 ```
 
 ### scan / rescan Type Filters
@@ -256,6 +263,7 @@ work_dir = /home/user/DocuBrowse
 | `hardware_utils.py` | CPU/GPU/RAM detection, worker count formula |
 | `embed_docs.py` | Sends text to Ollama; stores 768-dim vectors |
 | `purge_pii.py` | Scans index for PII; removes and blacklists matches |
+| `dup_detect.py` | Exact (SHA256) and near-duplicate (cosine similarity) detection |
 
 ### Blacklist Files
 
@@ -384,6 +392,7 @@ DocuBrowse/
 ├── hardware_utils.py       # CPU/GPU/RAM detection, worker formula
 ├── embed_docs.py           # Embedding generation pipeline
 ├── purge_pii.py            # PII scanner and purge tool
+├── dup_detect.py           # Exact (SHA256) and near-duplicate detection
 ├── index.html              # Frontend UI (single-file, dark/light theme)
 ├── du-docs.db              # SQLite database (gitignored)
 ├── du-docs.db.example      # Empty schema for new installs
@@ -471,7 +480,6 @@ ollama pull nomic-embed-text:latest  # pull if missing
 |------------|--------|
 | DRM-encrypted AZW not fully searchable | Metadata indexed; DeDRM_tools required for body text |
 | Scanned PDFs not searchable | Listed in ocr_list_pdfs.txt; OCR deferred |
-| No duplicate detection UI | `duplist`/`dupclean` stubbed |
 | No config persistence in UI | Settings reset on reload |
 | No authentication | Local use only |
 | ETA display drifts high | Uses simple average; sliding window deferred |
@@ -488,8 +496,9 @@ ollama pull nomic-embed-text:latest  # pull if missing
 - No-extension file classification (magic bytes)
 - Scale to 10K+ documents
 
-### Phase 2 — Housekeeping
-- `duplist` / `dupclean` — find and remove duplicate documents
+### Phase 2 — Housekeeping ✅ Complete
+- ✅ `duplist` / `dupclean` — exact + near-duplicate detection and interactive cleanup
+- ✅ Config read/write via Settings UI (port, docPath, workDir)
 - Sliding window ETA for progress bar
 - File-type filter in search UI
 
@@ -538,4 +547,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.5.0** — Fast, local, AI-powered document search.
+**DocuBrowse v0.6.0** — Fast, local, AI-powered document search.
