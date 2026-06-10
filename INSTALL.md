@@ -84,13 +84,15 @@ DRM-encrypted AZW files (typical Amazon Kindle purchases) are indexed with
 **metadata only** (title and author are searchable, but no body text).
 The description field shows `[DRM-encrypted — text not searchable]`.
 
-To make the body text searchable you must strip the DRM from your own legally
-purchased copies:
+To make the body text searchable, Calibre plus the DeDRM plugin are required.
+See the installation guide:
+**https://deepwiki.com/apprenticeharper/DeDRM_tools/1.1-installation-and-setup**
 
-1. Install the [DeDRM_tools](https://github.com/noDRM/DeDRM_tools) Calibre plugin
-2. Import the AZW files into Calibre (DRM is stripped on import with the plugin active)
-3. Export as EPUB: File → Save to disk, or `ebook-convert book.azw book.epub`
-4. Rescan — the EPUB will be picked up automatically
+Once Calibre and DeDRM are set up:
+
+1. Import the AZW files into Calibre (DRM is stripped automatically on import)
+2. Export as EPUB: File → Save to disk, or `ebook-convert book.azw book.epub`
+3. Rescan — the EPUB will be picked up automatically
 
 Non-DRM AZW3 files (sideloaded content) work without any extra steps.
 
