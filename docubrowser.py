@@ -658,7 +658,7 @@ def cmd_report(config: dict, args):
 
 def cmd_scan_file(config: dict, args):
     """scan-file — extract and index a single file, then embed it."""
-    file_path = Path(args.file).resolve()
+    file_path = Path(" ".join(args.file)).resolve()
     db_path   = args.db      or config["db_path"]
     doc_dir   = args.doc_dir or config["doc_dir"]
 
@@ -955,8 +955,8 @@ def build_parser() -> argparse.ArgumentParser:
               scan-file --file "/path/with spaces/doc.html" --doc-dir /mnt/data/Documents
         """),
     )
-    p_scan_file.add_argument("--file", metavar="PATH", required=True,
-                             help="Path to the file to index")
+    p_scan_file.add_argument("--file", nargs='+', metavar="PATH", required=True,
+                             help="Path to the file to index (quoting optional — spaces are rejoined)")
     p_scan_file.add_argument("--db", metavar="PATH", help="Database path")
     p_scan_file.add_argument("--doc-dir", metavar="DIR", dest="doc_dir",
                              help="Document root (used for tag derivation; defaults to configured doc_dir)")
