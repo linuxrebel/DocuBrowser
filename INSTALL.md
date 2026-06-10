@@ -69,22 +69,30 @@ Verify:
 python3 -c "import pdfplumber, pypdf, docx, ebooklib, mobi; print('OK')"
 ```
 
+**Calibre** (system package — provides `ebook-meta` and `ebook-convert`):
+```bash
+sudo dnf install calibre          # Fedora / RHEL
+sudo apt install calibre          # Debian / Ubuntu
+```
+
+Calibre is used for ebook metadata extraction and as a text-extraction fallback.
+It is required for ebook indexing — install it before running a scan.
+
 ### DRM-encrypted AZW files
 
-Amazon AZW files downloaded from the Kindle store are DRM-encrypted.
-`mobi.extract()` raises `Book is encrypted` and the file is auto-added
-to `scan_blacklist.txt`.
+DRM-encrypted AZW files (typical Amazon Kindle purchases) are indexed with
+**metadata only** (title and author are searchable, but no body text).
+The description field shows `[DRM-encrypted — text not searchable]`.
 
-To index these books you must first strip the DRM from your own legally
+To make the body text searchable you must strip the DRM from your own legally
 purchased copies:
 
-1. Install [Calibre](https://calibre-ebook.com/) — `sudo dnf install calibre` on Fedora
-2. Install the [DeDRM_tools](https://github.com/noDRM/DeDRM_tools) Calibre plugin
-3. Import the AZW files into Calibre (DRM is stripped on import with the plugin active)
-4. Export as EPUB from Calibre, or use: `ebook-convert book.azw book.epub`
-5. Remove the AZW entry from `scan_blacklist.txt`, then rescan the EPUB
+1. Install the [DeDRM_tools](https://github.com/noDRM/DeDRM_tools) Calibre plugin
+2. Import the AZW files into Calibre (DRM is stripped on import with the plugin active)
+3. Export as EPUB: File → Save to disk, or `ebook-convert book.azw book.epub`
+4. Rescan — the EPUB will be picked up automatically
 
-This only affects AZW files. AZW3 files sideloaded without DRM work out of the box.
+Non-DRM AZW3 files (sideloaded content) work without any extra steps.
 
 ---
 
