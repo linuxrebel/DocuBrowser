@@ -724,7 +724,7 @@ function openFile(path) {
     .then(r => r.json())
     .then(d => {
       if (d.ok) showToast('Opening…');
-      else showToast('⚠ Could not open: ' + (d.error || 'unknown error'));
+      else showToast('⚠ ' + (d.error || 'Could not open file'), d.error ? 4000 : 2000);
     })
     .catch(e => showToast('⚠ Error: ' + e.message));
 }
@@ -738,12 +738,13 @@ function copyToClipboard(text) {
   });
 }
 
-function showToast(msg) {
+function showToast(msg, duration = 2000) {
   const toast = document.createElement('div');
   toast.className = 'toast';
+  if (msg.startsWith('⚠')) toast.style.cssText = 'background:var(--accent3,#e05);color:#fff;';
   toast.textContent = msg;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2000);
+  setTimeout(() => toast.remove(), duration);
 }
 
 // ── Settings ──────────────────────────────────────────────────
