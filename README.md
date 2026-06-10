@@ -8,8 +8,8 @@
 
 A fast, local document search and browsing tool. DocuBrowse indexes your filesystem using
 SQLite FTS5 keyword search and AI-powered semantic similarity (Ollama + nomic-embed-text).
-Supports PDF, HTML, TXT, and Markdown files. Runs entirely on your machine — no cloud,
-no API keys.
+Supports PDF, DOCX, EPUB, MOBI, AZW3, HTML, TXT, and Markdown. Runs entirely on your
+machine — no cloud, no API keys.
 
 ---
 
@@ -35,9 +35,11 @@ no API keys.
 - **Hybrid Mode** (default) — 70% semantic + 30% keyword, merged and re-ranked
 
 ### 📚 Document Indexing
-- **Formats**: PDF, HTML, TXT, Markdown
+- **Formats**: PDF, DOCX, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
 - **PDF intelligence**: pdfplumber (preferred) with pypdf fallback for bloated-object files; `layout=False` retry for complex layouts; scanned (image-only) PDFs detected and routed to `ocr_list_pdfs.txt`
-- **Metadata**: title, author, subject extracted from PDF metadata fields; auto-generated tags from directory structure and content keywords
+- **Word documents**: python-docx extracts paragraphs, tables, and core properties (title, author, subject)
+- **E-books**: ebooklib for EPUB; mobi package + Calibre fallback for MOBI/AZW3; DRM-encrypted AZW files indexed with metadata only (title/author visible, body not searchable)
+- **Metadata**: title, author, subject extracted from document metadata fields; auto-generated tags from directory structure and content keywords
 - **PII protection**: post-ingest scanner detects SSN, credit card, DOB, MRN, driver license, passport patterns; removes matching documents and permanently blacklists them
 
 ### 🎨 User Interface
@@ -61,8 +63,12 @@ no API keys.
 
 ### Prerequisites
 - Python 3.10+
-- `pdfplumber` — `pip install pdfplumber`
-- `pypdf` — `pip install pypdf`
+- `pdfplumber`, `pypdf` — PDF extraction: `pip install pdfplumber pypdf`
+- `python-docx` — Word documents: `pip install python-docx`
+- `ebooklib`, `beautifulsoup4`, `mobi` — E-books: `pip install ebooklib beautifulsoup4 mobi`
+- **Calibre** — E-book metadata and conversion (required for MOBI/AZW3/AZW indexing):
+  `sudo dnf install calibre` or `sudo apt install calibre`
+  DRM-encrypted AZW files additionally require [DeDRM_tools](https://deepwiki.com/apprenticeharper/DeDRM_tools/1.1-installation-and-setup)
 - Ollama — installed automatically by `docubrowser.py start` if missing
 - Modern browser (Chrome, Firefox, Safari, Edge)
 
@@ -245,6 +251,8 @@ work_dir = /home/user/DocuBrowse
 | `docubrowse_db.py` | SQLite schema and migrations |
 | `scan_docs.py` | Document discovery, extraction, and DB writes |
 | `pdf_extractor.py` | PDF-specific extraction with pdfplumber/pypdf |
+| `docx_extractor.py` | Word document extraction (python-docx) |
+| `ebook_extractor.py` | EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre) |
 | `hardware_utils.py` | CPU/GPU/RAM detection, worker count formula |
 | `embed_docs.py` | Sends text to Ollama; stores 768-dim vectors |
 | `purge_pii.py` | Scans index for PII; removes and blacklists matches |
@@ -371,6 +379,8 @@ DocuBrowse/
 ├── docubrowse_db.py        # SQLite schema and migrations
 ├── scan_docs.py            # Scanner: discovery, extraction, DB writes
 ├── pdf_extractor.py        # PDF extraction (pdfplumber + pypdf fallback)
+├── docx_extractor.py       # Word document extraction (python-docx)
+├── ebook_extractor.py      # EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre)
 ├── hardware_utils.py       # CPU/GPU/RAM detection, worker formula
 ├── embed_docs.py           # Embedding generation pipeline
 ├── purge_pii.py            # PII scanner and purge tool
@@ -459,7 +469,7 @@ ollama pull nomic-embed-text:latest  # pull if missing
 
 | Limitation | Status |
 |------------|--------|
-| No DOCX/EPUB/MOBI indexing | Deferred to Phase 2b |
+| DRM-encrypted AZW not fully searchable | Metadata indexed; DeDRM_tools required for body text |
 | Scanned PDFs not searchable | Listed in ocr_list_pdfs.txt; OCR deferred |
 | No duplicate detection UI | `duplist`/`dupclean` stubbed |
 | No config persistence in UI | Settings reset on reload |
@@ -472,9 +482,9 @@ ollama pull nomic-embed-text:latest  # pull if missing
 
 [↑ Top](#top)
 
-### Phase 2b — Format Expansion
-- DOCX extractor (python-docx)
-- EPUB/MOBI metadata extraction (ebooklib)
+### Phase 2b — Format Expansion ✅ Complete
+- ✅ DOCX extractor (python-docx)
+- ✅ EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre)
 - No-extension file classification (magic bytes)
 - Scale to 10K+ documents
 
