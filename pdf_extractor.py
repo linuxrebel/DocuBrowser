@@ -95,7 +95,15 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
                 result['author']  = pdf.metadata.get('Author')  or None
                 result['subject'] = pdf.metadata.get('Subject') or None
 
-            # Extract text — capped at MAX_PAGES to bound memory and time
+            # Extract text — capped at MAX_PAGES to bound memory and time.
+            # First attempt: default layout analysis.
+            # If that yields nothing, retry with layout=False (skips spatial
+            # analysis — faster, safer for complex/spread-layout PDFs, slightly
+            # messier output but fully searchable).
+            # TODO: investigate exact trigger for pathological behavior on files
+            # like Security_of_Cloud-based_systems.pdf (439x669 pts, not a
+            # spread-layout by dimension but still causes pdfplumber to spin).
+            # See DECISIONS.md — "layout=False fallback root cause".
             text_parts = []
             for page in pdf.pages[:MAX_PAGES]:
                 try:
@@ -104,6 +112,16 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
                         text_parts.append(text)
                 except Exception:
                     pass
+
+            if not text_parts:
+                # Retry with layout=False before giving up
+                for page in pdf.pages[:MAX_PAGES]:
+                    try:
+                        text = page.extract_text(layout=False) or ''
+                        if text:
+                            text_parts.append(text)
+                    except Exception:
+                        pass
 
             full_text = '\n'.join(text_parts)
             # Limit to 5000 chars to keep embeddings manageable
