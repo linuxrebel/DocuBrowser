@@ -82,7 +82,8 @@ def normalize_score(score: float, max_val: float = 1.0) -> float:
 class DocSearchHandler(BaseHTTPRequestHandler):
     """HTTP request handler for document search."""
 
-    db_path = None  # Will be set by server
+    db_path     = None          # Will be set by server
+    server_port = DEFAULT_PORT  # Will be set by server
 
     def log_message(self, format, *args):
         """Suppress default logging."""
@@ -455,24 +456,73 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
     def handle_config(self):
         """GET /api/config - Return current configuration."""
-        self.json_response({
-            "docPath": "/mnt/data/Documents",
-            "workDir": "/mnt/data/git/AI/DocuBrowse",
-            "port": DEFAULT_PORT,
-            "installed": False,
-            "timestamp": datetime.now().isoformat()
-        })
+        cfg_paths = [
+            Path("/etc/docubrowse.config"),
+            Path(__file__).parent / "docubrowse.config",
+        ]
+        config = {
+            "docPath":      "/mnt/data/Documents",
+            "workDir":      str(Path(__file__).parent),
+            "port":         DEFAULT_PORT,
+            "installed":    False,
+            "configSource": None,
+        }
+        for cfg_path in cfg_paths:
+            if cfg_path.exists():
+                try:
+                    for line in cfg_path.read_text(encoding="utf-8").splitlines():
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        key, _, val = line.partition("=")
+                        key, val = key.strip().lower(), val.strip()
+                        if key == "doc_dir":
+                            config["docPath"] = val
+                        elif key == "work_dir":
+                            config["workDir"] = val
+                        elif key == "port":
+                            try:
+                                config["port"] = int(val)
+                            except ValueError:
+                                pass
+                    config["installed"]    = str(cfg_path) == "/etc/docubrowse.config"
+                    config["configSource"] = str(cfg_path)
+                    break   # only advance past this file on success
+                except Exception:
+                    pass
+        self.json_response(config)
 
     def handle_config_post(self):
-        """POST /api/config - Save configuration (stub)."""
+        """POST /api/config - Write docubrowse.config next to the server script."""
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length)
-
         try:
             data = json.loads(body)
-            self.json_response({"message": "Config saved", "data": data})
         except json.JSONDecodeError:
             self.error_response(400, "Invalid JSON")
+            return
+
+        doc_path = str(data.get("docPath", "")).strip()
+        work_dir = str(data.get("workDir", "")).strip()
+        if not doc_path or not work_dir:
+            self.error_response(400, "docPath and workDir are required")
+            return
+
+        cfg_path = Path(__file__).parent / "docubrowse.config"
+        try:
+            lines = [
+                "# docubrowse.config — written by the Settings UI\n",
+                f"doc_dir  = {doc_path}\n",
+                f"work_dir = {work_dir}\n",
+                f"port     = {self.server_port}\n",
+            ]
+            cfg_path.write_text("".join(lines), encoding="utf-8")
+            self.json_response({
+                "message": f"Config saved to {cfg_path}",
+                "configSource": str(cfg_path),
+            })
+        except OSError as e:
+            self.error_response(500, f"Could not write config file: {e}")
 
     def serve_file(self, filename):
         """Serve a file from the current directory."""
@@ -539,8 +589,9 @@ def main():
         print(f"ERROR: Database not found: {db_path}")
         sys.exit(1)
 
-    # Set database path for handler
-    DocSearchHandler.db_path = str(db_path)
+    # Set database path and port for handler
+    DocSearchHandler.db_path     = str(db_path)
+    DocSearchHandler.server_port = port
 
     server_address = ('localhost', port)
     try:
