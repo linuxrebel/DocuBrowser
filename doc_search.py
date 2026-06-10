@@ -7,6 +7,7 @@ HTTP server on port 8643 with merged keyword + semantic search.
 """
 
 import json
+import os
 import math
 import sqlite3
 import struct
@@ -106,6 +107,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_open(query)
             elif path == '/api/config':
                 self.handle_config()
+            elif path == '/api/delete':
+                self.handle_delete(query)
             else:
                 self.error_response(404, "Not found")
         except Exception as e:
@@ -366,6 +369,50 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.json_response({"ok": True, "path": path})
         except Exception as e:
             self.json_response({"ok": False, "error": f"xdg-open failed: {e}"})
+
+    def handle_delete(self, query: dict):
+        """GET /api/delete?path=<encoded-path> - Delete a file from disk and DB."""
+        path = query.get('path', [''])[0].strip()
+        if not path:
+            self.json_response({"ok": False, "error": "Missing path parameter"})
+            return
+
+        # Security: path must be in the index (not arbitrary filesystem access)
+        conn = get_db(self.db_path)
+        row = conn.execute('SELECT id FROM documents WHERE path = ?', (path,)).fetchone()
+        if not row:
+            conn.close()
+            self.json_response({"ok": False, "error": "Path not in document index"})
+            return
+        doc_id = row[0]
+
+        # Delete file from disk (may already be gone - that is fine)
+        disk_error = None
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass  # already gone; still clean up DB
+        except OSError as e:
+            disk_error = str(e)
+
+        if disk_error:
+            conn.close()
+            self.json_response({"ok": False, "error": f"Could not delete file: {disk_error}"})
+            return
+
+        # Remove from DB: documents CASCADE deletes doc_tags + doc_embeddings.
+        # doc_fts is contentless FTS5 (no cascade); orphaned rows are harmless
+        # because keyword search JOINs with documents.
+        try:
+            conn.execute('PRAGMA foreign_keys=ON')
+            conn.execute('DELETE FROM documents WHERE id = ?', (doc_id,))
+            conn.commit()
+        except Exception as e:
+            conn.close()
+            self.json_response({"ok": False, "error": f"DB delete failed: {e}"})
+            return
+        conn.close()
+        self.json_response({"ok": True, "deleted": path})
 
     def handle_config(self):
         """GET /api/config - Return current configuration."""
