@@ -29,7 +29,7 @@ from pathlib import Path
 from docubrowse_db import get_db
 
 
-DEFAULT_EXTENSIONS = [".pdf", ".txt", ".md", ".html"]
+DEFAULT_EXTENSIONS = [".pdf", ".docx", ".txt", ".md", ".html"]
 
 # Physical-core-aware default — hyperthreads don't help pdfplumber
 try:
@@ -248,6 +248,9 @@ def _extract_file(args: tuple) -> dict:
             # suppress them in the worker process so they never reach the terminal.
             with contextlib.redirect_stderr(io.StringIO()):
                 result = extract_pdf(str(file_path))
+        elif ext == ".docx":
+            from docx_extractor import extract_docx
+            result = extract_docx(str(file_path))
         else:
             result = _extract_text_file(file_path)
 
@@ -270,7 +273,7 @@ def _extract_file(args: tuple) -> dict:
             if len(name) > 2:
                 tags.add(name)
 
-        if ext == ".pdf":
+        if ext in (".pdf", ".docx"):
             from pdf_extractor import generate_keywords
             keywords = generate_keywords(
                 result.get("text", ""), result.get("title", ""), max_keywords=5
