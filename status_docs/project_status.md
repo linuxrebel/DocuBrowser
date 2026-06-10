@@ -1,6 +1,6 @@
 # DocuBrowse Project Status
 
-**Version**: v0.5.0  
+**Version**: v0.6.0  
 **Status**: 🟢 **STABLE — daily use, active development**  
 **Last Updated**: 2026-06-09  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
@@ -10,14 +10,41 @@
 ## Executive Summary
 
 DocuBrowse indexes a local document corpus (currently `/mnt/data/Documents`, ~10K files)
-using PDF/HTML/TXT/MD extraction, SQLite FTS5 keyword search, and Ollama semantic
-embeddings. The CLI is complete and in daily use. v0.5.0 is the first tagged release.
+using PDF/DOCX/EPUB/HTML/TXT/MD extraction, SQLite FTS5 keyword search, and Ollama semantic
+embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, config UI, delete from UI, and duplicate detection.
 
 **Key Metrics**:
-- Supported formats: PDF, HTML, TXT, Markdown
+- Supported formats: PDF, DOCX, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
 - Search latency: <150ms typical
 - Worker parallelism: physical-core-aware (tested up to 8 workers)
 - PDF resilience: pdfplumber primary, pypdf fallback for >8,000-object files, layout=False secondary fallback, scanned PDF detection
+
+---
+
+## v0.6.0 — What's in this release
+
+### Duplicate Detection (2026-06-09)
+- **`dup_detect.py`**: New module with exact-duplicate detection (SHA256, size pre-filter) and near-duplicate detection (numpy batched cosine similarity, union-find clustering).
+- **`duplist`**: CLI command to list exact and/or near-duplicate groups with recoverable space.
+- **`dupclean`**: Interactive TUI — shows labeled [A]/[B] file pairs, prompts "Keep A / Keep B / Keep Both (skip) / Q", confirm before delete. Deletes from disk + DB + FTS index (per-doc commit).
+- `--near-dups` flag and `--threshold` (default 0.97) for both commands.
+
+### Config Read/Write (2026-06-09)
+- `GET /api/config` — reads real config file (first of `/etc/docubrowse.config`, then `./docubrowse.config`); returns `docPath`, `workDir`, `port`, `installed`, `configSource`.
+- `POST /api/config` — writes `./docubrowse.config` with `doc_dir`, `work_dir`, `port`.
+- Settings UI: port is now a configurable field; info message uses neutral color (not orange).
+- `docubrowse.config` added to `.gitignore`.
+
+### DOCX Support (2026-06-09)
+- `docx_extractor.py`: python-docx extracts paragraphs, tables, and core properties (title, author, subject).
+- Integrated into `scan_docs.py` and `docubrowse_db.py`.
+
+### Ebook Support (2026-06-09)
+- `ebook_extractor.py`: ebooklib for EPUB; mobi package + Calibre fallback for MOBI/AZW3; DRM-encrypted AZW indexed metadata-only.
+- Integrated into `scan_docs.py`.
+
+### Delete from UI (2026-06-09)
+- `GET /api/delete` endpoint; 🗑 trash icon on each result card; custom confirm modal (Cancel is default); removes from disk and DB (FTS cleaned).
 
 ---
 
@@ -116,6 +143,14 @@ embeddings. The CLI is complete and in daily use. v0.5.0 is the first tagged rel
 - [x] Dark/light theme, pagination, tag cloud, alphabetic bar
 - [x] Click to open file (xdg-open), copy path to clipboard
 - [x] `/api/stats`, `/api/search`, `/api/tags`, `/api/open`
+- [x] Delete from UI (🗑 trash icon, confirm modal, `/api/delete`)
+- [x] Config read/write UI (Settings modal, `/api/config` GET + POST)
+
+**Format Support**
+- [x] PDF (pdfplumber + pypdf fallback)
+- [x] DOCX (python-docx)
+- [x] EPUB/MOBI/AZW3/AZW (ebooklib + Calibre)
+- [x] HTML, TXT, Markdown
 
 **Operations**
 - [x] PII purge (dry-run + live)
@@ -123,23 +158,20 @@ embeddings. The CLI is complete and in daily use. v0.5.0 is the first tagged rel
 - [x] report subcommand
 - [x] Hardware-aware worker count
 - [x] Memory pressure pause/resume
+- [x] `duplist` / `dupclean` (exact SHA256 + near-dup cosine similarity)
 
 ### 📋 Pending
 
-**Phase 2b — Format Expansion**
-- [ ] DOCX extractor (python-docx)
-- [ ] EPUB/MOBI metadata (ebooklib, KindleUnpack)
+**Phase 2b — Remaining**
 - [ ] No-extension file classification (magic bytes)
 - [ ] File-type filter in search UI (`?type=pdf`)
 
-**Phase 2 — Housekeeping**
-- [ ] `duplist` / `dupclean` (content hash deduplication)
+**Phase 2 — Remaining**
 - [ ] Sliding window ETA on progress bar
 - [ ] ETA display format: `Xh Ym` when >60 min
 
 **Phase 3+**
 - [ ] OCR integration for scanned PDFs
-- [ ] Config persistence in UI
 - [ ] Result export (CSV/JSON)
 - [ ] API key authentication
 - [ ] Docker deployment
@@ -155,6 +187,9 @@ embeddings. The CLI is complete and in daily use. v0.5.0 is the first tagged rel
 | `docubrowse_db.py` | SQLite schema and migrations |
 | `scan_docs.py` | Document discovery, extraction, DB writes |
 | `pdf_extractor.py` | PDF extraction (pdfplumber + pypdf) |
+| `docx_extractor.py` | Word document extraction (python-docx) |
+| `ebook_extractor.py` | EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre) |
+| `dup_detect.py` | Exact (SHA256) and near-duplicate (cosine) detection |
 | `hardware_utils.py` | CPU/GPU/RAM detection, worker formula |
 | `embed_docs.py` | Ollama embedding pipeline |
 | `purge_pii.py` | PII scanner and purge |
@@ -169,9 +204,5 @@ See `status_docs/DECISIONS.md` for full details. Key open items:
 
 1. **ETA drifts high** — progress bar ETA uses simple average; large PDFs hit late inflate it. Fix: sliding window average (deferred).
 2. **Scanned PDFs not searchable** — indexed with placeholder; OCR deferred to Phase 3.
-3. **`duplist`/`dupclean` not implemented** — stubs only.
-4. **No file-type filter in search UI** — searching "docx" returns semantically similar PDFs. Fix: `?type=` filter (deferred).
-5. **ocr_list_pdfs.txt may have duplicate lines** — multiple scan runs of the same image-only PDF append the path again. OCR processing must deduplicate on read.
-
-## Recent Changes
-- **Delete from UI**: 🗑 trash icon on each result card deletes file from HDD and removes from DB (`GET /api/delete`); custom confirm modal, Cancel is default
+3. **No file-type filter in search UI** — searching "docx" returns semantically similar PDFs. Fix: `?type=` filter (deferred).
+4. **ocr_list_pdfs.txt may have duplicate lines** — multiple scan runs of the same image-only PDF append the path again. OCR processing must deduplicate on read.
