@@ -46,7 +46,7 @@ no API keys.
 - Alphabetic index bar (A–Z, 0–9) for quick navigation
 - Tag cloud for filtering by topic
 - Relevance score badges (0–100%) on every result
-- Click document title to open the file; 📋 icon copies path to clipboard
+- Click document title to open the file; 📋 copies path to clipboard; 🗑 deletes file from disk and index (with confirmation)
 
 ### ⚡ Performance
 - Search latency: <150ms typical
@@ -224,6 +224,7 @@ work_dir = /home/user/DocuBrowse
 │  ProcessPoolExecutor │  │  GET /  /api/search             │
 │  pdf_extractor.py    │  │  GET /api/stats  /api/tags      │
 │  embed_docs.py       │  │  GET /api/open  /api/config     │
+│                      │  GET /api/delete                │
 └──────────┬───────────┘  └──────────────┬──────────────────┘
            │                              │
            └──────────┬───────────────────┘
@@ -272,6 +273,7 @@ Base URL: `http://localhost:8643`
 | `GET` | `/api/search` | Search with pagination |
 | `GET` | `/api/open` | Open a file with xdg-open (validates against DB) |
 | `GET` | `/api/config` | Current server configuration |
+| `GET` | `/api/delete` | Delete a file from disk and remove from index (path must be indexed) |
 
 ### Search Parameters
 
@@ -320,6 +322,7 @@ GET /api/search?q=QUERY&offset=0&mode=both
 curl "http://localhost:8643/api/stats"
 curl "http://localhost:8643/api/search?q=kubernetes&mode=both"
 curl "http://localhost:8643/api/search?q=&offset=50"
+curl "http://localhost:8643/api/delete?path=/mnt/data/Documents/unwanted.pdf"
 ```
 
 ---
