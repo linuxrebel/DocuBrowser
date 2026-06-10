@@ -19,8 +19,8 @@ Commands:
   embed       Generate/refresh embeddings for unembedded documents
   open        Open the DocuBrowse UI in your browser
   purge       Scan index for PII and remove matching documents
-  duplist     List duplicate documents         [Not yet implemented]
-  dupclean    Clean up duplicate documents     [Not yet implemented]
+  duplist     List duplicate documents (exact SHA256 + optional near-dup)
+  dupclean    Interactively review and remove duplicate documents
 """
 
 import argparse
@@ -699,16 +699,205 @@ def cmd_scan_file(config: dict, args):
         print("Run 'docubrowser.py embed' to generate embeddings later.")
 
 
-# ─── Not-yet-implemented stubs ────────────────────────────────────────────────
+# ─── duplist / dupclean ───────────────────────────────────────────────────────
 
 def cmd_duplist(config: dict, args):
-    print("Not yet implemented: duplist")
-    print("  Future: List duplicate documents grouped by content hash.")
+    """List duplicate documents (exact and/or near-duplicate)."""
+    db_path = args.db or config['db_path']
+    if not Path(db_path).exists():
+        print(f"ERROR: Database not found: {db_path}")
+        sys.exit(1)
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from dup_detect import find_exact_dups, find_near_dups, fmt_size, group_label
+
+    total_docs = _db_count(db_path)
+    print(f"Scanning {total_docs:,} indexed documents for duplicates...")
+    print()
+
+    # ── Exact duplicates ──────────────────────────────────────────────────────
+    exact_groups = find_exact_dups(db_path, progress=True)
+
+    if exact_groups:
+        redundant = sum(len(g) - 1 for g in exact_groups)
+        recoverable = sum(
+            (len(g) - 1) * (g[0].get('size_bytes') or 0)
+            for g in exact_groups
+        )
+        print(f"Found {len(exact_groups)} exact duplicate group(s) "
+              f"({redundant} redundant cop{'y' if redundant == 1 else 'ies'}, "
+              f"{fmt_size(recoverable)} recoverable):")
+        print()
+        for i, group in enumerate(exact_groups, 1):
+            print(f"  Group {i} — {group_label(group, 'exact')}")
+            for doc in group:
+                print(f"    {doc['path']}")
+            print()
+    else:
+        print("No exact duplicates found.")
+        print()
+
+    # ── Near-duplicates ───────────────────────────────────────────────────────
+    if getattr(args, 'near_dups', False):
+        threshold = getattr(args, 'threshold', 0.97)
+        near_groups = find_near_dups(db_path, threshold=threshold, progress=True)
+
+        if near_groups:
+            print(f"Found {len(near_groups)} near-duplicate group(s) "
+                  f"(cosine similarity ≥ {threshold * 100:.0f}%):")
+            print()
+            for i, group in enumerate(near_groups, 1):
+                print(f"  Group {i} — {group_label(group, 'near')}")
+                for doc in group:
+                    print(f"    {doc['path']}")
+                print()
+        else:
+            print(f"No near-duplicates found (threshold {threshold * 100:.0f}%).")
+            print()
+
+    if exact_groups or getattr(args, 'near_dups', False):
+        print("Run 'docubrowser.py dupclean' to interactively remove duplicates.")
 
 
 def cmd_dupclean(config: dict, args):
-    print("Not yet implemented: dupclean")
-    print("  Future: Interactive TUI to review and remove duplicate documents.")
+    """Interactive TUI to review and remove duplicate documents."""
+    db_path = args.db or config['db_path']
+    if not Path(db_path).exists():
+        print(f"ERROR: Database not found: {db_path}")
+        sys.exit(1)
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from dup_detect import find_exact_dups, find_near_dups, fmt_size, group_label
+
+    total_docs = _db_count(db_path)
+    print(f"Scanning {total_docs:,} indexed documents for duplicates...")
+    print()
+
+    all_groups = []
+    exact_groups = find_exact_dups(db_path, progress=True)
+    for g in exact_groups:
+        all_groups.append(('exact', g))
+
+    if getattr(args, 'near_dups', False):
+        threshold = getattr(args, 'threshold', 0.97)
+        near_groups = find_near_dups(db_path, threshold=threshold, progress=True)
+        for g in near_groups:
+            all_groups.append(('near', g))
+
+    if not all_groups:
+        print("No duplicates found — nothing to clean.")
+        return
+
+    total = len(all_groups)
+    kind_label = {'exact': 'EXACT', 'near': 'NEAR-DUPLICATE'}
+    print(f"Found {total} duplicate group(s). Starting interactive review...")
+    print("Commands: enter number(s) to delete (e.g. '2' or '1,3'), "
+          "'s' = skip, 'q' = quit")
+    print()
+
+    deleted_total = 0
+
+    for idx, (kind, group) in enumerate(all_groups, 1):
+        print("─" * 60)
+        print(f"Group {idx}/{total} [{kind_label[kind]}] — {group_label(group, kind)}")
+        print()
+        for i, doc in enumerate(group, 1):
+            title = (doc.get('title') or doc.get('name') or 'Untitled')[:50]
+            print(f"  [{i}] {doc['path']}")
+            print(f"       {title}  ({fmt_size(doc.get('size_bytes'))})")
+        print()
+
+        while True:
+            try:
+                ans = input("Delete which? > ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print("\nAborted.")
+                return
+
+            if ans in ('q', 'quit'):
+                print(f"\nStopped after reviewing {idx}/{total} groups. "
+                      f"{deleted_total} file(s) deleted.")
+                return
+            if ans in ('s', 'skip', ''):
+                print("  Skipped.")
+                break
+
+            # Parse comma/space-separated indices
+            try:
+                to_delete = [int(x.strip()) for x in ans.replace(',', ' ').split()
+                             if x.strip()]
+            except ValueError:
+                print("  ✗ Enter number(s), 's' to skip, or 'q' to quit.")
+                continue
+
+            valid = [i for i in to_delete if 1 <= i <= len(group)]
+            if len(valid) != len(to_delete):
+                print(f"  ✗ Numbers must be between 1 and {len(group)}.")
+                continue
+            if len(valid) == len(group):
+                print(f"  ✗ Cannot delete all copies — keep at least one.")
+                continue
+
+            targets = [group[i - 1] for i in valid]
+            print()
+            for doc in targets:
+                print(f"  Will delete: {doc['path']}")
+            print()
+
+            try:
+                confirm = input("Confirm delete? [y/N]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print("\nAborted.")
+                return
+
+            if confirm not in ('y', 'yes'):
+                print("  Cancelled — returning to group.")
+                continue
+
+            # Delete from disk and DB (commit per-doc to avoid disk/DB split)
+            from docubrowse_db import get_db as _get_db
+            conn = _get_db(db_path)
+            try:
+                for doc in targets:
+                    path = doc['path']
+                    try:
+                        Path(path).unlink()
+                    except FileNotFoundError:
+                        pass  # already gone — still clean DB
+                    except OSError as e:
+                        print(f"  ✗ Could not delete {path}: {e}")
+                        continue
+
+                    try:
+                        conn.execute('DELETE FROM documents WHERE id = ?', (doc['id'],))
+                        # doc_fts is a contentless FTS5 table — no FK cascade,
+                        # must be cleaned manually to avoid ghost search results.
+                        conn.execute('DELETE FROM doc_fts WHERE rowid = ?', (doc['id'],))
+                        conn.commit()   # commit per-doc: keeps disk and DB in sync
+                        deleted_total += 1
+                        print(f"  ✓ Deleted: {path}")
+                    except Exception as e:
+                        conn.rollback()
+                        print(f"  ✗ DB error for {path}: {e}")
+            finally:
+                conn.close()
+
+            break  # move to next group
+
+    print()
+    print(f"Done. {deleted_total} file(s) deleted across {total} group(s) reviewed.")
+
+
+def _db_count(db_path: str) -> int:
+    """Return total document count from the database."""
+    try:
+        from docubrowse_db import get_db as _get_db
+        conn = _get_db(db_path)
+        n = conn.execute('SELECT COUNT(*) FROM documents').fetchone()[0]
+        conn.close()
+        return n
+    except Exception:
+        return 0
 
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -966,11 +1155,49 @@ def build_parser() -> argparse.ArgumentParser:
                              default=_default_embed_workers, dest="embed_workers",
                              help=f"Parallel threads for Ollama embedding (default: {_default_embed_workers})")
 
-    # duplist (stub)
-    sub.add_parser("duplist", help="List duplicate documents [Not yet implemented]")
+    # duplist
+    p_duplist = sub.add_parser(
+        "duplist",
+        help="List duplicate documents grouped by content hash",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            Finds byte-identical files via SHA256 (size pre-filter avoids hashing
+            unique-size files).  Add --near-dups to also surface semantically
+            similar documents using embedding cosine similarity (requires numpy).
 
-    # dupclean (stub)
-    sub.add_parser("dupclean", help="Clean up duplicate documents [Not yet implemented]")
+            Examples:
+              duplist                       exact duplicates only
+              duplist --near-dups           exact + near-duplicates
+              duplist --near-dups --threshold 0.95   lower similarity bar
+        """),
+    )
+    p_duplist.add_argument("--db", metavar="PATH", help="Database path")
+    p_duplist.add_argument("--near-dups", action="store_true", dest="near_dups",
+                           help="Also find near-duplicates via embedding similarity")
+    p_duplist.add_argument("--threshold", metavar="FLOAT", type=float, default=0.97,
+                           dest="threshold",
+                           help="Cosine similarity threshold for near-dups (default: 0.97)")
+
+    # dupclean
+    p_dupclean = sub.add_parser(
+        "dupclean",
+        help="Interactively review and remove duplicate documents",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            For each duplicate group, shows all copies and prompts you to pick
+            which to delete.  Deletes from disk and removes from the index.
+
+            Examples:
+              dupclean                      review exact duplicates
+              dupclean --near-dups          also include near-duplicates
+        """),
+    )
+    p_dupclean.add_argument("--db", metavar="PATH", help="Database path")
+    p_dupclean.add_argument("--near-dups", action="store_true", dest="near_dups",
+                            help="Also include near-duplicates")
+    p_dupclean.add_argument("--threshold", metavar="FLOAT", type=float, default=0.97,
+                            dest="threshold",
+                            help="Cosine similarity threshold for near-dups (default: 0.97)")
 
     return parser
 
