@@ -778,8 +778,8 @@ def build_parser() -> argparse.ArgumentParser:
               docubrowser.py report --doc-dir /mnt/data/Docs
               docubrowser.py purge --dry-run                  preview PII matches
               docubrowser.py purge                             remove PII documents interactively
-              docubrowser.py scan-file /path/to/file.pdf       index one file + embed
-              docubrowser.py scan-file /path/to/file.pdf --no-embed
+              docubrowser.py scan-file --file /path/to/file.pdf       index one file + embed
+              docubrowser.py scan-file --file /path/to/file.pdf --no-embed
 
             Tip: run 'docubrowser.py <command> --help' for per-command options.
             """),
@@ -950,12 +950,13 @@ def build_parser() -> argparse.ArgumentParser:
             PII-blacklisted files are refused.
 
             Examples:
-              scan-file /mnt/data/Documents/report.pdf
-              scan-file /mnt/data/Documents/report.pdf --no-embed
-              scan-file /path/to/doc.html --doc-dir /mnt/data/Documents
+              scan-file --file /mnt/data/Documents/report.pdf
+              scan-file --file /mnt/data/Documents/report.pdf --no-embed
+              scan-file --file "/path/with spaces/doc.html" --doc-dir /mnt/data/Documents
         """),
     )
-    p_scan_file.add_argument("file", metavar="FILE", help="Path to the file to index")
+    p_scan_file.add_argument("--file", metavar="PATH", required=True,
+                             help="Path to the file to index")
     p_scan_file.add_argument("--db", metavar="PATH", help="Database path")
     p_scan_file.add_argument("--doc-dir", metavar="DIR", dest="doc_dir",
                              help="Document root (used for tag derivation; defaults to configured doc_dir)")
