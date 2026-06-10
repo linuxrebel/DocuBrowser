@@ -36,6 +36,37 @@ except ImportError:
 
 MAX_PAGES = 150   # cap per-PDF to bound memory use and extraction time
 
+# Office applications embed the source filename as the PDF title, e.g.:
+#   "Microsoft Word - Contract.docx"
+# Strip these artifacts so they don't pollute search.
+_OFFICE_PREFIXES = (
+    "Microsoft Word - ",
+    "Microsoft Excel - ",
+    "Microsoft PowerPoint - ",
+    "Microsoft Office Word - ",
+    "Microsoft Office Excel - ",
+    "Microsoft Office PowerPoint - ",
+)
+_OFFICE_SUFFIXES = frozenset(
+    {".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt",
+     ".odt", ".ods", ".odp", ".rtf"}
+)
+
+
+def _sanitize_title(title: str) -> str:
+    """Strip Office-generated prefix/extension artifacts from a PDF title."""
+    if not title:
+        return title
+    t = title.strip()
+    for prefix in _OFFICE_PREFIXES:
+        if t.startswith(prefix):
+            t = t[len(prefix):].strip()
+            break
+    suffix = Path(t).suffix.lower()
+    if suffix in _OFFICE_SUFFIXES:
+        t = Path(t).stem.strip()
+    return t or title.strip()
+
 
 def extract_pdf(pdf_path: str) -> Dict:
     """
@@ -119,7 +150,7 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
 
             # Extract metadata
             if pdf.metadata:
-                result['title']   = pdf.metadata.get('Title')   or result['title']
+                result['title']   = _sanitize_title(pdf.metadata.get('Title')   or result['title'])
                 result['author']  = pdf.metadata.get('Author')  or None
                 result['subject'] = pdf.metadata.get('Subject') or None
 
@@ -189,7 +220,7 @@ def _extract_pypdf(pdf_path: Path, result: Dict) -> Dict:
 
             # Extract metadata
             if reader.metadata:
-                result['title']   = reader.metadata.get('/Title')   or result['title']
+                result['title']   = _sanitize_title(reader.metadata.get('/Title')   or result['title'])
                 result['author']  = reader.metadata.get('/Author')  or None
                 result['subject'] = reader.metadata.get('/Subject') or None
 
