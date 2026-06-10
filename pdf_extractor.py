@@ -59,14 +59,15 @@ def extract_pdf(pdf_path: str) -> Dict:
         }
 
     result = {
-        'title':   pdf_path.stem,
-        'author':  None,
-        'subject': None,
-        'text':    '',
-        'snippet': '',
+        'title':      pdf_path.stem,
+        'author':     None,
+        'subject':    None,
+        'text':       '',
+        'snippet':    '',
         'page_count': 0,
-        'success': False,
-        'error':   None
+        'doc_type':   'pdf',
+        'success':    False,
+        'error':      None
     }
 
     try:
@@ -111,10 +112,21 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
             result['success'] = bool(result['text'])
             if not result['success']:
                 pages = result['page_count']
-                result['error'] = (
-                    f"no text extracted from {pages} page(s) "
-                    f"— likely scanned/image-only or DRM-protected PDF"
-                )
+                # Distinguish scanned (image pages) from truly broken/empty
+                try:
+                    has_images = bool(pdf.pages[0].images) if pdf.pages else False
+                except Exception:
+                    has_images = False
+                if has_images:
+                    result['success']  = True
+                    result['doc_type'] = 'scanned'
+                    result['text']     = '[scanned PDF — OCR required]'
+                    result['snippet']  = '[scanned PDF — OCR required]'
+                else:
+                    result['error'] = (
+                        f"no text extracted from {pages} page(s) "
+                        f"— likely DRM-protected or empty PDF"
+                    )
 
             return result
     except Exception as e:
@@ -212,6 +224,7 @@ if __name__ == '__main__':
         print(f"  Author:  {result['author']}")
         print(f"  Subject: {result['subject']}")
         print(f"  Pages: {result['page_count']}")
+        print(f"  Doc type: {result['doc_type']}")
         print(f"  Success: {result['success']}")
         if result['error']:
             print(f"  Error: {result['error']}")
