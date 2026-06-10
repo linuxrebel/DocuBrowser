@@ -65,6 +65,19 @@
   .doc-title a:hover { text-decoration:underline; }
   .doc-title-copy { cursor:pointer; opacity:0.6; transition:opacity 0.2s; }
   .doc-title-copy:hover { opacity:1; }
+  .doc-delete-btn { font-size:0.7rem; opacity:0.4; cursor:pointer; margin-left:0.15rem; transition:opacity 0.2s; user-select:none; }
+  .doc-delete-btn:hover { opacity:1; }
+  /* Delete confirm modal */
+  .del-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:999; align-items:center; justify-content:center; }
+  .del-overlay.open { display:flex; }
+  .del-box { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.5rem 2rem; max-width:420px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+  .del-box h3 { margin:0 0 0.5rem; font-size:1rem; color:var(--text); }
+  .del-box .del-path { font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-dim); word-break:break-all; margin-bottom:1.1rem; }
+  .del-box .del-actions { display:flex; gap:0.6rem; justify-content:flex-end; }
+  .del-cancel { padding:6px 16px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer; font-size:0.85rem; }
+  .del-cancel:hover { border-color:var(--text-dim); }
+  .del-confirm { padding:6px 16px; border-radius:6px; border:none; background:#c0392b; color:#fff; cursor:pointer; font-size:0.85rem; font-weight:600; }
+  .del-confirm:hover { background:#a93226; }
   .score-badge { font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:500; }
   .score-high { background:rgba(57,211,83,0.15); color:#39d353; }
   .score-mid  { background:rgba(240,136,62,0.15); color:#f0883e; }
@@ -581,6 +594,7 @@ function renderDocs(docs, showScore, append = false) {
         ${badge}
         ${extBadge}
         <span onclick="copyToClipboard('${esc(d.path)}')" title="Copy path to clipboard" style="font-size:0.7rem;opacity:0.5;cursor:pointer;margin-left:0.2rem;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</span>
+        <span class="doc-delete-btn" onclick="deleteDoc('${esc(d.path)}', this)" title="Delete from disk and index">🗑</span>
       </div>
       <div class="doc-path" onclick="openFile('${esc(d.path)}')" title="${esc(d.path)}">${esc(d.path)}</div>
       ${desc ? `<div class="doc-desc">${esc(desc)}</div>` : ''}
@@ -813,6 +827,69 @@ function selectDir(field, path) {
 
 // ── Initialize ────────────────────────────────────────────────
 renderAll();
+
+// ── Delete document ──────────────────────────────────────────────────────────
+let _delPath = null;
+let _delCard = null;
+
+function deleteDoc(path, btn) {
+  _delPath = path;
+  _delCard = btn.closest('.doc-card');
+  document.getElementById('delPathLabel').textContent = path;
+  document.getElementById('delOverlay').classList.add('open');
+  document.getElementById('delCancelBtn').focus();
+}
+
+function _closeDelModal() {
+  document.getElementById('delOverlay').classList.remove('open');
+  _delPath = null;
+  _delCard = null;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('delCancelBtn').addEventListener('click', _closeDelModal);
+  document.getElementById('delOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('delOverlay')) _closeDelModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('delOverlay').classList.contains('open')) {
+      _closeDelModal();
+    }
+  });
+  document.getElementById('delOkBtn').addEventListener('click', async () => {
+    if (!_delPath) return;
+    const path = _delPath;
+    const card = _delCard;
+    _closeDelModal();
+    try {
+      const res = await fetch('/api/delete?path=' + encodeURIComponent(path));
+      const data = await res.json();
+      if (data.ok) {
+        if (card) {
+          card.style.transition = 'opacity 0.25s';
+          card.style.opacity = '0';
+          setTimeout(() => card.remove(), 260);
+        }
+      } else {
+        alert('Delete failed: ' + (data.error || 'unknown error'));
+      }
+    } catch (e) {
+      alert('Delete request failed: ' + e.message);
+    }
+  });
+});
 </script>
+
+  <!-- Delete confirm modal -->
+  <div class="del-overlay" id="delOverlay">
+    <div class="del-box">
+      <h3>Delete this document?</h3>
+      <div class="del-path" id="delPathLabel"></div>
+      <div class="del-actions">
+        <button class="del-cancel" id="delCancelBtn" autofocus>Cancel</button>
+        <button class="del-confirm" id="delOkBtn">Delete</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
