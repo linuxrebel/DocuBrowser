@@ -375,7 +375,33 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.json_response({"ok": False, "error": f"File not found on disk: {path}"})
             return
 
+        # Check if a default app is registered before firing xdg-open.
+        # xdg-mime query default needs a MIME type; fall back to Python's
+        # mimetypes module, then to a raw xdg-mime filetype query.
         try:
+            import mimetypes
+            mime, _ = mimetypes.guess_type(str(p))
+            if not mime:
+                # Ask xdg-mime directly (handles freedesktop magic bytes)
+                r = subprocess.run(
+                    ['xdg-mime', 'query', 'filetype', str(p)],
+                    capture_output=True, text=True, timeout=5,
+                )
+                mime = r.stdout.strip() or None
+
+            if mime:
+                r2 = subprocess.run(
+                    ['xdg-mime', 'query', 'default', mime],
+                    capture_output=True, text=True, timeout=5,
+                )
+                handler = r2.stdout.strip()
+                if not handler:
+                    self.json_response({
+                        "ok": False,
+                        "error": f"No default application for this file type ({mime})"
+                    })
+                    return
+
             subprocess.Popen(['xdg-open', str(p)],
                              stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)
