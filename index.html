@@ -55,15 +55,16 @@
   .results-meta b { color:var(--accent2); }
   .doc-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:1rem; }
   .doc-card {
+    overflow:hidden;
     background:var(--surface); border:1px solid var(--border);
     border-radius:10px; padding:1.2rem 1.4rem;
     transition:border-color 0.2s, transform 0.15s;
   }
   .doc-card:hover { border-color:var(--accent2); transform:translateY(-1px); }
-  .doc-title { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:1rem; color:var(--accent2); margin-bottom:0.3rem; display:flex; align-items:center; gap:0.5rem; }
+  .doc-title { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:1rem; color:var(--accent2); margin-bottom:0.3rem; display:flex; align-items:center; gap:0.5rem; overflow:hidden; min-width:0; }
   .doc-title a { color:inherit; text-decoration:none; cursor:pointer; }
   .doc-title a:hover { text-decoration:underline; }
-  .doc-title-copy { cursor:pointer; opacity:0.6; transition:opacity 0.2s; }
+  .doc-title-copy { cursor:pointer; opacity:0.6; transition:opacity 0.2s; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .doc-title-copy:hover { opacity:1; }
   .doc-delete-btn { font-size:0.7rem; opacity:0.4; cursor:pointer; margin-left:0.15rem; transition:opacity 0.2s; user-select:none; }
   .doc-delete-btn:hover { opacity:1; }
