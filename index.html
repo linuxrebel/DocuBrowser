@@ -791,6 +791,8 @@ settingsModal.addEventListener('click', e => { if (e.target === settingsModal) c
 
 async function openSettings() {
   settingsModal.classList.add('open');
+  const saveMsg = document.getElementById('saveMsg');
+  if (saveMsg) { saveMsg.style.display = 'none'; }
   try {
     const res = await fetch('/api/config');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -829,6 +831,7 @@ async function saveConfig() {
     const msg = document.getElementById('saveMsg');
     msg.textContent = data.message || 'Config saved successfully';
     msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 3000);
     showToast('Config saved');
   } catch (e) {
     console.error('Config save error:', e);
