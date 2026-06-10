@@ -791,25 +791,38 @@ def cmd_dupclean(config: dict, args):
     total = len(all_groups)
     kind_label = {'exact': 'EXACT', 'near': 'NEAR-DUPLICATE'}
     print(f"Found {total} duplicate group(s). Starting interactive review...")
-    print("Commands: enter number(s) to delete (e.g. '2' or '1,3'), "
-          "'s' = skip, 'q' = quit")
+    print("Commands: Keep A / Keep B / Keep Both (skip) / Q (quit)")
     print()
 
     deleted_total = 0
 
+    # Build letter labels: A, B, C, … Z, AA, AB, …
+    def _labels(n):
+        import string
+        alpha = string.ascii_uppercase
+        if n <= 26:
+            return list(alpha[:n])
+        return [alpha[i] for i in range(26)] + \
+               [alpha[i] + alpha[j] for i in range(26) for j in range(26)][:n - 26]
+
     for idx, (kind, group) in enumerate(all_groups, 1):
+        labels = _labels(len(group))
         print("─" * 60)
         print(f"Group {idx}/{total} [{kind_label[kind]}] — {group_label(group, kind)}")
         print()
-        for i, doc in enumerate(group, 1):
+        for label, doc in zip(labels, group):
             title = (doc.get('title') or doc.get('name') or 'Untitled')[:50]
-            print(f"  [{i}] {doc['path']}")
+            print(f"  [{label}] {doc['path']}")
             print(f"       {title}  ({fmt_size(doc.get('size_bytes'))})")
         print()
 
+        label_map = {lbl.lower(): doc for lbl, doc in zip(labels, group)}
+        opts = " / ".join(f"Keep {lbl}" for lbl in labels) + " / Keep Both (skip) / Q (quit)"
+        print(f"  {opts}")
+
         while True:
             try:
-                ans = input("Delete which? > ").strip().lower()
+                ans = input("  > ").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 print("\nAborted.")
                 return
@@ -818,40 +831,36 @@ def cmd_dupclean(config: dict, args):
                 print(f"\nStopped after reviewing {idx}/{total} groups. "
                       f"{deleted_total} file(s) deleted.")
                 return
-            if ans in ('s', 'skip', ''):
-                print("  Skipped.")
+
+            if ans in ('both', 'keep both', 's', 'skip', ''):
+                print("  Kept both — skipping.")
                 break
 
-            # Parse comma/space-separated indices
-            try:
-                to_delete = [int(x.strip()) for x in ans.replace(',', ' ').split()
-                             if x.strip()]
-            except ValueError:
-                print("  ✗ Enter number(s), 's' to skip, or 'q' to quit.")
-                continue
+            # Check for "keep X" or bare letter
+            keep_label = None
+            if ans.startswith('keep '):
+                keep_label = ans[5:].strip()
+            elif ans in label_map:
+                keep_label = ans
 
-            valid = [i for i in to_delete if 1 <= i <= len(group)]
-            if len(valid) != len(to_delete):
-                print(f"  ✗ Numbers must be between 1 and {len(group)}.")
-                continue
-            if len(valid) == len(group):
-                print(f"  ✗ Cannot delete all copies — keep at least one.")
-                continue
-
-            targets = [group[i - 1] for i in valid]
-            print()
-            for doc in targets:
-                print(f"  Will delete: {doc['path']}")
-            print()
-
-            try:
-                confirm = input("Confirm delete? [y/N]: ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                print("\nAborted.")
-                return
-
-            if confirm not in ('y', 'yes'):
-                print("  Cancelled — returning to group.")
+            if keep_label and keep_label in label_map:
+                targets = [doc for lbl, doc in zip(labels, group)
+                           if lbl.lower() != keep_label]
+                print()
+                for doc in targets:
+                    print(f"  Will delete: {doc['path']}")
+                print()
+                try:
+                    confirm = input("  Confirm deletion? [y/N]: ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nAborted.")
+                    return
+                if confirm not in ('y', 'yes'):
+                    print("  Cancelled — skipping.")
+                    break
+            else:
+                print(f"  ✗ Enter {', '.join(f'Keep {l}' for l in labels)}, "
+                      f"'Keep Both', or 'Q'.")
                 continue
 
             # Delete from disk and DB (commit per-doc to avoid disk/DB split)
