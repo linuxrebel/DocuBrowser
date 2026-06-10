@@ -8,53 +8,84 @@ For each PDF in the blacklist:
   - Otherwise → genuinely broken/unreadable
     → keep in blacklist
 
+Each PDF is checked in a subprocess with a 30s timeout — same pathological
+PDFs that hang pdfplumber in the main scanner will timeout here instead of
+blocking forever.
+
 Usage:
     python3 triage_blacklist.py [--db /path/to/du-docs.db] [--dry-run]
 """
 
 import argparse
+import multiprocessing
+import signal
 import sys
 from datetime import datetime
 from pathlib import Path
 
 try:
     import pdfplumber
-    HAS_PDFPLUMBER = True
 except ImportError:
-    HAS_PDFPLUMBER = False
     print("ERROR: pdfplumber not installed. Run: pip install pdfplumber", file=sys.stderr)
     sys.exit(1)
 
 BLACKLIST_FILENAME = "scan_blacklist.txt"
 OCR_LIST_FILENAME  = "ocr_list_pdfs.txt"
+CHECK_TIMEOUT_SECS = 30
+
+
+def _check_worker(path: str, result_queue: multiprocessing.Queue) -> None:
+    """Run inside a subprocess — check page 0 for images vs chars."""
+    # Ignore SIGINT in worker so Ctrl-C is handled by the parent only
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        with pdfplumber.open(path) as pdf:
+            if not pdf.pages:
+                result_queue.put((False, "no pages"))
+                return
+            page   = pdf.pages[0]
+            chars  = len(page.chars)
+            images = len(page.images)
+            if chars == 0 and images > 0:
+                result_queue.put((True, f"page 0: 0 chars, {images} image(s)"))
+            elif chars == 0:
+                result_queue.put((False, "page 0: 0 chars, 0 images — DRM or empty"))
+            else:
+                result_queue.put((False, f"page 0: {chars} chars — has text (unexpected)"))
+    except Exception as e:
+        result_queue.put((False, f"open error: {e}"))
 
 
 def is_scanned_pdf(path: str) -> tuple[bool, str]:
     """
     Returns (is_scanned, reason).
-    Checks first page only — fast enough for triage.
+    Runs pdfplumber in a subprocess with a timeout to avoid hangs on
+    spread-layout or otherwise pathological PDFs.
     """
     p = Path(path)
     if not p.exists():
         return False, "file not found"
     if p.suffix.lower() != ".pdf":
         return False, "not a PDF"
-    try:
-        with pdfplumber.open(str(p)) as pdf:
-            if not pdf.pages:
-                return False, "no pages"
-            page = pdf.pages[0]
-            chars  = len(page.chars)
-            images = len(page.images)
-            if chars == 0 and images > 0:
-                return True, f"page 0: 0 chars, {images} image(s)"
-            elif chars == 0:
-                return False, f"page 0: 0 chars, 0 images — DRM or empty"
-            else:
-                # Has text — shouldn't be in the blacklist; treat as unknown
-                return False, f"page 0: {chars} chars — has text (unexpected)"
-    except Exception as e:
-        return False, f"open error: {e}"
+
+    result_queue: multiprocessing.Queue = multiprocessing.Queue()
+    proc = multiprocessing.Process(
+        target=_check_worker,
+        args=(path, result_queue),
+        daemon=True,
+    )
+    proc.start()
+    proc.join(timeout=CHECK_TIMEOUT_SECS)
+
+    if proc.is_alive():
+        proc.kill()
+        proc.join()
+        return False, f"timeout after {CHECK_TIMEOUT_SECS}s — likely pathological PDF (kept in blacklist)"
+
+    if not result_queue.empty():
+        return result_queue.get()
+
+    return False, "worker exited without result"
 
 
 def load_blacklist(bl_path: Path) -> list[tuple[str, str]]:
@@ -78,24 +109,26 @@ def load_blacklist(bl_path: Path) -> list[tuple[str, str]]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Triage scan_blacklist.txt — separate scanned PDFs from broken ones")
+    parser = argparse.ArgumentParser(
+        description="Triage scan_blacklist.txt — separate scanned PDFs from broken ones"
+    )
     parser.add_argument("--db", default="/mnt/data/git/AI/DocuBrowse/du-docs.db",
                         help="Path to du-docs.db (used to locate blacklist files)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Report what would happen without making changes")
     args = parser.parse_args()
 
-    db_path   = Path(args.db)
-    bl_path   = db_path.parent / BLACKLIST_FILENAME
-    ocr_path  = db_path.parent / OCR_LIST_FILENAME
-    dry_run   = args.dry_run
+    db_path  = Path(args.db)
+    bl_path  = db_path.parent / BLACKLIST_FILENAME
+    ocr_path = db_path.parent / OCR_LIST_FILENAME
+    dry_run  = args.dry_run
 
     if not bl_path.exists():
         print(f"No blacklist found at {bl_path}")
         sys.exit(0)
 
     entries = load_blacklist(bl_path)
-    print(f"Triaging {len(entries)} blacklist entries")
+    print(f"Triaging {len(entries)} blacklist entries  (timeout: {CHECK_TIMEOUT_SECS}s per file)")
     if dry_run:
         print("(DRY RUN — no files will be changed)\n")
     else:
@@ -104,37 +137,40 @@ def main():
     keep      = []   # (path, comment) — stays in blacklist
     to_ocr    = []   # paths to move to ocr_list_pdfs.txt
     not_found = []   # paths that no longer exist
-    other     = []   # non-PDF entries — keep as-is
+    width     = len(str(len(entries)))
 
-    for i, (path, comment) in enumerate(entries, 1):
-        p = Path(path)
-        print(f"  [{i:>{len(str(len(entries)))}}/{len(entries)}] {p.name}", end="  ", flush=True)
+    try:
+        for i, (path, comment) in enumerate(entries, 1):
+            p = Path(path)
+            print(f"  [{i:>{width}}/{len(entries)}] {p.name}", end="  ", flush=True)
 
-        if not p.exists():
-            print("MISSING")
-            not_found.append((path, comment))
-            continue
+            if not p.exists():
+                print("MISSING")
+                not_found.append((path, comment))
+                continue
 
-        if p.suffix.lower() != ".pdf":
-            print(f"KEEP (not a PDF: {p.suffix})")
-            other.append((path, comment))
-            keep.append((path, comment))
-            continue
+            if p.suffix.lower() != ".pdf":
+                print(f"KEEP (not a PDF: {p.suffix})")
+                keep.append((path, comment))
+                continue
 
-        scanned, reason = is_scanned_pdf(path)
-        if scanned:
-            print(f"SCANNED  ({reason})")
-            to_ocr.append(path)
-        else:
-            print(f"KEEP  ({reason})")
-            keep.append((path, comment))
+            scanned, reason = is_scanned_pdf(path)
+            if scanned:
+                print(f"SCANNED  ({reason})")
+                to_ocr.append(path)
+            else:
+                print(f"KEEP  ({reason})")
+                keep.append((path, comment))
+
+    except KeyboardInterrupt:
+        print("\n\nInterrupted — partial results shown.")
 
     print()
     print("=" * 60)
-    print(f"  Total entries:   {len(entries)}")
-    print(f"  Scanned (→ OCR): {len(to_ocr)}")
+    print(f"  Total entries:     {len(entries)}")
+    print(f"  Scanned (→ OCR):   {len(to_ocr)}")
     print(f"  Keep in blacklist: {len(keep)}")
-    print(f"  Missing files:   {len(not_found)}  (dropped from blacklist)")
+    print(f"  Missing (dropped): {len(not_found)}")
     print()
 
     if dry_run:
@@ -175,4 +211,5 @@ def main():
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method("forkserver")
     main()
