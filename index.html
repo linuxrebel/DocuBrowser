@@ -519,7 +519,7 @@ async function renderAll() {
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
     meta.innerHTML = `<span class="results-title">All Documents</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
     console.log('Rendering index bar');
-    renderIndexBar(allDocs);
+    await renderIndexBar();
     console.log('Clearing grid');
     grid.innerHTML = '';
     console.log('Rendering docs');
@@ -535,17 +535,27 @@ async function renderAll() {
   }
 }
 
-function renderIndexBar(docs) {
+async function renderIndexBar() {
   const letters = ['0-9', ...Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ')];
-  const firstLetters = new Set(docs.map(d => {
-    const title = (d.title || d.name || '').charAt(0).toUpperCase();
-    return title.match(/[A-Z]/) ? title : '0';
-  }));
+
+  // Fetch the full set of active first letters from the server (not just current page)
+  let activeLetters = new Set();
+  try {
+    const res = await fetch('/api/letters');
+    if (res.ok) {
+      const data = await res.json();
+      (data.letters || []).forEach(l => {
+        if (/^[A-Z]$/.test(l)) activeLetters.add(l);
+        else activeLetters.add('0');  // digits / symbols → '0-9' bucket
+      });
+    }
+  } catch (e) { /* fall through — all buttons will be enabled */ }
 
   const indexBar = document.createElement('div');
   indexBar.className = 'index-bar';
   indexBar.innerHTML = letters.map(letter => {
-    const has = letter === '0-9' ? firstLetters.has('0') : firstLetters.has(letter);
+    const has = activeLetters.size === 0 ||  // if fetch failed, enable all
+                (letter === '0-9' ? activeLetters.has('0') : activeLetters.has(letter));
     const cls = has ? 'index-btn' : 'index-btn disabled';
     return `<button class="${cls}" data-letter="${letter}" onclick="filterByLetter('${letter}')">${letter}</button>`;
   }).join('');
