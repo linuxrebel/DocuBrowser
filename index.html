@@ -333,6 +333,10 @@
       <button class="browse-btn" onclick="openBrowser('workDir')">browse</button>
     </div>
     <div class="dir-browser" id="browser-workDir"></div>
+    <label>port — HTTP server port</label>
+    <div class="field-row">
+      <input type="number" id="cfgPort" placeholder="8643" min="1024" max="65535" style="max-width:140px">
+    </div>
     <div class="modal-actions">
       <button class="btn-primary" onclick="saveConfig()">Save</button>
       <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
@@ -799,6 +803,7 @@ async function openSettings() {
     const cfg = await res.json();
     document.getElementById('cfgDocPath').value = cfg.docPath || '';
     document.getElementById('cfgWorkDir').value = cfg.workDir || '';
+    document.getElementById('cfgPort').value = cfg.port || 8643;
     const status = document.getElementById('configStatus');
     if (cfg.installed) {
       status.innerHTML = `<span class="ok">✓ Config loaded from /etc/docubrowse.config</span>`;
@@ -820,11 +825,12 @@ function closeSettings() { settingsModal.classList.remove('open'); closeBrowsers
 async function saveConfig() {
   const docPath = document.getElementById('cfgDocPath').value.trim();
   const workDir = document.getElementById('cfgWorkDir').value.trim();
+  const port = parseInt(document.getElementById('cfgPort').value) || 8643;
   if (!docPath || !workDir) { alert('Both fields are required'); return; }
   try {
     const res = await fetch('/api/config', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({docPath, workDir})
+      body: JSON.stringify({docPath, workDir, port})
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     await res.json();
