@@ -172,3 +172,6 @@ See `status_docs/DECISIONS.md` for full details. Key open items:
 3. **`duplist`/`dupclean` not implemented** — stubs only.
 4. **No file-type filter in search UI** — searching "docx" returns semantically similar PDFs. Fix: `?type=` filter (deferred).
 5. **ocr_list_pdfs.txt may have duplicate lines** — multiple scan runs of the same image-only PDF append the path again. OCR processing must deduplicate on read.
+
+## Recent Changes
+- **Delete from UI**: 🗑 trash icon on each result card deletes file from HDD and removes from DB (`GET /api/delete`); custom confirm modal, Cancel is default
