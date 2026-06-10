@@ -82,6 +82,16 @@ def _first_meta(book, namespace, tag):
     return None
 
 
+def _normalize_author(author: str) -> str:
+    """Normalize 'Surname, Given' → 'Given Surname'. No-op for other forms."""
+    if not author or ',' not in author or author.count(',') != 1:
+        return author
+    surname, _, given = author.partition(',')
+    given = given.strip()
+    surname = surname.strip()
+    return f'{given} {surname}' if given else author
+
+
 # ── Calibre helpers ───────────────────────────────────────────────────────────
 
 def _calibre_metadata(file_path: str) -> dict:
@@ -106,8 +116,9 @@ def _calibre_metadata(file_path: str) -> dict:
             if key == 'title':
                 meta['title'] = val
             elif key == 'author(s)':
-                # Strip calibre's "[Surname, Given]" bracketed form
-                meta['author'] = val.split('[')[0].strip() or val
+                # Strip calibre's "[Surname, Given]" bracketed form, then normalize
+                author = val.split('[')[0].strip() or val
+                meta['author'] = _normalize_author(author)
             elif key in ('tags', 'series'):
                 meta['subject'] = val
             elif key == 'publisher':
@@ -158,7 +169,7 @@ def _extract_epub(file_path: str, doc_type: str = 'epub') -> dict:
             book = epub.read_epub(file_path, options={'ignore_ncx': True})
 
         result['title']   = _first_meta(book, 'DC', 'title')
-        result['author']  = _first_meta(book, 'DC', 'creator')
+        result['author']  = _normalize_author(_first_meta(book, 'DC', 'creator') or '')  or None
         result['subject'] = _first_meta(book, 'DC', 'subject')
 
         # Pull text from spine items; stop once we have enough
