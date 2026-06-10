@@ -55,6 +55,7 @@ _IS_TTY = sys.stdout.isatty()
 # and skipped on future scans.  Lives next to the database.
 BLACKLIST_FILENAME     = "scan_blacklist.txt"
 PII_BLACKLIST_FILENAME = "pii_blacklist.txt"
+OCR_LIST_FILENAME      = "ocr_list_pdfs.txt"
 
 
 def _load_blacklist(db_path: Path, filename: str = BLACKLIST_FILENAME) -> set:
@@ -80,6 +81,13 @@ def _blacklist_add(db_path: Path, file_path: str, reason: str) -> None:
     entry = f"# Added {timestamp} — {reason}\n{file_path}\n"
     with open(bl_path, "a", encoding="utf-8") as fh:
         fh.write(entry)
+
+
+def _ocr_list_add(db_path: Path, file_path: str) -> None:
+    """Append a scanned PDF path to ocr_list_pdfs.txt for future OCR processing."""
+    ocr_path = db_path.parent / OCR_LIST_FILENAME
+    with open(ocr_path, "a", encoding="utf-8") as fh:
+        fh.write(file_path + "\n")
 
 
 def _worker_init():
@@ -470,6 +478,7 @@ def scan_directory(
 
     start_time = time.time()
     extracted  = 0
+    scanned    = 0
     failed     = 0
     completed  = 0
     total      = len(to_process)
@@ -493,7 +502,7 @@ def scan_directory(
             in_flight[f] = item[0]
 
     def _handle_result(future, fname="unknown"):
-        nonlocal completed, extracted, failed
+        nonlocal completed, extracted, scanned, failed
         completed += 1
 
         # Worker killed by RLIMIT_AS (SIGSEGV/SIGBUS) or RLIMIT_CPU (SIGXCPU)
@@ -524,8 +533,13 @@ def scan_directory(
         if result["success"]:
             doc_id = _write_result(conn, result, doc_dir)
             if doc_id is not None:
-                extracted += 1
-                _log.info("OK  %s  (%d tags)", name, len(result.get("tags", [])))
+                if result.get("doc_type") == "scanned":
+                    scanned += 1
+                    _ocr_list_add(db_path, result["path"])
+                    _log.info("SCANNED  %s  (added to ocr_list_pdfs.txt)", name)
+                else:
+                    extracted += 1
+                    _log.info("OK  %s  (%d tags)", name, len(result.get("tags", [])))
             else:
                 failed += 1
                 _log.error("DB ERROR  %s", name)
@@ -604,10 +618,11 @@ def scan_directory(
     print(f"  Found:      {len(all_files):,}")
     print(f"  Skipped:    {skipped:,}  (not modified)")
     print(f"  Extracted:  {extracted:,}")
+    print(f"  Scanned:    {scanned:,}  (image-only — added to ocr_list_pdfs.txt)")
     print(f"  Failed:     {failed:,}")
     print(f"  Time:       {elapsed:.1f}s")
-    if extracted > 0:
-        print(f"  Speed:      {extracted / elapsed:.1f} docs/sec")
+    if (extracted + scanned) > 0:
+        print(f"  Speed:      {(extracted + scanned) / elapsed:.1f} docs/sec")
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
