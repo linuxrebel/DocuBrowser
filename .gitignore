@@ -74,6 +74,7 @@ profile.prof
 # embeddings.cache
 # semantic_index.pkl
 
+docubrowse.config
 du-docs.db
 du-docs.db-shm
 du-docs.db-wal
