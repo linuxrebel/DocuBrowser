@@ -267,6 +267,26 @@
     z-index:300; animation:slideIn 0.3s ease;
   }
   @keyframes slideIn { from { transform:translateX(400px); opacity:0; } to { transform:translateX(0); opacity:1; } }
+
+  /* ── Error modal ── */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    display:flex; align-items:center; justify-content:center;
+    z-index:500; animation:fadeIn 0.15s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  .modal-box {
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:1.8rem 2rem 1.4rem; max-width:380px; width:90%;
+    box-shadow:0 8px 32px rgba(0,0,0,0.4); text-align:center;
+  }
+  .modal-icon { font-size:2rem; margin-bottom:0.6rem; }
+  .modal-msg  { font-size:0.9rem; color:var(--text); margin-bottom:1.4rem; line-height:1.5; }
+  .modal-ok {
+    padding:0.5rem 2rem; border-radius:6px; border:none; cursor:pointer;
+    background:var(--accent); color:#fff; font-size:0.9rem; font-weight:600;
+  }
+  .modal-ok:hover { opacity:0.85; }
 </style>
 </head>
 <body>
@@ -724,7 +744,7 @@ function openFile(path) {
     .then(r => r.json())
     .then(d => {
       if (d.ok) showToast('Opening…');
-      else showToast('⚠ ' + (d.error || 'Could not open file'), d.error ? 4000 : 2000);
+      else showErrorModal(d.error || 'Could not open file');
     })
     .catch(e => showToast('⚠ Error: ' + e.message));
 }
@@ -745,6 +765,22 @@ function showToast(msg, duration = 2000) {
   toast.textContent = msg;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), duration);
+}
+
+function showErrorModal(msg) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-icon">⚠️</div>
+      <div class="modal-msg">${msg}</div>
+      <button class="modal-ok" id="modalOkBtn">OK</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  const dismiss = () => overlay.remove();
+  overlay.querySelector('#modalOkBtn').addEventListener('click', dismiss);
+  overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(); });
+  overlay.querySelector('#modalOkBtn').focus();
 }
 
 // ── Settings ──────────────────────────────────────────────────
