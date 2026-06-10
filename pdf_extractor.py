@@ -11,15 +11,24 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-# Try importing pdfplumber, fall back to pypdf if unavailable
+# Try importing pdfplumber and pypdf independently.
+# Both may be installed simultaneously; pdfplumber is preferred for extraction
+# but pypdf is used as a lightweight pre-check (lazy-loading trailer /Size)
+# to detect bloated-object PDFs that would hang pdfminer at open() time.
 HAS_PDFPLUMBER = False
 HAS_PYPDF = False
 try:
     import pdfplumber
     HAS_PDFPLUMBER = True
 except ImportError:
+    pass
+
+try:
+    import pypdf
+    HAS_PYPDF = True
+except ImportError:
     try:
-        import PyPDF2 as pypdf
+        import PyPDF2 as pypdf  # type: ignore[no-redef]
         HAS_PYPDF = True
     except ImportError:
         pass
@@ -70,8 +79,27 @@ def extract_pdf(pdf_path: str) -> Dict:
         'error':      None
     }
 
+    # PDF object count threshold: pdfminer (used by pdfplumber) builds a
+    # complete object map on open(). Files with huge object counts — caused
+    # by ExifTool or repeated incremental updates that don't garbage-collect
+    # old objects — hang pdfminer at open() time. pypdf lazy-loads and is
+    # unaffected. Pre-check /Size from the xref via pypdf; route bloated
+    # files directly to pypdf to avoid the hang.
+    OBJECT_COUNT_THRESHOLD = 8000
+
     try:
         if HAS_PDFPLUMBER:
+            use_pypdf = False
+            if HAS_PYPDF:
+                try:
+                    _r = pypdf.PdfReader(str(pdf_path))
+                    obj_count = _r.trailer.get('/Size', 0)
+                    if obj_count > OBJECT_COUNT_THRESHOLD:
+                        use_pypdf = True
+                except Exception:
+                    pass  # probe failed — let pdfplumber try
+            if use_pypdf:
+                return _extract_pypdf(pdf_path, result)
             return _extract_pdfplumber(pdf_path, result)
         elif HAS_PYPDF:
             return _extract_pypdf(pdf_path, result)
@@ -188,7 +216,7 @@ def _extract_pypdf(pdf_path: Path, result: Dict) -> Dict:
 
             return result
     except Exception as e:
-        result['error'] = f'PyPDF2 error: {str(e)}'
+        result['error'] = f'pypdf error: {str(e)}'
         return result
 
 
