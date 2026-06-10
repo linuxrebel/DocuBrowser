@@ -504,6 +504,10 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         doc_path = str(data.get("docPath", "")).strip()
         work_dir = str(data.get("workDir", "")).strip()
+        try:
+            port = int(data.get("port", self.server_port))
+        except (ValueError, TypeError):
+            port = self.server_port
         if not doc_path or not work_dir:
             self.error_response(400, "docPath and workDir are required")
             return
@@ -514,7 +518,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 "# docubrowse.config — written by the Settings UI\n",
                 f"doc_dir  = {doc_path}\n",
                 f"work_dir = {work_dir}\n",
-                f"port     = {self.server_port}\n",
+                f"port     = {port}\n",
             ]
             cfg_path.write_text("".join(lines), encoding="utf-8")
             self.json_response({
