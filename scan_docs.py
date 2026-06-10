@@ -31,7 +31,11 @@ from docubrowse_db import get_db
 
 DEFAULT_EXTENSIONS = [".pdf", ".docx", ".pptx", ".xlsx",
                       ".epub", ".mobi", ".azw", ".azw3",
-                      ".txt", ".md", ".html"]
+                      ".txt", ".md", ".html",
+                      ".json", ".yml", ".yaml",
+                      ".py", ".sh", ".js", ".css"]
+
+_CODE_EXTENSIONS = frozenset({".json", ".yml", ".yaml", ".py", ".sh", ".js", ".css"})
 
 # Physical-core-aware default — hyperthreads don't help pdfplumber
 try:
@@ -283,6 +287,9 @@ def _extract_file(args: tuple) -> dict:
             name = parent.name.lower()
             if len(name) > 2:
                 tags.add(name)
+
+        if ext in _CODE_EXTENSIONS:
+            tags.add("code")
 
         if ext in (".pdf", ".docx", ".pptx", ".xlsx", ".epub", ".mobi", ".azw", ".azw3"):
             from pdf_extractor import generate_keywords
