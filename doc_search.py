@@ -101,6 +101,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_stats()
             elif path == '/api/tags':
                 self.handle_tags()
+            elif path == '/api/letters':
+                self.handle_letters()
             elif path == '/api/search':
                 self.handle_search(query)
             elif path == '/api/open':
@@ -161,8 +163,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             FROM doc_tags
             GROUP BY tag
             HAVING count >= 3
-            ORDER BY count DESC
-            LIMIT 50
+            ORDER BY tag COLLATE NOCASE ASC
+            LIMIT 200
         ''').fetchall()
 
         conn.close()
@@ -170,6 +172,17 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         tags = [{"tag": row[0], "count": row[1]} for row in tags_data]
 
         self.json_response({"tags": tags})
+
+    def handle_letters(self):
+        """GET /api/letters - Return set of first letters present in all doc titles."""
+        conn = get_db(self.db_path)
+        rows = conn.execute(
+            "SELECT DISTINCT upper(substr(COALESCE(title, name, ''), 1, 1)) AS letter "
+            "FROM documents WHERE letter != ''"
+        ).fetchall()
+        conn.close()
+        letters = sorted(r[0] for r in rows if r[0])
+        self.json_response({"letters": letters})
 
     def handle_search(self, query: dict):
         """GET /api/search - Search documents."""
