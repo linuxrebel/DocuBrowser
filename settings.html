@@ -186,13 +186,34 @@
     <label>docPath — root directory containing documents</label>
     <div class="field-row">
       <input type="text" id="cfgDocPath" placeholder="/mnt/data/Documents">
-      <button class="browse-btn" onclick="openBrowser('docPath')">browse</button>
+      <button class="browse-btn" onclick="openBrowser('docPath')">Browse…</button>
     </div>
     <div class="dir-browser" id="browser-docPath"></div>
-    <label>workDir — where docubrowse files live</label>
+
+    <label style="margin-top:1rem;">Add an additional directory to scan</label>
+    <p class="panel-desc">
+      Extra top-level directories to index, in addition to docPath above. Adding a directory here
+      does not scan it automatically — run the reminder command shown from the command line to
+      index it.
+    </p>
+    <div class="field-row">
+      <input type="text" id="cfgScanDir" placeholder="/path/to/scan">
+      <button class="browse-btn" onclick="openBrowser('scanDir')">Browse…</button>
+      <button class="browse-btn add-btn" onclick="addScanDir()">Add</button>
+      <button class="browse-btn" onclick="clearScanDirInput()">Clear</button>
+    </div>
+    <div class="dir-browser" id="browser-scanDir"></div>
+
+    <label style="margin-top:1rem;">Additional directories being scanned</label>
+    <p class="panel-desc">
+      Click the ✕ to the right of a directory to remove it from this list.
+    </p>
+    <div class="list-box" id="scanDirList"></div>
+
+    <label style="margin-top:1rem;">workDir — where docubrowse files live</label>
     <div class="field-row">
       <input type="text" id="cfgWorkDir" placeholder="/path/to/DocuBrowse">
-      <button class="browse-btn" onclick="openBrowser('workDir')">browse</button>
+      <button class="browse-btn" onclick="openBrowser('workDir')">Browse…</button>
     </div>
     <div class="dir-browser" id="browser-workDir"></div>
     <label>port — HTTP server port</label>
@@ -230,29 +251,6 @@
     <div class="list-box" id="ignoreDirList"></div>
   </div>
 
-  <div class="panel">
-    <h2>Additional Scan Directories</h2>
-    <p class="panel-desc">
-      Extra top-level directories to index, in addition to docPath above. Adding a directory here
-      does not scan it automatically — run the reminder command shown from the command line to
-      index it.
-    </p>
-
-    <label>Add a directory to scan</label>
-    <div class="field-row">
-      <input type="text" id="cfgScanDir" placeholder="/path/to/scan">
-      <button class="browse-btn" onclick="openBrowser('scanDir')">Browse…</button>
-      <button class="browse-btn add-btn" onclick="addScanDir()">Add</button>
-      <button class="browse-btn" onclick="clearScanDirInput()">Clear</button>
-    </div>
-    <div class="dir-browser" id="browser-scanDir"></div>
-
-    <label style="margin-top:1rem;">Additional directories to scan</label>
-    <p class="panel-desc">
-      Click the ✕ to the right of a directory to remove it from this list.
-    </p>
-    <div class="list-box" id="scanDirList"></div>
-  </div>
 </div>
 
 <script>
@@ -380,7 +378,7 @@ async function loadDir(field, path) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     let html;
-    if (field === 'ignoreDir' || field === 'scanDir') {
+    if (field === 'ignoreDir' || field === 'scanDir' || field === 'docPath' || field === 'workDir') {
       // Keep the path input in sync with the directory being browsed.
       document.getElementById(fieldInputId(field)).value = data.path;
       html = `<div class="dir-path">${esc(data.path)}</div>`;

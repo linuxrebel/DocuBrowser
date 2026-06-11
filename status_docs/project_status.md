@@ -175,6 +175,21 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 - Verified via Playwright: 0 console errors, panel renders correctly, browse
   live-sync works, add shows the correct reminder/command and updates the
   list, remove confirms and clears back to the empty-state message.
+
+### 2026-06-11 (continued) — Consolidated scan-directory management into General panel
+- James felt the standalone "Additional Scan Directories" panel duplicated
+  the goal of the General panel's docPath field and made users jump between
+  sections to manage scan locations.
+- Moved the "Add an additional directory to scan" controls (Browse…/Add/
+  Clear input row, dir browser, and "Additional directories being scanned"
+  list) to live directly under docPath in the General panel. Backend
+  (`scan_dirs.txt`, `/api/scan-dirs`) unchanged.
+- Updated docPath's and workDir's "browse" buttons to the new live-sync
+  style (path syncs as you navigate, no "select this" button), matching the
+  Ignored Directories / scan-dir browse UX.
+- Verified via Playwright: 0 console errors; docPath Browse… opens directly
+  under the field with live-sync and no "select this"; scan-dir add/remove
+  still works correctly from its new location.
 - Added `getActiveLetters()` with a module-level cache of `/api/letters` so
   the active/disabled state of letter buttons doesn't refetch on every
   render.
