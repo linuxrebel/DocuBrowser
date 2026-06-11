@@ -1,0 +1,33 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: docu/browse
+    - generic [ref=e4]:
+      - img [ref=e5]
+      - textbox "Search documents… e.g. 'quarterly report' or 'budget analysis'" [active] [ref=e8]
+    - generic [ref=e9]:
+      - button "Keyword" [ref=e10] [cursor=pointer]
+      - button "Semantic" [ref=e11] [cursor=pointer]
+      - button "Both" [ref=e12] [cursor=pointer]
+    - generic [ref=e13]: 7818 docs · 7818 embedded · 2674 tags
+    - button "Light" [ref=e14] [cursor=pointer]:
+      - img [ref=e15]
+      - generic [ref=e25]: Light
+    - button "Settings" [ref=e26] [cursor=pointer]:
+      - img [ref=e27]
+      - text: Settings
+  - generic [ref=e30]:
+    - button "tags" [ref=e31] [cursor=pointer]:
+      - img [ref=e32]
+      - text: tags
+    - generic [ref=e34]:
+      - generic [ref=e35]: All Documents
+      - generic [ref=e36]:
+        - text: showing 1-50 of 7818
+        - button "Back" [disabled] [ref=e37] [cursor=pointer]
+        - button "Next" [ref=e38] [cursor=pointer]
+        - combobox "Items per page" [ref=e39] [cursor=pointer]:
+          - option "25/page"
+          - option "50/page" [selected]
+          - option "75/page"
+          - option "100/page"
+    - button "↑ Top" [ref=e41] [cursor=pointer]

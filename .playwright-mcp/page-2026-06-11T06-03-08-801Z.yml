@@ -1,0 +1,32 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: docu/browse
+    - generic [ref=e4]:
+      - img [ref=e5]
+      - textbox "Search documents… e.g. 'quarterly report' or 'budget analysis'" [active] [ref=e8]
+    - generic [ref=e9]:
+      - button "Keyword" [ref=e10] [cursor=pointer]
+      - button "Semantic" [ref=e11] [cursor=pointer]
+      - button "Both" [ref=e12] [cursor=pointer]
+    - button "Light" [ref=e13] [cursor=pointer]:
+      - img [ref=e14]
+      - generic [ref=e24]: Light
+    - button "Settings" [ref=e25] [cursor=pointer]:
+      - img [ref=e26]
+      - text: Settings
+  - generic [ref=e29]:
+    - button "tags" [ref=e30] [cursor=pointer]:
+      - img [ref=e31]
+      - text: tags
+    - generic [ref=e33]:
+      - generic [ref=e34]: All Documents
+      - generic [ref=e35]:
+        - text: showing 1-50 of 7806
+        - button "Back" [disabled] [ref=e36] [cursor=pointer]
+        - button "Next" [ref=e37] [cursor=pointer]
+        - combobox "Items per page" [ref=e38] [cursor=pointer]:
+          - option "25/page"
+          - option "50/page" [selected]
+          - option "75/page"
+          - option "100/page"
+    - button "↑ Top" [ref=e40] [cursor=pointer]

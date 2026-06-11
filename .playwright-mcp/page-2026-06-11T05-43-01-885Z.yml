@@ -1,0 +1,844 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: docu/browse
+    - generic [ref=e4]:
+      - img [ref=e5]
+      - textbox "Search documents… e.g. 'quarterly report' or 'budget analysis'" [ref=e8]
+    - generic [ref=e9]:
+      - button "Keyword" [ref=e10] [cursor=pointer]
+      - button "Semantic" [ref=e11] [cursor=pointer]
+      - button "Both" [ref=e12] [cursor=pointer]
+    - generic [ref=e41]: 7818 docs · 7818 embedded · 2674 tags
+    - button "Light" [ref=e13] [cursor=pointer]:
+      - img [ref=e14]
+      - generic [ref=e24]: Light
+    - button "Settings" [active] [ref=e25] [cursor=pointer]:
+      - img [ref=e26]
+      - text: Settings
+  - generic [ref=e827]:
+    - heading "Settings" [level=2] [ref=e828]
+    - generic [ref=e829]:
+      - text: "Config: /mnt/data/git/AI/DocuBrowse/docubrowse.config"
+      - text: Copy to /etc for system-wide use
+    - generic [ref=e830]: docPath — root directory containing documents
+    - generic [ref=e831]:
+      - textbox "/mnt/data/Documents" [ref=e832]
+      - button "browse" [ref=e833] [cursor=pointer]
+    - generic [ref=e834]: workDir — where docubrowse files live
+    - generic [ref=e835]:
+      - textbox "/path/to/DocuBrowse" [ref=e836]: /mnt/data/git/AI/DocuBrowse
+      - button "browse" [ref=e837] [cursor=pointer]
+    - generic [ref=e838]: port — HTTP server port
+    - spinbutton [ref=e840]: "8643"
+    - generic [ref=e841]: Ignored Directories — excluded from scanning (auto-purges indexed docs on add)
+    - generic [ref=e842]:
+      - textbox "/path/to/exclude" [ref=e843]
+      - button "browse" [ref=e844] [cursor=pointer]
+      - button "+ Add" [ref=e845] [cursor=pointer]
+    - generic [ref=e846]:
+      - generic [ref=e847] [cursor=pointer]: /mnt/data/Documents/Insight-Global
+      - generic [ref=e848] [cursor=pointer]: /mnt/data/Documents/james-ai-resume
+    - button "− Remove" [disabled] [ref=e850]
+    - generic [ref=e851]:
+      - button "Save" [ref=e852] [cursor=pointer]
+      - button "Cancel" [ref=e853] [cursor=pointer]
+  - generic [ref=e29]:
+    - button "tags" [ref=e30] [cursor=pointer]:
+      - img [ref=e31]
+      - text: tags
+    - generic [ref=e33]:
+      - generic [ref=e34]: All Documents
+      - generic [ref=e35]:
+        - text: showing 1-50 of 7818
+        - button "Back" [disabled] [ref=e36] [cursor=pointer]
+        - button "Next" [ref=e37] [cursor=pointer]
+        - combobox "Items per page" [ref=e38] [cursor=pointer]:
+          - option "25/page"
+          - option "50/page" [selected]
+          - option "75/page"
+          - option "100/page"
+      - generic [ref=e42]:
+        - button "0-9" [ref=e43] [cursor=pointer]
+        - button "A" [ref=e44] [cursor=pointer]
+        - button "B" [ref=e45] [cursor=pointer]
+        - button "C" [ref=e46] [cursor=pointer]
+        - button "D" [ref=e47] [cursor=pointer]
+        - button "E" [ref=e48] [cursor=pointer]
+        - button "F" [ref=e49] [cursor=pointer]
+        - button "G" [ref=e50] [cursor=pointer]
+        - button "H" [ref=e51] [cursor=pointer]
+        - button "I" [ref=e52] [cursor=pointer]
+        - button "J" [ref=e53] [cursor=pointer]
+        - button "K" [ref=e54] [cursor=pointer]
+        - button "L" [ref=e55] [cursor=pointer]
+        - button "M" [ref=e56] [cursor=pointer]
+        - button "N" [ref=e57] [cursor=pointer]
+        - button "O" [ref=e58] [cursor=pointer]
+        - button "P" [ref=e59] [cursor=pointer]
+        - button "Q" [ref=e60] [cursor=pointer]
+        - button "R" [ref=e61] [cursor=pointer]
+        - button "S" [ref=e62] [cursor=pointer]
+        - button "T" [ref=e63] [cursor=pointer]
+        - button "U" [ref=e64] [cursor=pointer]
+        - button "V" [ref=e65] [cursor=pointer]
+        - button "W" [ref=e66] [cursor=pointer]
+        - button "X" [ref=e67] [cursor=pointer]
+        - button "Y" [ref=e68] [cursor=pointer]
+        - button "Z" [ref=e69] [cursor=pointer]
+    - generic [ref=e70]:
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - generic "View synopsis" [ref=e73] [cursor=pointer]: shellcoders_handbook_discovering_and_exploiting_security_holes.pdf
+          - generic [ref=e74]: PDF
+          - generic "Copy path to clipboard" [ref=e75] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e76] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/Organized/Security/PDF-books/Humble-Cyber/shellcoders_handbook_discovering_and_exploiting_security_holes.pdf" [ref=e77] [cursor=pointer]
+        - generic [ref=e78]:
+          - generic [ref=e79] [cursor=pointer]: anley
+          - generic [ref=e80] [cursor=pointer]: books
+          - generic [ref=e81] [cursor=pointer]: chris
+          - generic [ref=e82] [cursor=pointer]: humble-cyber
+          - generic [ref=e83] [cursor=pointer]: organized
+          - generic [ref=e84] [cursor=pointer]: page
+          - generic [ref=e85] [cursor=pointer]: pdf
+          - generic [ref=e86] [cursor=pointer]: pdf-books
+          - generic [ref=e87] [cursor=pointer]: security
+          - generic [ref=e88] [cursor=pointer]: wiley
+      - generic [ref=e89]:
+        - generic [ref=e90]:
+          - generic "View synopsis" [ref=e91] [cursor=pointer]: shellcoders_handbook_discovering_and_exploiting_security_holes.pdf
+          - generic [ref=e92]: PDF
+          - generic "Copy path to clipboard" [ref=e93] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e94] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/Organized/Security/PDF-books/shellcoders_handbook_discovering_and_exploiting_security_holes.pdf" [ref=e95] [cursor=pointer]
+        - generic [ref=e96]:
+          - generic [ref=e97] [cursor=pointer]: anley
+          - generic [ref=e98] [cursor=pointer]: books
+          - generic [ref=e99] [cursor=pointer]: chris
+          - generic [ref=e100] [cursor=pointer]: organized
+          - generic [ref=e101] [cursor=pointer]: page
+          - generic [ref=e102] [cursor=pointer]: pdf
+          - generic [ref=e103] [cursor=pointer]: pdf-books
+          - generic [ref=e104] [cursor=pointer]: security
+          - generic [ref=e105] [cursor=pointer]: wiley
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - generic "View synopsis" [ref=e108] [cursor=pointer]: Beginning Linux Programming, 4 Ed.pdf
+          - generic [ref=e109]: PDF
+          - generic "Copy path to clipboard" [ref=e110] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e111] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/tech-classes/GNU-Linux/Beginning Linux Programming, 4 Ed.pdf" [ref=e112] [cursor=pointer]
+        - generic [ref=e113]:
+          - generic [ref=e114] [cursor=pointer]: beginning
+          - generic [ref=e115] [cursor=pointer]: chapter
+          - generic [ref=e116] [cursor=pointer]: gnu-linux
+          - generic [ref=e117] [cursor=pointer]: page
+          - generic [ref=e118] [cursor=pointer]: pdf
+          - generic [ref=e119] [cursor=pointer]: programming
+          - generic [ref=e120] [cursor=pointer]: publisher
+          - generic [ref=e121] [cursor=pointer]: tech-classes
+      - generic [ref=e122]:
+        - generic [ref=e123]:
+          - generic "View synopsis" [ref=e124] [cursor=pointer]: .gitlab-ci
+          - generic [ref=e125]: YML
+          - generic "Copy path to clipboard" [ref=e126] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e127] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/Ericsson/grafana/.gitlab-ci.yml" [ref=e128] [cursor=pointer]
+        - generic [ref=e129]:
+          - generic [ref=e130] [cursor=pointer]: code
+          - generic [ref=e131] [cursor=pointer]: companies
+          - generic [ref=e132] [cursor=pointer]: ericsson
+          - generic [ref=e133] [cursor=pointer]: grafana
+          - generic [ref=e134] [cursor=pointer]: yml
+      - generic [ref=e135]:
+        - generic [ref=e136]:
+          - generic "View synopsis" [ref=e137] [cursor=pointer]: .kitchen
+          - generic [ref=e138]: YML
+          - generic "Copy path to clipboard" [ref=e139] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e140] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/DevOpsCourse/Ex_Files_DevOps_Foundations_Infrastructure/01_05_integration_and_security_testing/serverspec/my_cookbook/.kitchen.yml" [ref=e141] [cursor=pointer]
+        - generic [ref=e142]:
+          - generic [ref=e143] [cursor=pointer]: 01_05_integration_and_security_testing
+          - generic [ref=e144] [cursor=pointer]: code
+          - generic [ref=e145] [cursor=pointer]: devopscourse
+          - generic [ref=e146] [cursor=pointer]: ex_files_devops_foundations_infrastructure
+          - generic [ref=e147] [cursor=pointer]: my_cookbook
+          - generic [ref=e148] [cursor=pointer]: serverspec
+          - generic [ref=e149] [cursor=pointer]: yml
+      - generic [ref=e150]:
+        - generic [ref=e151]:
+          - generic "View synopsis" [ref=e152] [cursor=pointer]: .kitchen
+          - generic [ref=e153]: YML
+          - generic "Copy path to clipboard" [ref=e154] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e155] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/DevOpsCourse/Ex_Files_DevOps_Foundations_Infrastructure/01_05_integration_and_security_testing/inspec/my_cookbook/.delivery/build_cookbook/.kitchen.yml" [ref=e156] [cursor=pointer]
+        - generic [ref=e157]:
+          - generic [ref=e158] [cursor=pointer]: .delivery
+          - generic [ref=e159] [cursor=pointer]: 01_05_integration_and_security_testing
+          - generic [ref=e160] [cursor=pointer]: build_cookbook
+          - generic [ref=e161] [cursor=pointer]: code
+          - generic [ref=e162] [cursor=pointer]: devopscourse
+          - generic [ref=e163] [cursor=pointer]: ex_files_devops_foundations_infrastructure
+          - generic [ref=e164] [cursor=pointer]: inspec
+          - generic [ref=e165] [cursor=pointer]: my_cookbook
+          - generic [ref=e166] [cursor=pointer]: yml
+      - generic [ref=e167]:
+        - generic [ref=e168]:
+          - generic "View synopsis" [ref=e169] [cursor=pointer]: .kitchen
+          - generic [ref=e170]: YML
+          - generic "Copy path to clipboard" [ref=e171] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e172] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/DevOpsCourse/Ex_Files_DevOps_Foundations_Infrastructure/01_04_unit_testing_infrastructure/my_cookbook/.kitchen.yml" [ref=e173] [cursor=pointer]
+        - generic [ref=e174]:
+          - generic [ref=e175] [cursor=pointer]: 01_04_unit_testing_infrastructure
+          - generic [ref=e176] [cursor=pointer]: code
+          - generic [ref=e177] [cursor=pointer]: devopscourse
+          - generic [ref=e178] [cursor=pointer]: ex_files_devops_foundations_infrastructure
+          - generic [ref=e179] [cursor=pointer]: my_cookbook
+          - generic [ref=e180] [cursor=pointer]: yml
+      - generic [ref=e181]:
+        - generic [ref=e182]:
+          - generic "View synopsis" [ref=e183] [cursor=pointer]: .kitchen
+          - generic [ref=e184]: YML
+          - generic "Copy path to clipboard" [ref=e185] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e186] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/DevOpsCourse/Ex_Files_DevOps_Foundations_Infrastructure/01_05_integration_and_security_testing/inspec/my_cookbook/.kitchen.yml" [ref=e187] [cursor=pointer]
+        - generic [ref=e188]:
+          - generic [ref=e189] [cursor=pointer]: 01_05_integration_and_security_testing
+          - generic [ref=e190] [cursor=pointer]: code
+          - generic [ref=e191] [cursor=pointer]: devopscourse
+          - generic [ref=e192] [cursor=pointer]: ex_files_devops_foundations_infrastructure
+          - generic [ref=e193] [cursor=pointer]: inspec
+          - generic [ref=e194] [cursor=pointer]: my_cookbook
+          - generic [ref=e195] [cursor=pointer]: yml
+      - generic [ref=e196]:
+        - generic [ref=e197]:
+          - generic "View synopsis" [ref=e198] [cursor=pointer]: 0.10.0
+          - generic [ref=e199]: HTML
+          - generic "Copy path to clipboard" [ref=e200] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e201] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.0.html" [ref=e202] [cursor=pointer]
+        - generic [ref=e203]:
+          - generic [ref=e204] [cursor=pointer]: companies
+          - generic [ref=e205] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e206] [cursor=pointer]: html
+          - generic [ref=e207] [cursor=pointer]: latest
+          - generic [ref=e208] [cursor=pointer]: lc-docs
+          - generic [ref=e209] [cursor=pointer]: releases
+          - generic [ref=e210] [cursor=pointer]: saltdoc
+          - generic [ref=e211] [cursor=pointer]: topics
+      - generic [ref=e212]:
+        - generic [ref=e213]:
+          - generic "View synopsis" [ref=e214] [cursor=pointer]: 0.10.0
+          - generic [ref=e215]: HTML
+          - generic "Copy path to clipboard" [ref=e216] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e217] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.0.html" [ref=e218] [cursor=pointer]
+        - generic [ref=e219]:
+          - generic [ref=e220] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e221] [cursor=pointer]: html
+          - generic [ref=e222] [cursor=pointer]: latest
+          - generic [ref=e223] [cursor=pointer]: releases
+          - generic [ref=e224] [cursor=pointer]: saltdoc
+          - generic [ref=e225] [cursor=pointer]: topics
+      - generic [ref=e226]:
+        - generic [ref=e227]:
+          - generic "View synopsis" [ref=e228] [cursor=pointer]: 0.10.0
+          - generic [ref=e229]: HTML
+          - generic "Copy path to clipboard" [ref=e230] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e231] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.0.html" [ref=e232] [cursor=pointer]
+        - generic [ref=e233]:
+          - generic [ref=e234] [cursor=pointer]: books
+          - generic [ref=e235] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e236] [cursor=pointer]: html
+          - generic [ref=e237] [cursor=pointer]: latest
+          - generic [ref=e238] [cursor=pointer]: releases
+          - generic [ref=e239] [cursor=pointer]: saltdoc
+          - generic [ref=e240] [cursor=pointer]: topics
+      - generic [ref=e241]:
+        - generic [ref=e242]:
+          - generic "View synopsis" [ref=e243] [cursor=pointer]: 0.10.1
+          - generic [ref=e244]: HTML
+          - generic "Copy path to clipboard" [ref=e245] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e246] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.1.html" [ref=e247] [cursor=pointer]
+        - generic [ref=e248]:
+          - generic [ref=e249] [cursor=pointer]: companies
+          - generic [ref=e250] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e251] [cursor=pointer]: html
+          - generic [ref=e252] [cursor=pointer]: latest
+          - generic [ref=e253] [cursor=pointer]: lc-docs
+          - generic [ref=e254] [cursor=pointer]: releases
+          - generic [ref=e255] [cursor=pointer]: saltdoc
+          - generic [ref=e256] [cursor=pointer]: topics
+      - generic [ref=e257]:
+        - generic [ref=e258]:
+          - generic "View synopsis" [ref=e259] [cursor=pointer]: 0.10.1
+          - generic [ref=e260]: HTML
+          - generic "Copy path to clipboard" [ref=e261] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e262] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.1.html" [ref=e263] [cursor=pointer]
+        - generic [ref=e264]:
+          - generic [ref=e265] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e266] [cursor=pointer]: html
+          - generic [ref=e267] [cursor=pointer]: latest
+          - generic [ref=e268] [cursor=pointer]: releases
+          - generic [ref=e269] [cursor=pointer]: saltdoc
+          - generic [ref=e270] [cursor=pointer]: topics
+      - generic [ref=e271]:
+        - generic [ref=e272]:
+          - generic "View synopsis" [ref=e273] [cursor=pointer]: 0.10.1
+          - generic [ref=e274]: HTML
+          - generic "Copy path to clipboard" [ref=e275] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e276] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.1.html" [ref=e277] [cursor=pointer]
+        - generic [ref=e278]:
+          - generic [ref=e279] [cursor=pointer]: books
+          - generic [ref=e280] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e281] [cursor=pointer]: html
+          - generic [ref=e282] [cursor=pointer]: latest
+          - generic [ref=e283] [cursor=pointer]: releases
+          - generic [ref=e284] [cursor=pointer]: saltdoc
+          - generic [ref=e285] [cursor=pointer]: topics
+      - generic [ref=e286]:
+        - generic [ref=e287]:
+          - generic "View synopsis" [ref=e288] [cursor=pointer]: 0.10.2
+          - generic [ref=e289]: HTML
+          - generic "Copy path to clipboard" [ref=e290] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e291] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.2.html" [ref=e292] [cursor=pointer]
+        - generic [ref=e293]:
+          - generic [ref=e294] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e295] [cursor=pointer]: html
+          - generic [ref=e296] [cursor=pointer]: latest
+          - generic [ref=e297] [cursor=pointer]: releases
+          - generic [ref=e298] [cursor=pointer]: saltdoc
+          - generic [ref=e299] [cursor=pointer]: topics
+      - generic [ref=e300]:
+        - generic [ref=e301]:
+          - generic "View synopsis" [ref=e302] [cursor=pointer]: 0.10.2
+          - generic [ref=e303]: HTML
+          - generic "Copy path to clipboard" [ref=e304] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e305] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.2.html" [ref=e306] [cursor=pointer]
+        - generic [ref=e307]:
+          - generic [ref=e308] [cursor=pointer]: companies
+          - generic [ref=e309] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e310] [cursor=pointer]: html
+          - generic [ref=e311] [cursor=pointer]: latest
+          - generic [ref=e312] [cursor=pointer]: lc-docs
+          - generic [ref=e313] [cursor=pointer]: releases
+          - generic [ref=e314] [cursor=pointer]: saltdoc
+          - generic [ref=e315] [cursor=pointer]: topics
+      - generic [ref=e316]:
+        - generic [ref=e317]:
+          - generic "View synopsis" [ref=e318] [cursor=pointer]: 0.10.2
+          - generic [ref=e319]: HTML
+          - generic "Copy path to clipboard" [ref=e320] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e321] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.2.html" [ref=e322] [cursor=pointer]
+        - generic [ref=e323]:
+          - generic [ref=e324] [cursor=pointer]: books
+          - generic [ref=e325] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e326] [cursor=pointer]: html
+          - generic [ref=e327] [cursor=pointer]: latest
+          - generic [ref=e328] [cursor=pointer]: releases
+          - generic [ref=e329] [cursor=pointer]: saltdoc
+          - generic [ref=e330] [cursor=pointer]: topics
+      - generic [ref=e331]:
+        - generic [ref=e332]:
+          - generic "View synopsis" [ref=e333] [cursor=pointer]: 0.10.3
+          - generic [ref=e334]: HTML
+          - generic "Copy path to clipboard" [ref=e335] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e336] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.3.html" [ref=e337] [cursor=pointer]
+        - generic [ref=e338]:
+          - generic [ref=e339] [cursor=pointer]: companies
+          - generic [ref=e340] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e341] [cursor=pointer]: html
+          - generic [ref=e342] [cursor=pointer]: latest
+          - generic [ref=e343] [cursor=pointer]: lc-docs
+          - generic [ref=e344] [cursor=pointer]: releases
+          - generic [ref=e345] [cursor=pointer]: saltdoc
+          - generic [ref=e346] [cursor=pointer]: topics
+      - generic [ref=e347]:
+        - generic [ref=e348]:
+          - generic "View synopsis" [ref=e349] [cursor=pointer]: 0.10.3
+          - generic [ref=e350]: HTML
+          - generic "Copy path to clipboard" [ref=e351] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e352] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.3.html" [ref=e353] [cursor=pointer]
+        - generic [ref=e354]:
+          - generic [ref=e355] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e356] [cursor=pointer]: html
+          - generic [ref=e357] [cursor=pointer]: latest
+          - generic [ref=e358] [cursor=pointer]: releases
+          - generic [ref=e359] [cursor=pointer]: saltdoc
+          - generic [ref=e360] [cursor=pointer]: topics
+      - generic [ref=e361]:
+        - generic [ref=e362]:
+          - generic "View synopsis" [ref=e363] [cursor=pointer]: 0.10.3
+          - generic [ref=e364]: HTML
+          - generic "Copy path to clipboard" [ref=e365] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e366] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.3.html" [ref=e367] [cursor=pointer]
+        - generic [ref=e368]:
+          - generic [ref=e369] [cursor=pointer]: books
+          - generic [ref=e370] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e371] [cursor=pointer]: html
+          - generic [ref=e372] [cursor=pointer]: latest
+          - generic [ref=e373] [cursor=pointer]: releases
+          - generic [ref=e374] [cursor=pointer]: saltdoc
+          - generic [ref=e375] [cursor=pointer]: topics
+      - generic [ref=e376]:
+        - generic [ref=e377]:
+          - generic "View synopsis" [ref=e378] [cursor=pointer]: 0.10.4
+          - generic [ref=e379]: HTML
+          - generic "Copy path to clipboard" [ref=e380] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e381] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.4.html" [ref=e382] [cursor=pointer]
+        - generic [ref=e383]:
+          - generic [ref=e384] [cursor=pointer]: companies
+          - generic [ref=e385] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e386] [cursor=pointer]: html
+          - generic [ref=e387] [cursor=pointer]: latest
+          - generic [ref=e388] [cursor=pointer]: lc-docs
+          - generic [ref=e389] [cursor=pointer]: releases
+          - generic [ref=e390] [cursor=pointer]: saltdoc
+          - generic [ref=e391] [cursor=pointer]: topics
+      - generic [ref=e392]:
+        - generic [ref=e393]:
+          - generic "View synopsis" [ref=e394] [cursor=pointer]: 0.10.4
+          - generic [ref=e395]: HTML
+          - generic "Copy path to clipboard" [ref=e396] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e397] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.4.html" [ref=e398] [cursor=pointer]
+        - generic [ref=e399]:
+          - generic [ref=e400] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e401] [cursor=pointer]: html
+          - generic [ref=e402] [cursor=pointer]: latest
+          - generic [ref=e403] [cursor=pointer]: releases
+          - generic [ref=e404] [cursor=pointer]: saltdoc
+          - generic [ref=e405] [cursor=pointer]: topics
+      - generic [ref=e406]:
+        - generic [ref=e407]:
+          - generic "View synopsis" [ref=e408] [cursor=pointer]: 0.10.4
+          - generic [ref=e409]: HTML
+          - generic "Copy path to clipboard" [ref=e410] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e411] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.4.html" [ref=e412] [cursor=pointer]
+        - generic [ref=e413]:
+          - generic [ref=e414] [cursor=pointer]: books
+          - generic [ref=e415] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e416] [cursor=pointer]: html
+          - generic [ref=e417] [cursor=pointer]: latest
+          - generic [ref=e418] [cursor=pointer]: releases
+          - generic [ref=e419] [cursor=pointer]: saltdoc
+          - generic [ref=e420] [cursor=pointer]: topics
+      - generic [ref=e421]:
+        - generic [ref=e422]:
+          - generic "View synopsis" [ref=e423] [cursor=pointer]: 0.10.5
+          - generic [ref=e424]: HTML
+          - generic "Copy path to clipboard" [ref=e425] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e426] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.5.html" [ref=e427] [cursor=pointer]
+        - generic [ref=e428]:
+          - generic [ref=e429] [cursor=pointer]: companies
+          - generic [ref=e430] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e431] [cursor=pointer]: html
+          - generic [ref=e432] [cursor=pointer]: latest
+          - generic [ref=e433] [cursor=pointer]: lc-docs
+          - generic [ref=e434] [cursor=pointer]: releases
+          - generic [ref=e435] [cursor=pointer]: saltdoc
+          - generic [ref=e436] [cursor=pointer]: topics
+      - generic [ref=e437]:
+        - generic [ref=e438]:
+          - generic "View synopsis" [ref=e439] [cursor=pointer]: 0.10.5
+          - generic [ref=e440]: HTML
+          - generic "Copy path to clipboard" [ref=e441] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e442] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.5.html" [ref=e443] [cursor=pointer]
+        - generic [ref=e444]:
+          - generic [ref=e445] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e446] [cursor=pointer]: html
+          - generic [ref=e447] [cursor=pointer]: latest
+          - generic [ref=e448] [cursor=pointer]: releases
+          - generic [ref=e449] [cursor=pointer]: saltdoc
+          - generic [ref=e450] [cursor=pointer]: topics
+      - generic [ref=e451]:
+        - generic [ref=e452]:
+          - generic "View synopsis" [ref=e453] [cursor=pointer]: 0.10.5
+          - generic [ref=e454]: HTML
+          - generic "Copy path to clipboard" [ref=e455] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e456] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.10.5.html" [ref=e457] [cursor=pointer]
+        - generic [ref=e458]:
+          - generic [ref=e459] [cursor=pointer]: books
+          - generic [ref=e460] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e461] [cursor=pointer]: html
+          - generic [ref=e462] [cursor=pointer]: latest
+          - generic [ref=e463] [cursor=pointer]: releases
+          - generic [ref=e464] [cursor=pointer]: saltdoc
+          - generic [ref=e465] [cursor=pointer]: topics
+      - generic [ref=e466]:
+        - generic [ref=e467]:
+          - generic "View synopsis" [ref=e468] [cursor=pointer]: 0.11.0
+          - generic [ref=e469]: HTML
+          - generic "Copy path to clipboard" [ref=e470] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e471] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.11.0.html" [ref=e472] [cursor=pointer]
+        - generic [ref=e473]:
+          - generic [ref=e474] [cursor=pointer]: companies
+          - generic [ref=e475] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e476] [cursor=pointer]: html
+          - generic [ref=e477] [cursor=pointer]: latest
+          - generic [ref=e478] [cursor=pointer]: lc-docs
+          - generic [ref=e479] [cursor=pointer]: releases
+          - generic [ref=e480] [cursor=pointer]: saltdoc
+          - generic [ref=e481] [cursor=pointer]: topics
+      - generic [ref=e482]:
+        - generic [ref=e483]:
+          - generic "View synopsis" [ref=e484] [cursor=pointer]: 0.11.0
+          - generic [ref=e485]: HTML
+          - generic "Copy path to clipboard" [ref=e486] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e487] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.11.0.html" [ref=e488] [cursor=pointer]
+        - generic [ref=e489]:
+          - generic [ref=e490] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e491] [cursor=pointer]: html
+          - generic [ref=e492] [cursor=pointer]: latest
+          - generic [ref=e493] [cursor=pointer]: releases
+          - generic [ref=e494] [cursor=pointer]: saltdoc
+          - generic [ref=e495] [cursor=pointer]: topics
+      - generic [ref=e496]:
+        - generic [ref=e497]:
+          - generic "View synopsis" [ref=e498] [cursor=pointer]: 0.11.0
+          - generic [ref=e499]: HTML
+          - generic "Copy path to clipboard" [ref=e500] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e501] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.11.0.html" [ref=e502] [cursor=pointer]
+        - generic [ref=e503]:
+          - generic [ref=e504] [cursor=pointer]: books
+          - generic [ref=e505] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e506] [cursor=pointer]: html
+          - generic [ref=e507] [cursor=pointer]: latest
+          - generic [ref=e508] [cursor=pointer]: releases
+          - generic [ref=e509] [cursor=pointer]: saltdoc
+          - generic [ref=e510] [cursor=pointer]: topics
+      - generic [ref=e511]:
+        - generic [ref=e512]:
+          - generic "View synopsis" [ref=e513] [cursor=pointer]: 0.11.1
+          - generic [ref=e514]: HTML
+          - generic "Copy path to clipboard" [ref=e515] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e516] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.11.1.html" [ref=e517] [cursor=pointer]
+        - generic [ref=e518]:
+          - generic [ref=e519] [cursor=pointer]: companies
+          - generic [ref=e520] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e521] [cursor=pointer]: html
+          - generic [ref=e522] [cursor=pointer]: latest
+          - generic [ref=e523] [cursor=pointer]: lc-docs
+          - generic [ref=e524] [cursor=pointer]: releases
+          - generic [ref=e525] [cursor=pointer]: saltdoc
+          - generic [ref=e526] [cursor=pointer]: topics
+      - generic [ref=e527]:
+        - generic [ref=e528]:
+          - generic "View synopsis" [ref=e529] [cursor=pointer]: 0.11.1
+          - generic [ref=e530]: HTML
+          - generic "Copy path to clipboard" [ref=e531] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e532] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.11.1.html" [ref=e533] [cursor=pointer]
+        - generic [ref=e534]:
+          - generic [ref=e535] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e536] [cursor=pointer]: html
+          - generic [ref=e537] [cursor=pointer]: latest
+          - generic [ref=e538] [cursor=pointer]: releases
+          - generic [ref=e539] [cursor=pointer]: saltdoc
+          - generic [ref=e540] [cursor=pointer]: topics
+      - generic [ref=e541]:
+        - generic [ref=e542]:
+          - generic "View synopsis" [ref=e543] [cursor=pointer]: 0.11.1
+          - generic [ref=e544]: HTML
+          - generic "Copy path to clipboard" [ref=e545] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e546] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.11.1.html" [ref=e547] [cursor=pointer]
+        - generic [ref=e548]:
+          - generic [ref=e549] [cursor=pointer]: books
+          - generic [ref=e550] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e551] [cursor=pointer]: html
+          - generic [ref=e552] [cursor=pointer]: latest
+          - generic [ref=e553] [cursor=pointer]: releases
+          - generic [ref=e554] [cursor=pointer]: saltdoc
+          - generic [ref=e555] [cursor=pointer]: topics
+      - generic [ref=e556]:
+        - generic [ref=e557]:
+          - generic "View synopsis" [ref=e558] [cursor=pointer]: 0.12.0
+          - generic [ref=e559]: HTML
+          - generic "Copy path to clipboard" [ref=e560] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e561] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.12.0.html" [ref=e562] [cursor=pointer]
+        - generic [ref=e563]:
+          - generic [ref=e564] [cursor=pointer]: companies
+          - generic [ref=e565] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e566] [cursor=pointer]: html
+          - generic [ref=e567] [cursor=pointer]: latest
+          - generic [ref=e568] [cursor=pointer]: lc-docs
+          - generic [ref=e569] [cursor=pointer]: releases
+          - generic [ref=e570] [cursor=pointer]: saltdoc
+          - generic [ref=e571] [cursor=pointer]: topics
+      - generic [ref=e572]:
+        - generic [ref=e573]:
+          - generic "View synopsis" [ref=e574] [cursor=pointer]: 0.12.0
+          - generic [ref=e575]: HTML
+          - generic "Copy path to clipboard" [ref=e576] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e577] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.12.0.html" [ref=e578] [cursor=pointer]
+        - generic [ref=e579]:
+          - generic [ref=e580] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e581] [cursor=pointer]: html
+          - generic [ref=e582] [cursor=pointer]: latest
+          - generic [ref=e583] [cursor=pointer]: releases
+          - generic [ref=e584] [cursor=pointer]: saltdoc
+          - generic [ref=e585] [cursor=pointer]: topics
+      - generic [ref=e586]:
+        - generic [ref=e587]:
+          - generic "View synopsis" [ref=e588] [cursor=pointer]: 0.12.0
+          - generic [ref=e589]: HTML
+          - generic "Copy path to clipboard" [ref=e590] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e591] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.12.0.html" [ref=e592] [cursor=pointer]
+        - generic [ref=e593]:
+          - generic [ref=e594] [cursor=pointer]: books
+          - generic [ref=e595] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e596] [cursor=pointer]: html
+          - generic [ref=e597] [cursor=pointer]: latest
+          - generic [ref=e598] [cursor=pointer]: releases
+          - generic [ref=e599] [cursor=pointer]: saltdoc
+          - generic [ref=e600] [cursor=pointer]: topics
+      - generic [ref=e601]:
+        - generic [ref=e602]:
+          - generic "View synopsis" [ref=e603] [cursor=pointer]: 0.12.1
+          - generic [ref=e604]: HTML
+          - generic "Copy path to clipboard" [ref=e605] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e606] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.12.1.html" [ref=e607] [cursor=pointer]
+        - generic [ref=e608]:
+          - generic [ref=e609] [cursor=pointer]: companies
+          - generic [ref=e610] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e611] [cursor=pointer]: html
+          - generic [ref=e612] [cursor=pointer]: latest
+          - generic [ref=e613] [cursor=pointer]: lc-docs
+          - generic [ref=e614] [cursor=pointer]: releases
+          - generic [ref=e615] [cursor=pointer]: saltdoc
+          - generic [ref=e616] [cursor=pointer]: topics
+      - generic [ref=e617]:
+        - generic [ref=e618]:
+          - generic "View synopsis" [ref=e619] [cursor=pointer]: 0.12.1
+          - generic [ref=e620]: HTML
+          - generic "Copy path to clipboard" [ref=e621] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e622] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.12.1.html" [ref=e623] [cursor=pointer]
+        - generic [ref=e624]:
+          - generic [ref=e625] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e626] [cursor=pointer]: html
+          - generic [ref=e627] [cursor=pointer]: latest
+          - generic [ref=e628] [cursor=pointer]: releases
+          - generic [ref=e629] [cursor=pointer]: saltdoc
+          - generic [ref=e630] [cursor=pointer]: topics
+      - generic [ref=e631]:
+        - generic [ref=e632]:
+          - generic "View synopsis" [ref=e633] [cursor=pointer]: 0.12.1
+          - generic [ref=e634]: HTML
+          - generic "Copy path to clipboard" [ref=e635] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e636] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.12.1.html" [ref=e637] [cursor=pointer]
+        - generic [ref=e638]:
+          - generic [ref=e639] [cursor=pointer]: books
+          - generic [ref=e640] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e641] [cursor=pointer]: html
+          - generic [ref=e642] [cursor=pointer]: latest
+          - generic [ref=e643] [cursor=pointer]: releases
+          - generic [ref=e644] [cursor=pointer]: saltdoc
+          - generic [ref=e645] [cursor=pointer]: topics
+      - generic [ref=e646]:
+        - generic [ref=e647]:
+          - generic "View synopsis" [ref=e648] [cursor=pointer]: 0.13.0
+          - generic [ref=e649]: HTML
+          - generic "Copy path to clipboard" [ref=e650] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e651] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.0.html" [ref=e652] [cursor=pointer]
+        - generic [ref=e653]:
+          - generic [ref=e654] [cursor=pointer]: companies
+          - generic [ref=e655] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e656] [cursor=pointer]: html
+          - generic [ref=e657] [cursor=pointer]: latest
+          - generic [ref=e658] [cursor=pointer]: lc-docs
+          - generic [ref=e659] [cursor=pointer]: releases
+          - generic [ref=e660] [cursor=pointer]: saltdoc
+          - generic [ref=e661] [cursor=pointer]: topics
+      - generic [ref=e662]:
+        - generic [ref=e663]:
+          - generic "View synopsis" [ref=e664] [cursor=pointer]: 0.13.0
+          - generic [ref=e665]: HTML
+          - generic "Copy path to clipboard" [ref=e666] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e667] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.0.html" [ref=e668] [cursor=pointer]
+        - generic [ref=e669]:
+          - generic [ref=e670] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e671] [cursor=pointer]: html
+          - generic [ref=e672] [cursor=pointer]: latest
+          - generic [ref=e673] [cursor=pointer]: releases
+          - generic [ref=e674] [cursor=pointer]: saltdoc
+          - generic [ref=e675] [cursor=pointer]: topics
+      - generic [ref=e676]:
+        - generic [ref=e677]:
+          - generic "View synopsis" [ref=e678] [cursor=pointer]: 0.13.0
+          - generic [ref=e679]: HTML
+          - generic "Copy path to clipboard" [ref=e680] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e681] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.0.html" [ref=e682] [cursor=pointer]
+        - generic [ref=e683]:
+          - generic [ref=e684] [cursor=pointer]: books
+          - generic [ref=e685] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e686] [cursor=pointer]: html
+          - generic [ref=e687] [cursor=pointer]: latest
+          - generic [ref=e688] [cursor=pointer]: releases
+          - generic [ref=e689] [cursor=pointer]: saltdoc
+          - generic [ref=e690] [cursor=pointer]: topics
+      - generic [ref=e691]:
+        - generic [ref=e692]:
+          - generic "View synopsis" [ref=e693] [cursor=pointer]: 0.13.1
+          - generic [ref=e694]: HTML
+          - generic "Copy path to clipboard" [ref=e695] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e696] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.1.html" [ref=e697] [cursor=pointer]
+        - generic [ref=e698]:
+          - generic [ref=e699] [cursor=pointer]: companies
+          - generic [ref=e700] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e701] [cursor=pointer]: html
+          - generic [ref=e702] [cursor=pointer]: latest
+          - generic [ref=e703] [cursor=pointer]: lc-docs
+          - generic [ref=e704] [cursor=pointer]: releases
+          - generic [ref=e705] [cursor=pointer]: saltdoc
+          - generic [ref=e706] [cursor=pointer]: topics
+      - generic [ref=e707]:
+        - generic [ref=e708]:
+          - generic "View synopsis" [ref=e709] [cursor=pointer]: 0.13.1
+          - generic [ref=e710]: HTML
+          - generic "Copy path to clipboard" [ref=e711] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e712] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.1.html" [ref=e713] [cursor=pointer]
+        - generic [ref=e714]:
+          - generic [ref=e715] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e716] [cursor=pointer]: html
+          - generic [ref=e717] [cursor=pointer]: latest
+          - generic [ref=e718] [cursor=pointer]: releases
+          - generic [ref=e719] [cursor=pointer]: saltdoc
+          - generic [ref=e720] [cursor=pointer]: topics
+      - generic [ref=e721]:
+        - generic [ref=e722]:
+          - generic "View synopsis" [ref=e723] [cursor=pointer]: 0.13.1
+          - generic [ref=e724]: HTML
+          - generic "Copy path to clipboard" [ref=e725] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e726] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.1.html" [ref=e727] [cursor=pointer]
+        - generic [ref=e728]:
+          - generic [ref=e729] [cursor=pointer]: books
+          - generic [ref=e730] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e731] [cursor=pointer]: html
+          - generic [ref=e732] [cursor=pointer]: latest
+          - generic [ref=e733] [cursor=pointer]: releases
+          - generic [ref=e734] [cursor=pointer]: saltdoc
+          - generic [ref=e735] [cursor=pointer]: topics
+      - generic [ref=e736]:
+        - generic [ref=e737]:
+          - generic "View synopsis" [ref=e738] [cursor=pointer]: 0.13.2
+          - generic [ref=e739]: HTML
+          - generic "Copy path to clipboard" [ref=e740] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e741] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.2.html" [ref=e742] [cursor=pointer]
+        - generic [ref=e743]:
+          - generic [ref=e744] [cursor=pointer]: companies
+          - generic [ref=e745] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e746] [cursor=pointer]: html
+          - generic [ref=e747] [cursor=pointer]: latest
+          - generic [ref=e748] [cursor=pointer]: lc-docs
+          - generic [ref=e749] [cursor=pointer]: releases
+          - generic [ref=e750] [cursor=pointer]: saltdoc
+          - generic [ref=e751] [cursor=pointer]: topics
+      - generic [ref=e752]:
+        - generic [ref=e753]:
+          - generic "View synopsis" [ref=e754] [cursor=pointer]: 0.13.2
+          - generic [ref=e755]: HTML
+          - generic "Copy path to clipboard" [ref=e756] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e757] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.2.html" [ref=e758] [cursor=pointer]
+        - generic [ref=e759]:
+          - generic [ref=e760] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e761] [cursor=pointer]: html
+          - generic [ref=e762] [cursor=pointer]: latest
+          - generic [ref=e763] [cursor=pointer]: releases
+          - generic [ref=e764] [cursor=pointer]: saltdoc
+          - generic [ref=e765] [cursor=pointer]: topics
+      - generic [ref=e766]:
+        - generic [ref=e767]:
+          - generic "View synopsis" [ref=e768] [cursor=pointer]: 0.13.2
+          - generic [ref=e769]: HTML
+          - generic "Copy path to clipboard" [ref=e770] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e771] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.2.html" [ref=e772] [cursor=pointer]
+        - generic [ref=e773]:
+          - generic [ref=e774] [cursor=pointer]: books
+          - generic [ref=e775] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e776] [cursor=pointer]: html
+          - generic [ref=e777] [cursor=pointer]: latest
+          - generic [ref=e778] [cursor=pointer]: releases
+          - generic [ref=e779] [cursor=pointer]: saltdoc
+          - generic [ref=e780] [cursor=pointer]: topics
+      - generic [ref=e781]:
+        - generic [ref=e782]:
+          - generic "View synopsis" [ref=e783] [cursor=pointer]: 0.13.3
+          - generic [ref=e784]: HTML
+          - generic "Copy path to clipboard" [ref=e785] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e786] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/Companies/LC/LC-Docs/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.3.html" [ref=e787] [cursor=pointer]
+        - generic [ref=e788]:
+          - generic [ref=e789] [cursor=pointer]: companies
+          - generic [ref=e790] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e791] [cursor=pointer]: html
+          - generic [ref=e792] [cursor=pointer]: latest
+          - generic [ref=e793] [cursor=pointer]: lc-docs
+          - generic [ref=e794] [cursor=pointer]: releases
+          - generic [ref=e795] [cursor=pointer]: saltdoc
+          - generic [ref=e796] [cursor=pointer]: topics
+      - generic [ref=e797]:
+        - generic [ref=e798]:
+          - generic "View synopsis" [ref=e799] [cursor=pointer]: 0.13.3
+          - generic [ref=e800]: HTML
+          - generic "Copy path to clipboard" [ref=e801] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e802] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.3.html" [ref=e803] [cursor=pointer]
+        - generic [ref=e804]:
+          - generic [ref=e805] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e806] [cursor=pointer]: html
+          - generic [ref=e807] [cursor=pointer]: latest
+          - generic [ref=e808] [cursor=pointer]: releases
+          - generic [ref=e809] [cursor=pointer]: saltdoc
+          - generic [ref=e810] [cursor=pointer]: topics
+      - generic [ref=e811]:
+        - generic [ref=e812]:
+          - generic "View synopsis" [ref=e813] [cursor=pointer]: 0.13.3
+          - generic [ref=e814]: HTML
+          - generic "Copy path to clipboard" [ref=e815] [cursor=pointer]: 📋
+          - generic "Delete from disk and index" [ref=e816] [cursor=pointer]: 🗑
+        - generic "/mnt/data/Documents/books/SaltDoc/SaltDoc/docs.saltstack.com/en/latest/topics/releases/0.13.3.html" [ref=e817] [cursor=pointer]
+        - generic [ref=e818]:
+          - generic [ref=e819] [cursor=pointer]: books
+          - generic [ref=e820] [cursor=pointer]: docs.saltstack.com
+          - generic [ref=e821] [cursor=pointer]: html
+          - generic [ref=e822] [cursor=pointer]: latest
+          - generic [ref=e823] [cursor=pointer]: releases
+          - generic [ref=e824] [cursor=pointer]: saltdoc
+          - generic [ref=e825] [cursor=pointer]: topics
+    - button "↑ Top" [ref=e40] [cursor=pointer]
