@@ -449,7 +449,7 @@ async function doSearch() {
     // Show Load More if there are more results
   } catch (e) {
     console.error('Search error:', e);
-    meta.innerHTML = `<span style="color:var(--accent3)">⚠ Error searching: ${e.message}</span>`;
+    meta.innerHTML = `<span style="color:var(--accent3)">⚠ Error searching: ${friendlyError(e)}</span>`;
     grid.innerHTML = '';
   }
 }
@@ -493,7 +493,7 @@ async function renderAll() {
     console.log('renderAll() complete');
   } catch (e) {
     console.error('Render all error:', e);
-    meta.innerHTML = `<span style="color:var(--accent3)">⚠ Error loading documents: ${e.message}</span>`;
+    meta.innerHTML = `<span style="color:var(--accent3)">⚠ Error loading documents: ${friendlyError(e)}</span>`;
     grid.innerHTML = '';
   }
 }
@@ -568,7 +568,7 @@ async function filterByLetter(letter) {
     window.scrollTo(0, 0);
   } catch (e) {
     console.error('Filter by letter error:', e);
-    meta.innerHTML = `<span style="color:var(--accent3)">⚠ Error loading documents: ${e.message}</span>`;
+    meta.innerHTML = `<span style="color:var(--accent3)">⚠ Error loading documents: ${friendlyError(e)}</span>`;
     grid.innerHTML = '';
   }
   isLoadingMore = false;
@@ -673,7 +673,7 @@ async function loadMoreTop() {
     window.scrollTo(0, 0);
   } catch (e) {
     console.error('Load more error:', e);
-    alert('Error loading more documents');
+    alert('Error loading more documents: ' + friendlyError(e));
   }
   isLoadingMore = false;
 }
@@ -728,12 +728,23 @@ async function loadMorePrev() {
     window.scrollTo(0, 0);
   } catch (e) {
     console.error('Load prev error:', e);
-    alert('Error loading previous documents');
+    alert('Error loading previous documents: ' + friendlyError(e));
   }
   isLoadingMore = false;
 }
 
 function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : ''; }
+
+// fetch() throws a generic TypeError ("Failed to fetch" / "NetworkError when
+// attempting to fetch resource") when it can't reach the server at all —
+// almost always because the DocuBrowse service itself isn't running, not an
+// internet/network problem. Give a more accurate message in that case.
+function friendlyError(e) {
+  if (e instanceof TypeError) {
+    return 'Cannot reach the DocuBrowse service. Make sure it is running, then reload this page.';
+  }
+  return e.message;
+}
 
 async function showSynopsis(path, title) {
   const overlay = document.getElementById('synopsisModal');
@@ -744,6 +755,15 @@ async function showSynopsis(path, title) {
   bodyEl.textContent = 'Generating synopsis…';
   bodyEl.className = 'synopsis-body loading';
   overlay.classList.add('open');
+
+  // Reassure the user the request isn't stuck: cold-start Ollama loads can take
+  // a while, so update the message if we're still waiting after a few seconds.
+  const reassureTimer1 = setTimeout(() => {
+    bodyEl.textContent = 'Still working… this can take a bit longer the first time after a restart.';
+  }, 6000);
+  const reassureTimer2 = setTimeout(() => {
+    bodyEl.textContent = 'Still generating… the AI model may still be loading into memory. Hang tight.';
+  }, 25000);
 
   try {
     const res = await fetch('/api/synopsis?path=' + encodeURIComponent(path));
@@ -756,8 +776,11 @@ async function showSynopsis(path, title) {
       bodyEl.className = 'synopsis-body error';
     }
   } catch (e) {
-    bodyEl.textContent = 'Error fetching synopsis: ' + e.message;
+    bodyEl.textContent = e instanceof TypeError ? friendlyError(e) : 'Error fetching synopsis: ' + e.message;
     bodyEl.className = 'synopsis-body error';
+  } finally {
+    clearTimeout(reassureTimer1);
+    clearTimeout(reassureTimer2);
   }
 }
 
@@ -772,7 +795,7 @@ function openFile(path) {
       if (d.ok) showToast('Opening…');
       else showErrorModal(d.error || 'Could not open file');
     })
-    .catch(e => showToast('⚠ Error: ' + e.message));
+    .catch(e => showToast('⚠ Error: ' + friendlyError(e)));
 }
 
 function copyToClipboard(text) {
@@ -861,7 +884,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Delete failed: ' + (data.error || 'unknown error'));
       }
     } catch (e) {
-      alert('Delete request failed: ' + e.message);
+      alert('Delete request failed: ' + friendlyError(e));
     }
   });
 });
