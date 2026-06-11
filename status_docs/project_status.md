@@ -80,6 +80,22 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 
 ## Session History
 
+### 2026-06-11 — Alpha index bar: global server-side letter filter
+- Index bar (0-9, A-Z) now queries `/api/search?letter=X` for ALL matching
+  documents, not just the currently-loaded page. Paginated by the existing
+  page-size preference; Next/Back and page-size changes work while a letter
+  filter is active. Clicking the active letter again returns to All Documents.
+- `doc_search.py`: `/api/search` empty-query path accepts `letter=A-Z` or
+  `letter=0-9` (digits/symbols bucket via `NOT GLOB '[A-Z]'`), parameterized
+  (no injection risk).
+- `index.html`: new `currentLetter` state var; `filterByLetter` is now async
+  and server-backed; `loadMoreTop`/`loadMorePrev`/`changePageSize` updated to
+  branch on `currentLetter`.
+- Verified via Playwright (O=53 results across pages, 0-9=613, toggle off,
+  page-size change while filtered). QA PASS (added `isLoadingMore` guard to
+  `filterByLetter` per QA recommendation).
+- Committed a899ff8.
+
 ### 2026-06-10 — Settings page refactor, dir-browser fix
 - Fixed dir-browser sizing/reachability bug: `.dir-browser { max-height: min(320px, 35vh) }` in
   index.html, verified at 1280x720 and 1440x900 (commit 3861602).
