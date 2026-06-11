@@ -139,6 +139,7 @@ Usage: docubrowser.py <command> [options]
 | `embed` | Generate/refresh embeddings for un-embedded documents |
 | `open` | Open the DocuBrowse UI in your default browser |
 | `purge` | Scan index for PII and remove matching documents |
+| `ignore add\|remove\|list DIR` | Manage directories excluded from scanning (auto-purges on add) |
 | `report` | Walk doc directory and show file-type breakdown (no DB changes) |
 | `stopall` | Stop all running scans, embeds, and the server |
 | `duplist` | List duplicate documents (exact SHA256 + optional near-duplicate) |
@@ -182,6 +183,11 @@ Usage: docubrowser.py <command> [options]
 ./docubrowser.py embed                          # embed any un-embedded docs
 ./docubrowser.py purge --dry-run               # preview PII matches (safe)
 ./docubrowser.py purge                         # remove PII documents (prompts)
+
+# Excluding directories from scanning
+./docubrowser.py ignore add /mnt/data/Documents/myWorkDocs   # exclude + purge indexed docs under it
+./docubrowser.py ignore list                                  # show ignored directories
+./docubrowser.py ignore remove /mnt/data/Documents/myWorkDocs # re-allow (rescan to re-index)
 
 # Duplicate detection and cleanup
 ./docubrowser.py duplist                       # find exact SHA256 duplicates
@@ -295,6 +301,7 @@ work_dir = /home/user/DocuBrowse
 | `scan_blacklist.txt` | Files that failed extraction | No — remove line to retry |
 | `pii_blacklist.txt` | Files removed for containing PII | Yes — never re-ingest |
 | `ocr_list_pdfs.txt` | Image-only PDFs needing OCR | N/A — informational |
+| `ignore_dirs.txt` | Directories excluded from scanning (managed via `ignore` command) | No — `ignore remove` + `rescan` |
 
 ---
 
@@ -422,6 +429,7 @@ DocuBrowse/
 ├── scan_blacklist.txt      # Failed-extraction skiplist (gitignored)
 ├── pii_blacklist.txt       # PII-removed files — permanent (gitignored)
 ├── ocr_list_pdfs.txt       # Image-only PDFs needing OCR (gitignored)
+├── ignore_dirs.txt         # Directories excluded from scanning (gitignored)
 ├── docubrowse.config       # Local config (optional, gitignored)
 ├── INSTALL.md              # Step-by-step install guide
 ├── README.md               # This file
