@@ -116,10 +116,31 @@ far too slow on this hardware: warm eval was **68.9s for a 1-sentence response (
 vs. ~12s for a full synopsis with `dolphin-uncensored`. The 7.6GB model doesn't fit the
 4GB GPU (RTX 3050 Laptop) and runs mostly on CPU. At that rate a synopsis would take
 1-2 minutes — well past the 25s `SYNOPSIS_TIMEOUT_SECS`.
-**Decision**: `SYNOPSIS_MODEL` stays `uandinotai/dolphin-uncensored:latest` (2GB, ~12s/synopsis).
+**Decision (superseded 2026-06-10)**: `SYNOPSIS_MODEL` stays `uandinotai/dolphin-uncensored:latest`
+(2GB, ~12s/synopsis).
 **Action**: If a smaller/quantized gemma variant becomes available that fits in ~4GB VRAM
 (e.g. a Q4 quant under ~4GB), re-test. Otherwise no further action — dolphin-uncensored
 quality has been acceptable in spot checks.
+
+---
+
+### SYNOPSIS_MODEL swapped: dolphin-uncensored → dolphin3 (2026-06-10)
+**Reason**: James flagged the "uncensored" branding on `uandinotai/dolphin-uncensored:latest`
+as a liability concern — it could be used against the project ("look, they shipped an
+uncensored model"). Investigated alternatives:
+- `tinydolphin:latest` (636MB, 1.1B params) — very fast (~4s, 433 tokens, ~107 tok/s) but
+  ignores formatting instructions: produced "Title:/Subtitle:/Book Synopsis:" headers and
+  5 separate paragraphs despite an explicit "no headings, single paragraph" instruction.
+  Too small to follow instructions reliably for this use case.
+- `dolphin3:latest` (4.9GB, ~8B params) — ~9s for a 79-token synopsis, single clean
+  paragraph, no headers/preamble, followed instructions perfectly. Slightly faster than
+  dolphin-uncensored and noticeably better instruction-following, with no "uncensored"
+  naming.
+
+**Decision**: `SYNOPSIS_MODEL` = `dolphin3:latest` (4.9GB). Updated `ensure_ollama.py`
+REQUIRED_MODELS, `doc_search.py` (SYNOPSIS_MODEL, SYNOPSIS_TIMEOUT_SECS bumped 25→30s as a
+margin for the larger model), README.md, and INSTALL.md accordingly.
+**Total model footprint**: ~274MB (nomic-embed-text) + ~4.9GB (dolphin3) ≈ 5.2GB.
 
 ---
 
