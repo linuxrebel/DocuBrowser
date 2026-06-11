@@ -105,6 +105,23 @@ See Completed Decisions table.
 
 ---
 
+## Open Issues
+
+### ⚠ gemma4:latest broken in current Ollama — synopsis feature using dolphin-uncensored as interim model
+**Symptom**: `gemma4:latest` (intended model for the synopsis feature, 9.6GB Q4_K_M) crashes
+Ollama's `/api/generate` with `GGML_ASSERT(n_inputs < GGML_SCHED_MAX_SPLIT_INPUTS) failed` —
+the llama-server process terminates entirely. `openclaw:latest` (also 9.6GB) hits the same
+assert, so this looks like a model/build incompatibility with the installed Ollama version
+rather than a corrupt single download.
+**Interim fix (2026-06-10)**: `SYNOPSIS_MODEL` in `doc_search.py` set to
+`uandinotai/dolphin-uncensored:latest` (2GB, works fine, ~12s/synopsis).
+**Action**: Once Ollama is upgraded, re-pull/re-test `gemma4:latest` against `/api/generate`
+with a trivial prompt. If it no longer crashes, switch `SYNOPSIS_MODEL` back to
+`gemma4:latest` in `doc_search.py` (better quality for the Kindle-style synopsis). Keep
+`gemma4:latest` installed until then — do not remove it.
+
+---
+
 ## Other Known Deferred Decisions
 
 ### Book metadata — author, subject, ISBN search
