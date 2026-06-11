@@ -60,13 +60,14 @@
   .theme-btn svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; flex-shrink:0; }
   .theme-btn:hover { border-color:var(--accent2); color:var(--accent2); }
 
-  .content { padding:2rem; max-width:840px; margin:0 auto; }
+  .content { padding:2rem; }
 
   .panel {
     background:var(--surface); border:1px solid var(--border); border-radius:12px;
     padding:2rem; margin-bottom:1.5rem;
   }
   .panel h2 { font-family:'JetBrains Mono',monospace; font-size:1.1rem; color:var(--accent); margin-bottom:1.5rem; }
+  .panel-desc { font-size:0.85rem; color:var(--text-dim); line-height:1.6; margin-bottom:1.2rem; max-width:70ch; }
 
   label { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--text-dim); display:block; margin-bottom:0.3rem; }
   .field-row { display:flex; gap:0.5rem; margin-bottom:1.2rem; }
@@ -131,22 +132,26 @@
     max-height:240px; overflow-y:auto; margin-bottom:0.8rem;
   }
   .list-item {
-    padding:0.4rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
-    color:var(--text); cursor:pointer; border-bottom:1px solid var(--border);
-    word-break:break-all;
+    padding:0.5rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+    color:var(--text); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:0.8rem;
   }
   .list-item:last-child { border-bottom:none; }
   .list-item:hover { background:var(--surface2); }
-  .list-item.selected { background:var(--accent2); color:var(--bg); }
+  .list-item-path { word-break:break-all; }
   .list-empty {
     padding:0.6rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
     color:var(--text-dim); font-style:italic;
   }
   .add-btn { color:var(--accent); border-color:var(--accent); }
   .add-btn:hover { background:var(--surface2); }
-  .remove-btn { color:var(--accent3); border-color:var(--accent3); }
-  .remove-btn:hover { background:var(--surface2); }
-  .remove-btn:disabled, .add-btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .list-remove-btn {
+    flex-shrink:0; width:22px; height:22px; line-height:20px; text-align:center; padding:0;
+    background:transparent; border:1px solid var(--border); border-radius:4px;
+    color:var(--accent3); cursor:pointer; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+    transition:all 0.15s;
+  }
+  .list-remove-btn:hover { background:var(--accent3); color:var(--bg); border-color:var(--accent3); }
 
   /* ── Toast notification ── */
   .toast {
@@ -167,6 +172,7 @@
     <svg id="themeIcon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"></svg>
     <span id="themeLabel"></span>
   </button>
+  <button class="btn-primary" id="doneBtn" onclick="doneAndClose()" style="padding:4px 14px; font-size:0.8rem;">Done</button>
   <a class="back-link" href="/">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
     Back to search
@@ -201,17 +207,22 @@
 
   <div class="panel">
     <h2>Ignored Directories</h2>
-    <label>Excluded from scanning (auto-purges indexed docs on add)</label>
+    <p class="panel-desc">
+      Directories listed here are skipped during scans. Adding a directory removes any documents
+      already in the index from that location; if you remove a directory from this list later,
+      run a rescan to bring its documents back.
+    </p>
+
+    <label>Add a directory to exclude</label>
     <div class="field-row">
       <input type="text" id="cfgIgnoreDir" placeholder="/path/to/exclude">
-      <button class="browse-btn" onclick="openBrowser('ignoreDir')">browse</button>
-      <button class="browse-btn add-btn" onclick="addIgnoreDir()">+ Add</button>
+      <button class="browse-btn" onclick="openBrowser('ignoreDir')">Browse…</button>
+      <button class="browse-btn add-btn" onclick="addIgnoreDir()">+ Add to exclusion list</button>
     </div>
     <div class="dir-browser" id="browser-ignoreDir"></div>
+
+    <label style="margin-top:1rem;">Currently excluded directories</label>
     <div class="list-box" id="ignoreDirList"></div>
-    <div class="field-row" style="margin-bottom:0;">
-      <button class="browse-btn remove-btn" id="ignoreDirRemoveBtn" onclick="removeIgnoreDir()" disabled>− Remove</button>
-    </div>
   </div>
 </div>
 
@@ -282,7 +293,7 @@ async function saveConfig() {
   const docPath = document.getElementById('cfgDocPath').value.trim();
   const workDir = document.getElementById('cfgWorkDir').value.trim();
   const port = parseInt(document.getElementById('cfgPort').value) || 8643;
-  if (!docPath || !workDir) { alert('Both fields are required'); return; }
+  if (!docPath || !workDir) { alert('Both fields are required'); return false; }
   try {
     const res = await fetch('/api/config', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -292,10 +303,27 @@ async function saveConfig() {
     await res.json();
     showToast('Config saved');
     loadConfig();
+    return true;
   } catch (e) {
     console.error('Config save error:', e);
     alert('Error saving config: ' + e.message);
+    return false;
   }
+}
+
+// ── Done: save (if needed) and return to the search page ───────
+async function doneAndClose() {
+  const ok = await saveConfig();
+  if (!ok) return; // validation/save error already shown — stay on page
+  // Prefer returning to the opener tab if one exists, then close this tab.
+  if (window.opener && !window.opener.closed) {
+    try { window.opener.focus(); } catch (e) {}
+  }
+  window.close();
+  // Fallback for tabs that refuse to self-close (not opened via script):
+  setTimeout(() => {
+    if (!window.closed) window.location.href = '/';
+  }, 300);
 }
 
 // ── Directory Browser ─────────────────────────────────────────
@@ -345,10 +373,8 @@ function selectDir(field, path) {
 
 // ── Ignored directories ─────────────────────────────────────────
 let ignoreDirs = [];
-let selectedIgnoreDir = null;
 
 async function loadIgnoreDirs() {
-  selectedIgnoreDir = null;
   try {
     const res = await fetch('/api/ignore-dirs');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -364,24 +390,26 @@ async function loadIgnoreDirs() {
 function renderIgnoreDirs() {
   const box = document.getElementById('ignoreDirList');
   if (!ignoreDirs.length) {
-    box.innerHTML = `<div class="list-empty">No ignored directories</div>`;
+    box.innerHTML = `<div class="list-empty">No directories excluded — the entire docPath is scanned</div>`;
   } else {
     box.innerHTML = ignoreDirs.map(d =>
-      `<div class="list-item${d === selectedIgnoreDir ? ' selected' : ''}" onclick="selectIgnoreDir('${esc(d)}')">${esc(d)}</div>`
+      `<div class="list-item">
+        <span class="list-item-path">${esc(d)}</span>
+        <button class="list-remove-btn" onclick="removeIgnoreDir('${esc(d)}')" title="Remove from exclusion list">✕</button>
+      </div>`
     ).join('');
   }
-  document.getElementById('ignoreDirRemoveBtn').disabled = !selectedIgnoreDir;
-}
-
-function selectIgnoreDir(d) {
-  selectedIgnoreDir = (selectedIgnoreDir === d) ? null : d;
-  renderIgnoreDirs();
 }
 
 async function addIgnoreDir() {
   const input = document.getElementById('cfgIgnoreDir');
   const path = input.value.trim();
   if (!path) return;
+  const proceed = confirm(
+    `Excluding "${path}" from scanning will also remove any documents already in the ` +
+    `index from this directory.\n\nContinue?`
+  );
+  if (!proceed) return;
   try {
     const res = await fetch('/api/ignore-dirs', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -390,20 +418,17 @@ async function addIgnoreDir() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     ignoreDirs = data.dirs || [];
-    selectedIgnoreDir = null;
     input.value = '';
     document.getElementById('browser-ignoreDir').classList.remove('open');
     renderIgnoreDirs();
-    showToast(data.purged ? `Added — purged ${data.purged} indexed doc(s)` : 'Added to ignore list');
+    showToast(data.purged ? `Added — removed ${data.purged} indexed doc(s)` : 'Added to exclusion list');
   } catch (e) {
     console.error('Add ignore dir error:', e);
     alert('Error adding directory: ' + e.message);
   }
 }
 
-async function removeIgnoreDir() {
-  if (!selectedIgnoreDir) return;
-  const path = selectedIgnoreDir;
+async function removeIgnoreDir(path) {
   try {
     const res = await fetch('/api/ignore-dirs', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -412,9 +437,11 @@ async function removeIgnoreDir() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     ignoreDirs = data.dirs || [];
-    selectedIgnoreDir = null;
     renderIgnoreDirs();
-    showToast('Removed — run rescan to re-index');
+    alert(
+      `"${path}" has been removed from the exclusion list.\n\n` +
+      `To bring documents from this directory back into the index, run a rescan.`
+    );
   } catch (e) {
     console.error('Remove ignore dir error:', e);
     alert('Error removing directory: ' + e.message);
