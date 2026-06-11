@@ -217,11 +217,16 @@
     <div class="field-row">
       <input type="text" id="cfgIgnoreDir" placeholder="/path/to/exclude">
       <button class="browse-btn" onclick="openBrowser('ignoreDir')">Browse…</button>
-      <button class="browse-btn add-btn" onclick="addIgnoreDir()">+ Add to exclusion list</button>
+      <button class="browse-btn add-btn" onclick="addIgnoreDir()">Add</button>
+      <button class="browse-btn" onclick="clearIgnoreDirInput()">Clear</button>
     </div>
     <div class="dir-browser" id="browser-ignoreDir"></div>
 
     <label style="margin-top:1rem;">Currently excluded directories</label>
+    <p class="panel-desc">
+      Click the ✕ to the right of a directory to remove it from the exclusion list, then rescan
+      to bring its documents back.
+    </p>
     <div class="list-box" id="ignoreDirList"></div>
   </div>
 </div>
@@ -348,7 +353,14 @@ async function loadDir(field, path) {
     const res = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    let html = `<div class="dir-path">${esc(data.path)} <button class="dir-select-btn" onclick="selectDir('${field}','${esc(data.path)}')">select this</button></div>`;
+    let html;
+    if (field === 'ignoreDir') {
+      // Keep the exclude-path input in sync with the directory being browsed.
+      document.getElementById(fieldInputId(field)).value = data.path;
+      html = `<div class="dir-path">${esc(data.path)}</div>`;
+    } else {
+      html = `<div class="dir-path">${esc(data.path)} <button class="dir-select-btn" onclick="selectDir('${field}','${esc(data.path)}')">select this</button></div>`;
+    }
     if (data.error) html += `<div class="dir-entry" style="color:var(--accent3)">${esc(data.error)}</div>`;
     for (const e of (data.entries || [])) {
       const icon = e.parent ? '⬆️' : '📁';
@@ -369,6 +381,10 @@ function selectDir(field, path) {
   const input = document.getElementById(fieldInputId(field));
   input.value = path;
   document.getElementById('browser-' + field).classList.remove('open');
+}
+
+function clearIgnoreDirInput() {
+  document.getElementById('cfgIgnoreDir').value = '';
 }
 
 // ── Ignored directories ─────────────────────────────────────────
@@ -429,6 +445,8 @@ async function addIgnoreDir() {
 }
 
 async function removeIgnoreDir(path) {
+  const proceed = confirm(`Remove "${path}" from the exclusion list?\n\nA rescan will be needed afterward to bring its documents back into the index.`);
+  if (!proceed) return;
   try {
     const res = await fetch('/api/ignore-dirs', {
       method: 'POST', headers: {'Content-Type':'application/json'},
