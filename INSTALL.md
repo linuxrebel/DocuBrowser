@@ -16,9 +16,10 @@ DocuBrowse runs entirely locally — no cloud accounts or API keys required.
 | ebooklib | any | EPUB extraction |
 | beautifulsoup4 | any | HTML stripping for EPUB/MOBI |
 | mobi | any | MOBI / AZW3 extraction |
-| Ollama | latest | semantic search embeddings |
+| Ollama | latest | semantic search embeddings + synopsis generation |
 | SQLite | 3.35+ | bundled with Python |
 | nomic-embed-text | latest | embedding model (pulled automatically) |
+| dolphin-uncensored (uandinotai) | latest | synopsis generation model (pulled automatically) |
 
 Hardware minimum: 8 GB RAM, 4 CPU cores. Recommended: 16 GB RAM, 8+ cores.
 GPU (NVIDIA/AMD) accelerates embedding generation but is not required.
@@ -111,13 +112,26 @@ ollama serve &
 
 # Pull the embedding model (~274 MB)
 ollama pull nomic-embed-text:latest
+
+# Pull the synopsis generation model (~2 GB)
+ollama pull uandinotai/dolphin-uncensored:latest
 ```
 
 Verify:
 
 ```bash
-ollama list    # should show nomic-embed-text:latest
+ollama list    # should show nomic-embed-text:latest and uandinotai/dolphin-uncensored:latest
 ```
+
+### Why two models?
+
+Embedding models (used for semantic search) and text-generation models (used for the
+Kindle-style document synopsis feature) are architecturally different — an embedding
+model cannot generate text, regardless of size or quality. `nomic-embed-text` (274 MB)
+handles ingestion/search; `dolphin-uncensored` (2 GB) handles synopsis generation. Both
+are small, fast on CPU, and confirmed to work without GPU. Larger models (e.g.
+`gemma4:12b`) were tested but are too slow on modest hardware (~70s per response) — see
+`status_docs/DECISIONS.md` for details.
 
 ---
 

@@ -34,6 +34,11 @@ machine — no cloud, no API keys.
 - **Semantic Search** — AI-powered similarity via Ollama embeddings (nomic-embed-text:latest)
 - **Hybrid Mode** (default) — 70% semantic + 30% keyword, merged and re-ranked
 
+### 📖 AI Synopsis
+- Click any document title for a Kindle-style book-jacket synopsis, generated on demand
+  via Ollama (`uandinotai/dolphin-uncensored:latest`) and cached in the database after
+  first generation
+
 ### 📚 Document Indexing
 - **Formats**: PDF, DOCX, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
 - **PDF intelligence**: pdfplumber (preferred) with pypdf fallback for bloated-object files; `layout=False` retry for complex layouts; scanned (image-only) PDFs detected and routed to `ocr_list_pdfs.txt`
@@ -90,7 +95,9 @@ cd /path/to/DocuBrowse
 ```
 
 `docubrowser.py start` automatically verifies Ollama is installed, running, and has
-`nomic-embed-text:latest` — installing/starting/pulling as needed.
+both required models — `nomic-embed-text:latest` (embeddings) and
+`uandinotai/dolphin-uncensored:latest` (synopsis generation) — installing/starting/pulling
+as needed.
 
 ---
 
@@ -237,15 +244,15 @@ work_dir = /home/user/DocuBrowse
 │  ProcessPoolExecutor │  │  GET /  /api/search             │
 │  pdf_extractor.py    │  │  GET /api/stats  /api/tags      │
 │  embed_docs.py       │  │  GET /api/open  /api/config     │
-│                      │  GET /api/delete                │
+│                      │  GET /api/delete  /api/synopsis │
 └──────────┬───────────┘  └──────────────┬──────────────────┘
            │                              │
            └──────────┬───────────────────┘
                       ↓
-        ┌──────────────────────────────────┐
-        │  du-docs.db  (SQLite FTS5)       │
-        │  Ollama  (nomic-embed-text)      │
-        └──────────────────────────────────┘
+        ┌──────────────────────────────────────────────────┐
+        │  du-docs.db  (SQLite FTS5)                       │
+        │  Ollama (nomic-embed-text + dolphin-uncensored)  │
+        └──────────────────────────────────────────────────┘
 ```
 
 ### Key Scripts
@@ -253,7 +260,7 @@ work_dir = /home/user/DocuBrowse
 | Script | Role |
 |--------|------|
 | `docubrowser.py` | CLI launcher — all commands |
-| `ensure_ollama.py` | Checks/installs Ollama binary, service, and model |
+| `ensure_ollama.py` | Checks/installs Ollama binary, service, and required models |
 | `doc_search.py` | HTTP server; search API and UI |
 | `docubrowse_db.py` | SQLite schema and migrations |
 | `scan_docs.py` | Document discovery, extraction, and DB writes |
@@ -466,8 +473,9 @@ tail -f ~/.local/share/docubrowser/docubrowser.log
 
 ```bash
 ollama serve                       # start manually
-ollama list                        # verify model is present
-ollama pull nomic-embed-text:latest  # pull if missing
+ollama list                        # verify both models are present
+ollama pull nomic-embed-text:latest              # embeddings, if missing
+ollama pull uandinotai/dolphin-uncensored:latest # synopsis generation, if missing
 ```
 
 ---
