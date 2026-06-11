@@ -121,8 +121,13 @@ def _under_any(path: Path, dirs: set) -> bool:
 def purge_path_prefix(conn, prefix: str) -> int:
     """Remove all indexed documents whose path is *prefix* or under it.
 
-    Deletes from `documents` (cascades to doc_tags/doc_embeddings via FK)
-    and cleans up the matching contentless doc_fts rows. Returns the
+    Deletes from `documents` (cascades to doc_tags/doc_embeddings via FK).
+    doc_fts is a contentless FTS5 table — `DELETE ... WHERE rowid IN (...)`
+    is not supported on contentless tables (raises "cannot DELETE from
+    contentless fts5 table"). As with handle_delete()'s single-document
+    delete, the orphaned doc_fts rows are left in place; they're harmless
+    because keyword search always JOINs doc_fts results back to
+    `documents`, so a deleted document's row never surfaces. Returns the
     number of documents removed.
     """
     prefix = str(Path(prefix).expanduser().resolve())
@@ -136,7 +141,6 @@ def purge_path_prefix(conn, prefix: str) -> int:
         return 0
     conn.execute("PRAGMA foreign_keys=ON")
     qmarks = ",".join("?" * len(ids))
-    conn.execute(f"DELETE FROM doc_fts WHERE rowid IN ({qmarks})", ids)
     conn.execute(f"DELETE FROM documents WHERE id IN ({qmarks})", ids)
     conn.commit()
     return len(ids)

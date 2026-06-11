@@ -936,7 +936,7 @@ function fieldInputId(field) {
 async function openBrowser(field) {
   const browser = document.getElementById('browser-' + field);
   const input = document.getElementById(fieldInputId(field));
-  const startPath = input.value || '/';
+  const startPath = input.value || '~';
   browser.classList.toggle('open');
   if (browser.classList.contains('open')) await loadDir(field, startPath);
 }
@@ -950,7 +950,9 @@ async function loadDir(field, path) {
     let html = `<div class="dir-path">${esc(data.path)} <button class="dir-select-btn" onclick="selectDir('${field}','${esc(data.path)}')">select this</button></div>`;
     if (data.error) html += `<div class="dir-entry" style="color:var(--accent3)">${esc(data.error)}</div>`;
     for (const e of (data.entries || [])) {
-      html += `<div class="dir-entry" onclick="loadDir('${field}','${esc(e.path)}')"><span class="icon">📁</span> ${esc(e.name)}</div>`;
+      const icon = e.parent ? '⬆️' : '📁';
+      const label = e.parent ? '.. (up)' : esc(e.name);
+      html += `<div class="dir-entry" onclick="loadDir('${field}','${esc(e.path)}')"><span class="icon">${icon}</span> ${label}</div>`;
     }
     browser.innerHTML = html;
   } catch (e) {
