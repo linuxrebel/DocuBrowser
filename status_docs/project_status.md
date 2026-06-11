@@ -92,6 +92,25 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
   minute the first time. Please wait a moment and try again."
 - Restarted doc_search.py to pick up the change. Committed f94a72a.
 
+### 2026-06-11 (continued) — Service-unreachable errors and synopsis loading reassurance
+- Reported: if doc_search.py (and Ollama) are stopped while a page is still
+  loaded, clicking a doc title gives a misleading "network error" that
+  implies an internet problem, when really the local DocuBrowse service
+  itself is down.
+- Added `friendlyError(e)` in index.html: detects the generic `TypeError`
+  fetch() throws when it can't reach the server at all, and shows "Cannot
+  reach the DocuBrowse service. Make sure it is running, then reload this
+  page." instead of the raw error. Applied to all fetch catch blocks
+  (search, render, filter by letter, load more/prev, synopsis, open file,
+  delete).
+- Verified by killing doc_search.py with the page already loaded and
+  clicking "View synopsis" via Playwright — modal correctly showed the new
+  message.
+- Also addressed: synopsis modal's "Generating synopsis..." message now
+  updates at 6s and 25s with reassuring follow-up text, so a slow cold-start
+  Ollama request (up to ~90s) doesn't look hung.
+- Restarted doc_search.py. Committed f017e08.
+
 ### 2026-06-11 (continued) — Settings page UI tweaks
 - Removed leftover modal-era `max-width` restriction; settings page now uses
   full available width.
