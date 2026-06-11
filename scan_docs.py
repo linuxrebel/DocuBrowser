@@ -71,6 +71,7 @@ BLACKLIST_FILENAME     = "scan_blacklist.txt"
 PII_BLACKLIST_FILENAME = "pii_blacklist.txt"
 OCR_LIST_FILENAME      = "ocr_list_pdfs.txt"
 IGNORE_DIRS_FILENAME   = "ignore_dirs.txt"
+SCAN_DIRS_FILENAME     = "scan_dirs.txt"
 
 
 def _load_blacklist(db_path: Path, filename: str = BLACKLIST_FILENAME) -> set:
@@ -101,6 +102,26 @@ def _load_ignore_dirs(db_path: Path) -> set:
         return set()
     dirs = set()
     for line in ig_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            dirs.add(str(Path(line).expanduser().resolve()))
+    return dirs
+
+
+def _load_scan_dirs(db_path: Path) -> set:
+    """Load the set of additional absolute directory paths to scan.
+
+    Format: one absolute directory path per line; '#' = comment.
+    Lives next to the database (scan_dirs.txt). These are extra top-level
+    directories (outside docPath) the user has earmarked for scanning via
+    `docubrowser.py scan --doc-dir <DIR>`. Purely informational/bookkeeping
+    for the settings UI — does not affect the default scan of docPath.
+    """
+    sd_path = db_path.parent / SCAN_DIRS_FILENAME
+    if not sd_path.exists():
+        return set()
+    dirs = set()
+    for line in sd_path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line and not line.startswith("#"):
             dirs.add(str(Path(line).expanduser().resolve()))

@@ -174,6 +174,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_synopsis(query)
             elif path == '/api/ignore-dirs':
                 self.handle_ignore_dirs()
+            elif path == '/api/scan-dirs':
+                self.handle_scan_dirs()
             elif path == '/api/browse':
                 self.handle_browse(query)
             else:
@@ -191,6 +193,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_config_post()
             elif path == '/api/ignore-dirs':
                 self.handle_ignore_dirs_post()
+            elif path == '/api/scan-dirs':
+                self.handle_scan_dirs_post()
             else:
                 self.error_response(404, "Not found")
         except Exception as e:
@@ -673,6 +677,63 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                     ig_path.write_text("\n".join(sorted(dirs)) + "\n", encoding="utf-8")
                 else:
                     ig_path.unlink(missing_ok=True)
+            self.json_response({"ok": True, "dirs": sorted(dirs)})
+
+    def handle_scan_dirs(self):
+        """GET /api/scan-dirs - List additional directories earmarked for scanning."""
+        sys.path.insert(0, str(Path(__file__).parent))
+        from scan_docs import _load_scan_dirs
+        dirs = sorted(_load_scan_dirs(Path(self.db_path)))
+        self.json_response({"dirs": dirs})
+
+    def handle_scan_dirs_post(self):
+        """POST /api/scan-dirs - {action: 'add'|'remove', path: str}.
+
+        Purely a bookkeeping list of extra top-level directories the user
+        intends to scan with `docubrowser.py scan --doc-dir <DIR>`. No
+        purging or DB changes — scanning itself is run manually via CLI.
+        """
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length)
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            self.error_response(400, "Invalid JSON")
+            return
+
+        action = data.get("action")
+        raw_path = str(data.get("path", "")).strip()
+        if action not in ("add", "remove") or not raw_path:
+            self.error_response(400, "action ('add'/'remove') and path are required")
+            return
+
+        sys.path.insert(0, str(Path(__file__).parent))
+        from scan_docs import SCAN_DIRS_FILENAME, _load_scan_dirs
+
+        db_path = Path(self.db_path)
+        sd_path = db_path.parent / SCAN_DIRS_FILENAME
+        try:
+            target = str(Path(raw_path).expanduser().resolve())
+        except OSError as e:
+            self.error_response(400, f"Invalid path: {e}")
+            return
+
+        dirs = _load_scan_dirs(db_path)
+
+        if action == "add":
+            if target not in dirs:
+                dirs.add(target)
+                sd_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(sd_path, "a", encoding="utf-8") as fh:
+                    fh.write(target + "\n")
+            self.json_response({"ok": True, "dirs": sorted(dirs)})
+        else:  # remove
+            if target in dirs:
+                dirs.discard(target)
+                if dirs:
+                    sd_path.write_text("\n".join(sorted(dirs)) + "\n", encoding="utf-8")
+                else:
+                    sd_path.unlink(missing_ok=True)
             self.json_response({"ok": True, "dirs": sorted(dirs)})
 
     def handle_config(self):
