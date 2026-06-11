@@ -158,6 +158,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_synopsis(query)
             elif path == '/api/ignore-dirs':
                 self.handle_ignore_dirs()
+            elif path == '/api/browse':
+                self.handle_browse(query)
             else:
                 self.error_response(404, "Not found")
         except Exception as e:
@@ -543,6 +545,37 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         conn.commit()
         conn.close()
         self.json_response({"ok": True, "synopsis": synopsis, "cached": False})
+
+    def handle_browse(self, query: dict):
+        """GET /api/browse?path=DIR - List subdirectories of DIR for the
+        Settings-modal directory browser (docPath/workDir/ignoreDir)."""
+        path_param = query.get('path', ['/'])[0] or '/'
+        try:
+            path_obj = Path(path_param).expanduser()
+            if not path_obj.exists() or not path_obj.is_dir():
+                path_obj = Path('/')
+
+            entries = []
+            # Allow navigating up to the parent directory (root has none).
+            if path_obj.parent != path_obj:
+                entries.append({"name": "..", "path": str(path_obj.parent), "parent": True})
+            try:
+                for item in sorted(path_obj.iterdir(), key=lambda p: p.name.lower()):
+                    if item.is_dir() and not item.name.startswith('.'):
+                        entries.append({"name": item.name, "path": str(item)})
+            except PermissionError:
+                pass
+
+            self.json_response({
+                "path": str(path_obj),
+                "entries": entries[:201],
+            })
+        except Exception as e:
+            self.json_response({
+                "path": path_param,
+                "error": str(e),
+                "entries": [],
+            })
 
     def handle_ignore_dirs(self):
         """GET /api/ignore-dirs - List directories excluded from scanning."""
