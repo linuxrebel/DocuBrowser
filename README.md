@@ -17,11 +17,11 @@ machine — no cloud, no API keys.
 
 | | | |
 |---|---|---|
-| [Features](#features) | [Quick Start](#quick-start) | [CLI Reference](#cli-reference) |
-| [Configuration](#configuration) | [Architecture](#architecture) | [API Endpoints](#api-endpoints) |
-| [Search Algorithm](#search-algorithm) | [File Structure](#file-structure) | [Troubleshooting](#troubleshooting) |
-| [Known Limitations](#known-limitations) | [Roadmap](#roadmap) | [AI-Assisted Dev](#ai-assisted-development) |
-| [License](#license) | | |
+| [Features](#features) | [Screenshots](#screenshots) | [Quick Start](#quick-start) |
+| [CLI Reference](#cli-reference) | [Configuration](#configuration) | [Architecture](#architecture) |
+| [API Endpoints](#api-endpoints) | [Search Algorithm](#search-algorithm) | [File Structure](#file-structure) |
+| [Troubleshooting](#troubleshooting) | [Known Limitations](#known-limitations) | [Roadmap](#roadmap) |
+| [AI-Assisted Dev](#ai-assisted-development) | [License](#license) | |
 
 ---
 
@@ -59,6 +59,22 @@ machine — no cloud, no API keys.
 - Search latency: <150ms typical
 - Parallel PDF extraction with `ProcessPoolExecutor` (physical-core-aware worker count)
 - Memory-safe: kernel-enforced RLIMIT_AS (6 GB/worker) + pause/resume on free-RAM threshold
+
+---
+
+## Screenshots
+
+[↑ Top](#top)
+
+Click any thumbnail to view full size.
+
+| Light Mode | Dark Mode |
+|---|---|
+| [![Light mode](screenshots/screenshot-light-mode.png)](screenshots/screenshot-light-mode.png) | [![Dark mode](screenshots/screenshot-dark-mode.png)](screenshots/screenshot-dark-mode.png) |
+
+| Settings | AI Synopsis |
+|---|---|
+| [![Settings modal](screenshots/screenshot-settings-modal.png)](screenshots/screenshot-settings-modal.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
 
 ---
 
