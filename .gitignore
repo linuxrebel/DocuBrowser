@@ -82,3 +82,4 @@ du-docs.db-journal
 scan_blacklist.txt
 pii_blacklist.txt
 ocr_list_pdfs.txt
+ignore_dirs.txt

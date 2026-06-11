@@ -70,6 +70,7 @@ _IS_TTY = sys.stdout.isatty()
 BLACKLIST_FILENAME     = "scan_blacklist.txt"
 PII_BLACKLIST_FILENAME = "pii_blacklist.txt"
 OCR_LIST_FILENAME      = "ocr_list_pdfs.txt"
+IGNORE_DIRS_FILENAME   = "ignore_dirs.txt"
 
 
 def _load_blacklist(db_path: Path, filename: str = BLACKLIST_FILENAME) -> set:
@@ -86,6 +87,59 @@ def _load_blacklist(db_path: Path, filename: str = BLACKLIST_FILENAME) -> set:
         if line and not line.startswith("#"):
             paths.add(line)
     return paths
+
+
+def _load_ignore_dirs(db_path: Path) -> set:
+    """Load the set of absolute directory paths excluded from scanning.
+
+    Format: one absolute directory path per line; '#' = comment.
+    Lives next to the database (ignore_dirs.txt). Paths are resolved so
+    relative/symlinked entries match consistently.
+    """
+    ig_path = db_path.parent / IGNORE_DIRS_FILENAME
+    if not ig_path.exists():
+        return set()
+    dirs = set()
+    for line in ig_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            dirs.add(str(Path(line).expanduser().resolve()))
+    return dirs
+
+
+def _under_any(path: Path, dirs: set) -> bool:
+    """True if *path* is equal to or nested under any directory in *dirs*."""
+    for d in dirs:
+        try:
+            path.relative_to(d)
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def purge_path_prefix(conn, prefix: str) -> int:
+    """Remove all indexed documents whose path is *prefix* or under it.
+
+    Deletes from `documents` (cascades to doc_tags/doc_embeddings via FK)
+    and cleans up the matching contentless doc_fts rows. Returns the
+    number of documents removed.
+    """
+    prefix = str(Path(prefix).expanduser().resolve())
+    like_pattern = prefix.rstrip("/") + "/%"
+    rows = conn.execute(
+        "SELECT id FROM documents WHERE path = ? OR path LIKE ?",
+        (prefix, like_pattern),
+    ).fetchall()
+    ids = [r[0] for r in rows]
+    if not ids:
+        return 0
+    conn.execute("PRAGMA foreign_keys=ON")
+    qmarks = ",".join("?" * len(ids))
+    conn.execute(f"DELETE FROM doc_fts WHERE rowid IN ({qmarks})", ids)
+    conn.execute(f"DELETE FROM documents WHERE id IN ({qmarks})", ids)
+    conn.commit()
+    return len(ids)
 
 
 def _blacklist_add(db_path: Path, file_path: str, reason: str) -> None:
@@ -465,6 +519,11 @@ def scan_directory(
     if pii_bl:
         print(f"PII blacklist:  {len(pii_bl):,} file(s)  ({db_path.parent / PII_BLACKLIST_FILENAME})")
 
+    # Directories excluded entirely from scanning (ignore_dirs.txt)
+    ignore_dirs = _load_ignore_dirs(db_path)
+    if ignore_dirs:
+        print(f"Ignored dirs:   {len(ignore_dirs):,}  ({db_path.parent / IGNORE_DIRS_FILENAME})")
+
     # Collect candidate files (respects extensions)
     print(f"Scanning  {doc_dir}")
     print(f"Extensions: {', '.join(extensions)}")
@@ -475,6 +534,18 @@ def scan_directory(
         f for f in doc_dir.rglob("*")
         if f.is_file() and f.suffix.lower() in extensions
     )
+
+    # Drop anything under an ignored directory before the indexing check.
+    # ignore_dirs entries are fully resolved (symlinks included), so resolve
+    # each candidate too — otherwise files reached via a symlinked path
+    # component would not match and would slip through unfiltered.
+    if ignore_dirs:
+        before = len(all_files)
+        all_files = [f for f in all_files if not _under_any(f.resolve(), ignore_dirs)]
+        ignored_count = before - len(all_files)
+        if ignored_count:
+            print(f"Skipping {ignored_count:,} file(s) under ignored director(y/ies)")
+
     print(f"Found {len(all_files):,} files — checking which need indexing...")
 
     # Fast "already up-to-date?" check in the main process

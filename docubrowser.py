@@ -591,6 +591,74 @@ def cmd_purge(config: dict, args):
     run_purge(db_path, dry_run=args.dry_run)
 
 
+def cmd_ignore(config: dict, args):
+    """ignore — manage ignore_dirs.txt (directories excluded from scanning).
+
+    Subactions:
+      add <dir>     Add a directory to ignore_dirs.txt and purge any
+                     already-indexed documents under it from the DB.
+      remove <dir>  Remove a directory from ignore_dirs.txt (does not
+                     re-index — run 'rescan' afterward to pick it back up).
+      list          Show currently-ignored directories.
+    """
+    db_path = Path(args.db or config["db_path"])
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from scan_docs import IGNORE_DIRS_FILENAME, _load_ignore_dirs, purge_path_prefix
+
+    ig_path = db_path.parent / IGNORE_DIRS_FILENAME
+
+    if args.ignore_action == "list":
+        dirs = sorted(_load_ignore_dirs(db_path))
+        if not dirs:
+            print(f"No ignored directories. ({ig_path})")
+        else:
+            print(f"Ignored directories ({ig_path}):")
+            for d in dirs:
+                print(f"  {d}")
+        return
+
+    if not args.path:
+        print("ERROR: a directory path is required for 'ignore add' / 'ignore remove'")
+        sys.exit(1)
+
+    target = str(Path(args.path).expanduser().resolve())
+
+    if args.ignore_action == "add":
+        dirs = _load_ignore_dirs(db_path)
+        if target in dirs:
+            print(f"Already ignored: {target}")
+        else:
+            dirs.add(target)
+            ig_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(ig_path, "a", encoding="utf-8") as fh:
+                fh.write(target + "\n")
+            print(f"Added to ignore list: {target}")
+
+        # Purge any previously-indexed documents under this directory
+        if Path(db_path).exists():
+            from docubrowse_db import get_db
+            conn = get_db(str(db_path))
+            removed = purge_path_prefix(conn, target)
+            conn.close()
+            print(f"Purged {removed:,} previously-indexed document(s) under {target}")
+        else:
+            print("(No database yet — nothing to purge.)")
+
+    elif args.ignore_action == "remove":
+        dirs = _load_ignore_dirs(db_path)
+        if target not in dirs:
+            print(f"Not in ignore list: {target}")
+            return
+        dirs.discard(target)
+        if dirs:
+            ig_path.write_text("\n".join(sorted(dirs)) + "\n", encoding="utf-8")
+        else:
+            ig_path.unlink(missing_ok=True)
+        print(f"Removed from ignore list: {target}")
+        print("Run 'rescan' to re-index this directory.")
+
+
 def cmd_report(config: dict, args):
     """report — walk doc_dir and print a file-type breakdown, no DB changes."""
     from collections import Counter
@@ -1119,6 +1187,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_purge.add_argument("--dry-run", action="store_true",
                          help="Report matches without removing anything")
 
+    # ignore
+    p_ignore = sub.add_parser(
+        "ignore",
+        help="Manage directories excluded from scanning (ignore_dirs.txt)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            Maintains ignore_dirs.txt (next to the database) — directories
+            that 'rescan' will skip entirely.
+
+            'add' immediately purges any documents already indexed from
+            under that directory. 'remove' lets the directory be picked
+            up again on the next rescan.
+
+            Examples:
+              ignore add /mnt/data/Documents/myWorkDocs
+              ignore remove /mnt/data/Documents/myWorkDocs
+              ignore list
+        """),
+    )
+    p_ignore.add_argument("ignore_action", choices=["add", "remove", "list"],
+                          help="Action to perform")
+    p_ignore.add_argument("path", nargs="?", metavar="DIR",
+                          help="Directory path (required for add/remove)")
+    p_ignore.add_argument("--db", metavar="PATH", help="Database path")
+
     # report
     p_report = sub.add_parser(
         "report",
@@ -1225,6 +1318,7 @@ COMMANDS = {
     "embed":     cmd_embed,
     "open":      cmd_open,
     "purge":     cmd_purge,
+    "ignore":    cmd_ignore,
     "report":    cmd_report,
     "duplist":   cmd_duplist,
     "dupclean":  cmd_dupclean,
