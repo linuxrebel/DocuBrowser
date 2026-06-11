@@ -153,6 +153,9 @@
     padding:2rem; width:90%; max-width:600px; max-height:80vh; overflow-y:auto;
   }
   .modal h2 { font-family:'JetBrains Mono',monospace; font-size:1.1rem; color:var(--accent); margin-bottom:1.5rem; }
+  .synopsis-body { font-size:0.95rem; line-height:1.6; color:var(--text); white-space:pre-wrap; }
+  .synopsis-body.loading { color:var(--text-dim); font-style:italic; }
+  .synopsis-body.error { color:var(--accent3); }
   .modal label { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--text-dim); display:block; margin-bottom:0.3rem; }
   .field-row { display:flex; gap:0.5rem; margin-bottom:1.2rem; }
   .field-row input {
@@ -342,6 +345,17 @@
       <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
     </div>
     <div class="save-msg" id="saveMsg"></div>
+  </div>
+</div>
+
+<!-- Synopsis Modal -->
+<div class="modal-overlay" id="synopsisModal">
+  <div class="modal">
+    <h2 id="synopsisTitle">Synopsis</h2>
+    <div class="synopsis-body" id="synopsisBody">Generating synopsis…</div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeSynopsis()">Close</button>
+    </div>
   </div>
 </div>
 
@@ -625,7 +639,7 @@ function renderDocs(docs, showScore, append = false) {
 
     return `<div class="doc-card">
       <div class="doc-title">
-        <span onclick="openFile('${esc(d.path)}')" class="doc-title-copy" title="Open file">${esc(d.title || d.name || 'Untitled')}</span>
+        <span onclick="showSynopsis('${esc(d.path)}', '${esc(d.title || d.name || 'Untitled')}')" class="doc-title-copy" title="View synopsis">${esc(d.title || d.name || 'Untitled')}</span>
         ${badge}
         ${extBadge}
         <span onclick="copyToClipboard('${esc(d.path)}')" title="Copy path to clipboard" style="font-size:0.7rem;opacity:0.5;cursor:pointer;margin-left:0.2rem;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</span>
@@ -742,6 +756,36 @@ async function loadMorePrev() {
 }
 
 function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : ''; }
+
+async function showSynopsis(path, title) {
+  const overlay = document.getElementById('synopsisModal');
+  const titleEl = document.getElementById('synopsisTitle');
+  const bodyEl  = document.getElementById('synopsisBody');
+
+  titleEl.textContent = title || 'Synopsis';
+  bodyEl.textContent = 'Generating synopsis…';
+  bodyEl.className = 'synopsis-body loading';
+  overlay.classList.add('open');
+
+  try {
+    const res = await fetch('/api/synopsis?path=' + encodeURIComponent(path));
+    const data = await res.json();
+    if (data.ok && data.synopsis) {
+      bodyEl.textContent = data.synopsis;
+      bodyEl.className = 'synopsis-body';
+    } else {
+      bodyEl.textContent = data.error || 'Could not generate a synopsis for this document.';
+      bodyEl.className = 'synopsis-body error';
+    }
+  } catch (e) {
+    bodyEl.textContent = 'Error fetching synopsis: ' + e.message;
+    bodyEl.className = 'synopsis-body error';
+  }
+}
+
+function closeSynopsis() {
+  document.getElementById('synopsisModal').classList.remove('open');
+}
 
 function openFile(path) {
   fetch('/api/open?path=' + encodeURIComponent(path))
