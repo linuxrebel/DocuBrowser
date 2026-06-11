@@ -246,20 +246,34 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         # Empty query: return documents in alphabetical order with pagination
         if not q:
+            # Optional first-letter filter for the alphabetic index bar.
+            # 'letter' is a single A-Z character, or '0-9' for digits/symbols.
+            letter = query.get('letter', [''])[0].strip().upper()
+            where_clause = ''
+            where_params = []
+            if letter == '0-9':
+                where_clause = "WHERE upper(substr(COALESCE(d.title, d.name, ''), 1, 1)) NOT GLOB '[A-Z]'"
+            elif len(letter) == 1 and letter.isalpha():
+                where_clause = "WHERE upper(substr(COALESCE(d.title, d.name, ''), 1, 1)) = ?"
+                where_params.append(letter)
+
             conn = get_db(self.db_path)
 
-            # Get total count
-            total_count = conn.execute('SELECT COUNT(*) FROM documents').fetchone()[0]
+            # Get total count (matching the same filter)
+            total_count = conn.execute(
+                f'SELECT COUNT(*) FROM documents d {where_clause}', where_params
+            ).fetchone()[0]
 
             # Get paginated results
-            all_docs = conn.execute('''
+            all_docs = conn.execute(f'''
                 SELECT d.id, d.name, d.title, d.author, d.subject, d.description, d.path,
                        d.modified_at, GROUP_CONCAT(dt.tag, ',') as tags
                 FROM documents d
                 LEFT JOIN doc_tags dt ON d.id = dt.doc_id
+                {where_clause}
                 GROUP BY d.id
                 ORDER BY d.title COLLATE NOCASE ASC LIMIT ? OFFSET ?
-            ''', (limit, offset)).fetchall()
+            ''', where_params + [limit, offset]).fetchall()
             conn.close()
 
             results = []

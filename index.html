@@ -303,7 +303,7 @@ const tagCloud = document.getElementById('tagCloud');
 const tagToggle = document.getElementById('tagToggle');
 
 let debounceTimer = null, searchMode = 'both', allDocs = [];
-let currentOffset = 0, currentTotal = 0, currentHasMore = false, currentQuery = '';
+let currentOffset = 0, currentTotal = 0, currentHasMore = false, currentQuery = '', currentLetter = '';
 let isLoadingMore = false;
 let pageSize = parseInt(localStorage.getItem('db-page-size') || '50');
 
@@ -319,6 +319,7 @@ function changePageSize(val) {
   localStorage.setItem('db-page-size', String(pageSize));
   currentOffset = 0;
   if (currentQuery) doSearch();
+  else if (currentLetter) { const l = currentLetter; currentLetter = ''; filterByLetter(l); }
   else renderAll();
 }
 
@@ -417,6 +418,7 @@ async function doSearch() {
   // Reset pagination for new search
   currentOffset = 0;
   currentQuery = q;
+  currentLetter = '';
   meta.innerHTML = '<span class="spinner"></span> searching…';
   const t0 = performance.now();
   try {
@@ -459,6 +461,7 @@ async function renderAll() {
     allDocs = [];
     currentOffset = 0;
     currentQuery = '';
+    currentLetter = '';
 
     const res = await fetch(`/api/search?q=&offset=0&limit=${pageSize}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -523,15 +526,52 @@ async function renderIndexBar() {
   meta.appendChild(indexBar);
 }
 
-function filterByLetter(letter) {
-  const prefix = letter === '0-9' ? /^[0-9]/ : new RegExp(`^${letter}`, 'i');
-  const filtered = allDocs.filter(d => prefix.test(d.title || d.name || ''));
-  renderDocs(filtered, false);
+async function filterByLetter(letter) {
+  if (isLoadingMore) return;
 
-  // Highlight active button
-  document.querySelectorAll('.index-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.letter === letter);
-  });
+  // Clicking the active letter again clears the filter and returns to All Documents
+  if (currentLetter === letter) {
+    currentLetter = '';
+    return renderAll();
+  }
+
+  currentLetter = letter;
+  currentQuery = '';
+  currentOffset = 0;
+  isLoadingMore = true;
+
+  try {
+    const res = await fetch(`/api/search?letter=${encodeURIComponent(letter)}&offset=0&limit=${pageSize}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const docs = data.results || data.documents || data.docs || [];
+
+    allDocs = docs;
+    currentTotal = data.total || 0;
+    currentHasMore = data.has_more || false;
+    currentOffset = (data.offset || 0) + docs.length;
+
+    grid.innerHTML = '';
+    renderDocs(docs, false);
+
+    const endIdx = currentOffset;
+    const startIdx = currentOffset > 0 ? currentOffset - docs.length + 1 : 0;
+    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous page">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
+    meta.innerHTML = `<span class="results-title">Starting with "${esc(letter)}"</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
+
+    // Highlight active button
+    document.querySelectorAll('.index-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.letter === letter);
+    });
+
+    window.scrollTo(0, 0);
+  } catch (e) {
+    console.error('Filter by letter error:', e);
+    meta.innerHTML = `<span style="color:var(--accent3)">⚠ Error loading documents: ${e.message}</span>`;
+    grid.innerHTML = '';
+  }
+  isLoadingMore = false;
 }
 
 function renderDocs(docs, showScore, append = false) {
@@ -590,7 +630,10 @@ async function loadMoreTop() {
 
   try {
     const q = currentQuery ? encodeURIComponent(currentQuery) : '';
-    const url = q ? `/api/search?q=${q}&offset=${currentOffset}&limit=${pageSize}` : `/api/search?q=&offset=${currentOffset}&limit=${pageSize}`;
+    let url;
+    if (q) url = `/api/search?q=${q}&offset=${currentOffset}&limit=${pageSize}`;
+    else if (currentLetter) url = `/api/search?letter=${encodeURIComponent(currentLetter)}&offset=${currentOffset}&limit=${pageSize}`;
+    else url = `/api/search?q=&offset=${currentOffset}&limit=${pageSize}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -615,11 +658,16 @@ async function loadMoreTop() {
     const startIdx = currentOffset - docs.length + 1;
     const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    meta.innerHTML = `<span class="results-title">${currentQuery ? 'Search Results' : 'All Documents'}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
+    const title = currentQuery ? 'Search Results' : (currentLetter ? `Starting with "${esc(currentLetter)}"` : 'All Documents');
+    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
 
-    // Redraw index bar for non-search mode
-    if (!currentQuery) {
+    // Redraw/refresh index bar
+    if (!currentQuery && !currentLetter) {
       renderIndexBar(allDocs);
+    } else if (currentLetter) {
+      document.querySelectorAll('.index-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.letter === currentLetter);
+      });
     }
 
     window.scrollTo(0, 0);
@@ -637,7 +685,10 @@ async function loadMorePrev() {
   try {
     const newOffset = Math.max(0, currentOffset - pageSize * 2);
     const q = currentQuery ? encodeURIComponent(currentQuery) : '';
-    const url = q ? `/api/search?q=${q}&offset=${newOffset}&limit=${pageSize}` : `/api/search?q=&offset=${newOffset}&limit=${pageSize}`;
+    let url;
+    if (q) url = `/api/search?q=${q}&offset=${newOffset}&limit=${pageSize}`;
+    else if (currentLetter) url = `/api/search?letter=${encodeURIComponent(currentLetter)}&offset=${newOffset}&limit=${pageSize}`;
+    else url = `/api/search?q=&offset=${newOffset}&limit=${pageSize}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -662,11 +713,16 @@ async function loadMorePrev() {
     const startIdx = currentOffset - docs.length + 1;
     const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    meta.innerHTML = `<span class="results-title">${currentQuery ? 'Search Results' : 'All Documents'}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
+    const title = currentQuery ? 'Search Results' : (currentLetter ? `Starting with "${esc(currentLetter)}"` : 'All Documents');
+    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
 
-    // Redraw index bar for non-search mode
-    if (!currentQuery) {
+    // Redraw/refresh index bar
+    if (!currentQuery && !currentLetter) {
       renderIndexBar(allDocs);
+    } else if (currentLetter) {
+      document.querySelectorAll('.index-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.letter === currentLetter);
+      });
     }
 
     window.scrollTo(0, 0);
