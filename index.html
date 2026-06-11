@@ -443,6 +443,7 @@ async function doSearch() {
     const endIdx = rawOffset + docs.length;
     const loadMoreBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Load More</button>` : '';
     meta.innerHTML = `<span class="results-info"><b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> for "<b>${esc(q)}</b>" ${ms}ms ${loadMoreBtn}${pageSizeHtml()}</span>`;
+    await renderIndexBar();
     grid.innerHTML = '';
     renderDocs(docs, true);
 
@@ -498,28 +499,43 @@ async function renderAll() {
   }
 }
 
-async function renderIndexBar() {
-  const letters = ['0-9', ...Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ')];
+let cachedActiveLetters = null;
 
-  // Fetch the full set of active first letters from the server (not just current page)
-  let activeLetters = new Set();
+async function getActiveLetters() {
+  // Fetch (and cache) the full set of active first letters from the server,
+  // not just the current page.
+  if (cachedActiveLetters) return cachedActiveLetters;
   try {
     const res = await fetch('/api/letters');
     if (res.ok) {
       const data = await res.json();
+      const set = new Set();
       (data.letters || []).forEach(l => {
-        if (/^[A-Z]$/.test(l)) activeLetters.add(l);
-        else activeLetters.add('0');  // digits / symbols → '0-9' bucket
+        if (/^[A-Z]$/.test(l)) set.add(l);
+        else set.add('0');  // digits / symbols → '0-9' bucket
       });
+      cachedActiveLetters = set;
+      return set;
     }
   } catch (e) { /* fall through — all buttons will be enabled */ }
+  return new Set();
+}
+
+async function renderIndexBar() {
+  const letters = ['Home', '0-9', ...Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ')];
+  const activeLetters = await getActiveLetters();
 
   const indexBar = document.createElement('div');
   indexBar.className = 'index-bar';
   indexBar.innerHTML = letters.map(letter => {
+    if (letter === 'Home') {
+      const active = (!currentQuery && !currentLetter) ? ' active' : '';
+      return `<button class="index-btn${active}" data-letter="Home" onclick="renderAll()" title="Back to All Documents">Home</button>`;
+    }
     const has = activeLetters.size === 0 ||  // if fetch failed, enable all
                 (letter === '0-9' ? activeLetters.has('0') : activeLetters.has(letter));
-    const cls = has ? 'index-btn' : 'index-btn disabled';
+    const active = currentLetter === letter ? ' active' : '';
+    const cls = (has ? 'index-btn' : 'index-btn disabled') + active;
     return `<button class="${cls}" data-letter="${letter}" onclick="filterByLetter('${letter}')">${letter}</button>`;
   }).join('');
 
@@ -559,11 +575,7 @@ async function filterByLetter(letter) {
     const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous page">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
     meta.innerHTML = `<span class="results-title">Starting with "${esc(letter)}"</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
-
-    // Highlight active button
-    document.querySelectorAll('.index-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.letter === letter);
-    });
+    await renderIndexBar();
 
     window.scrollTo(0, 0);
   } catch (e) {
@@ -660,15 +672,7 @@ async function loadMoreTop() {
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
     const title = currentQuery ? 'Search Results' : (currentLetter ? `Starting with "${esc(currentLetter)}"` : 'All Documents');
     meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
-
-    // Redraw/refresh index bar
-    if (!currentQuery && !currentLetter) {
-      renderIndexBar(allDocs);
-    } else if (currentLetter) {
-      document.querySelectorAll('.index-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.letter === currentLetter);
-      });
-    }
+    await renderIndexBar();
 
     window.scrollTo(0, 0);
   } catch (e) {
@@ -715,15 +719,7 @@ async function loadMorePrev() {
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
     const title = currentQuery ? 'Search Results' : (currentLetter ? `Starting with "${esc(currentLetter)}"` : 'All Documents');
     meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
-
-    // Redraw/refresh index bar
-    if (!currentQuery && !currentLetter) {
-      renderIndexBar(allDocs);
-    } else if (currentLetter) {
-      document.querySelectorAll('.index-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.letter === currentLetter);
-      });
-    }
+    await renderIndexBar();
 
     window.scrollTo(0, 0);
   } catch (e) {

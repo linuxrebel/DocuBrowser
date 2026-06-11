@@ -146,6 +146,26 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
   `filterByLetter` per QA recommendation).
 - Committed a899ff8.
 
+### 2026-06-11 (continued) — Index bar persistence + Home button
+- Reported: clicking a letter in the alpha index bar made the bar disappear
+  (root cause: `meta.innerHTML = ...` reassignment in `filterByLetter` and
+  other render paths wiped out the appended `.index-bar` div).
+- Refactored `renderIndexBar()` into a single reusable async function called
+  after every `meta.innerHTML` reassignment (`doSearch`, `filterByLetter`,
+  `loadMoreTop`, `loadMorePrev`, `renderAll`), so the bar persists across
+  All Documents, letter-filtered, search, and paginated views.
+- Added a "Home" button as the first item (left of "0-9"), same `.index-btn`
+  styling, `onclick="renderAll()"` — lets users return to All Documents from
+  any view including search results.
+- Added `getActiveLetters()` with a module-level cache of `/api/letters` so
+  the active/disabled state of letter buttons doesn't refetch on every
+  render.
+- Verified via Playwright: fresh load (0 console errors), clicked "M" →
+  index bar persisted with Home as first button, clicked "Home" → returned
+  to All Documents; searched "linux" → results rendered with index bar
+  (incl. Home) intact; clicked Home from search results → returned to All
+  Documents. 0 console errors throughout.
+
 ### 2026-06-10 — Settings page refactor, dir-browser fix
 - Fixed dir-browser sizing/reachability bug: `.dir-browser { max-height: min(320px, 35vh) }` in
   index.html, verified at 1280x720 and 1440x900 (commit 3861602).
