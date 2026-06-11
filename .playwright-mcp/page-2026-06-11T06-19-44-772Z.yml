@@ -1,0 +1,36 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: docu/browse
+    - generic [ref=e4]: Settings
+    - button "Light" [ref=e5] [cursor=pointer]:
+      - img [ref=e6]
+      - generic [ref=e16]: Light
+    - link "Back to search" [ref=e17] [cursor=pointer]:
+      - /url: /
+      - img [ref=e18]
+      - text: Back to search
+  - generic [ref=e20]:
+    - generic [ref=e21]:
+      - heading "General" [level=2] [ref=e22]
+      - generic [ref=e23]:
+        - text: "Config: /mnt/data/git/AI/DocuBrowse/docubrowse.config"
+        - text: Copy to /etc for system-wide use
+      - generic [ref=e24]: docPath — root directory containing documents
+      - generic [ref=e25]:
+        - textbox "/mnt/data/Documents" [ref=e26]
+        - button "browse" [ref=e27] [cursor=pointer]
+      - generic [ref=e28]: workDir — where docubrowse files live
+      - generic [ref=e29]:
+        - textbox "/path/to/DocuBrowse" [ref=e30]: /mnt/data/git/AI/DocuBrowse
+        - button "browse" [ref=e31] [cursor=pointer]
+      - generic [ref=e32]: port — HTTP server port
+      - spinbutton [ref=e34]: "8643"
+      - button "Save" [ref=e36] [cursor=pointer]
+    - generic [ref=e37]:
+      - heading "Ignored Directories" [level=2] [ref=e38]
+      - generic [ref=e39]: Excluded from scanning (auto-purges indexed docs on add)
+      - generic [ref=e40]:
+        - textbox "/path/to/exclude" [ref=e41]
+        - button "browse" [ref=e42] [cursor=pointer]
+        - button "+ Add" [ref=e43] [cursor=pointer]
+      - button "− Remove" [disabled] [ref=e46]

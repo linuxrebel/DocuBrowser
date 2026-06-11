@@ -140,6 +140,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         try:
             if path == '/':
                 self.serve_file('index.html')
+            elif path == '/settings':
+                self.serve_file('settings.html')
             elif path == '/api/stats':
                 self.handle_stats()
             elif path == '/api/tags':

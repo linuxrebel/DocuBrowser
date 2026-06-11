@@ -157,84 +157,12 @@
   .synopsis-body.loading { color:var(--text-dim); font-style:italic; }
   .synopsis-body.error { color:var(--accent3); }
   .modal label { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--text-dim); display:block; margin-bottom:0.3rem; }
-  .field-row { display:flex; gap:0.5rem; margin-bottom:1.2rem; }
-  .field-row input {
-    flex:1; padding:0.5rem 0.8rem; background:var(--bg); border:1px solid var(--border);
-    border-radius:6px; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:0.85rem; outline:none;
-  }
-  .field-row input:focus { border-color:var(--accent); }
-  .browse-btn {
-    padding:0.5rem 1rem; background:var(--surface2); border:1px solid var(--border);
-    border-radius:6px; color:var(--text-dim); cursor:pointer; font-family:'JetBrains Mono',monospace;
-    font-size:0.8rem; white-space:nowrap; transition:all 0.15s;
-  }
-  .browse-btn:hover { border-color:var(--accent2); color:var(--accent2); }
   .modal-actions { display:flex; gap:0.8rem; margin-top:1.5rem; }
-  .btn-primary {
-    padding:0.6rem 1.5rem; background:var(--accent); color:var(--bg); border:none;
-    border-radius:6px; font-family:'JetBrains Mono',monospace; font-weight:600;
-    font-size:0.85rem; cursor:pointer; transition:opacity 0.15s;
-  }
-  .btn-primary:hover { opacity:0.85; }
   .btn-secondary {
     padding:0.6rem 1.5rem; background:transparent; color:var(--text-dim); border:1px solid var(--border);
     border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:0.85rem; cursor:pointer;
   }
   .btn-secondary:hover { border-color:var(--text-dim); }
-  .config-status {
-    font-family:'JetBrains Mono',monospace; font-size:0.75rem; padding:0.6rem 0.8rem;
-    background:var(--bg); border-radius:6px; margin-bottom:1.2rem; line-height:1.6;
-  }
-  .config-status .ok { color:var(--accent); }
-  .config-status .warn { color:var(--accent2); }
-  .save-msg {
-    font-family:'JetBrains Mono',monospace; font-size:0.8rem; margin-top:1rem;
-    padding:0.8rem; border-radius:6px; background:rgba(57,211,83,0.1);
-    border:1px solid rgba(57,211,83,0.3); color:var(--accent); white-space:pre-line; display:none;
-  }
-
-  /* ── Directory browser ── */
-  .dir-browser {
-    display:none; background:var(--bg); border:1px solid var(--border); border-radius:8px;
-    max-height:min(320px, 35vh); overflow-y:auto; margin-bottom:1rem;
-  }
-  .dir-browser.open { display:block; }
-  .dir-entry {
-    padding:0.4rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
-    color:var(--text); cursor:pointer; display:flex; align-items:center; gap:0.5rem;
-    border-bottom:1px solid var(--border);
-  }
-  .dir-entry:hover { background:var(--surface2); }
-  .dir-entry .icon { color:var(--accent3); }
-  .dir-select-btn {
-    padding:0.3rem 0.8rem; background:var(--accent2); color:var(--bg); border:none;
-    border-radius:4px; font-size:0.7rem; cursor:pointer; margin-left:auto;
-    font-family:'JetBrains Mono',monospace;
-  }
-  .dir-path { font-size:0.75rem; color:var(--text-dim); padding:0.5rem 0.8rem; border-bottom:1px solid var(--border); background:var(--surface); }
-
-  /* ── Ignored directories list ── */
-  .list-box {
-    background:var(--bg); border:1px solid var(--border); border-radius:8px;
-    max-height:160px; overflow-y:auto; margin-bottom:0.8rem;
-  }
-  .list-item {
-    padding:0.4rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
-    color:var(--text); cursor:pointer; border-bottom:1px solid var(--border);
-    word-break:break-all;
-  }
-  .list-item:last-child { border-bottom:none; }
-  .list-item:hover { background:var(--surface2); }
-  .list-item.selected { background:var(--accent2); color:var(--bg); }
-  .list-empty {
-    padding:0.6rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
-    color:var(--text-dim); font-style:italic;
-  }
-  .add-btn { color:var(--accent); border-color:var(--accent); }
-  .add-btn:hover { background:var(--surface2); }
-  .remove-btn { color:var(--accent3); border-color:var(--accent3); }
-  .remove-btn:hover { background:var(--surface2); }
-  .remove-btn:disabled, .add-btn:disabled { opacity:0.4; cursor:not-allowed; }
 
   /* ── Document-specific badges ── */
   .doc-type-badge { font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:500; background:var(--accent2); color:var(--bg); }
@@ -334,52 +262,12 @@
     <span id="themeLabel"></span>
   </button>
   <!-- Settings -->
-  <button class="gear-btn" id="gearBtn" title="Settings">
+  <button class="gear-btn" id="gearBtn" title="Settings" onclick="window.open('/settings', '_blank')">
     <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
     </svg>
     Settings
   </button>
-</div>
-
-<!-- Settings Modal -->
-<div class="modal-overlay" id="settingsModal">
-  <div class="modal">
-    <h2>Settings</h2>
-    <div class="config-status" id="configStatus"></div>
-    <label>docPath — root directory containing documents</label>
-    <div class="field-row">
-      <input type="text" id="cfgDocPath" placeholder="/mnt/data/Documents">
-      <button class="browse-btn" onclick="openBrowser('docPath')">browse</button>
-    </div>
-    <div class="dir-browser" id="browser-docPath"></div>
-    <label>workDir — where docubrowse files live</label>
-    <div class="field-row">
-      <input type="text" id="cfgWorkDir" placeholder="/path/to/DocuBrowse">
-      <button class="browse-btn" onclick="openBrowser('workDir')">browse</button>
-    </div>
-    <div class="dir-browser" id="browser-workDir"></div>
-    <label>port — HTTP server port</label>
-    <div class="field-row">
-      <input type="number" id="cfgPort" placeholder="8643" min="1024" max="65535" style="max-width:140px">
-    </div>
-    <label>Ignored Directories — excluded from scanning (auto-purges indexed docs on add)</label>
-    <div class="field-row">
-      <input type="text" id="cfgIgnoreDir" placeholder="/path/to/exclude">
-      <button class="browse-btn" onclick="openBrowser('ignoreDir')">browse</button>
-      <button class="browse-btn add-btn" onclick="addIgnoreDir()">+ Add</button>
-    </div>
-    <div class="dir-browser" id="browser-ignoreDir"></div>
-    <div class="list-box" id="ignoreDirList"></div>
-    <div class="field-row" style="margin-bottom:1.2rem;">
-      <button class="browse-btn remove-btn" id="ignoreDirRemoveBtn" onclick="removeIgnoreDir()" disabled>− Remove</button>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-primary" onclick="saveConfig()">Save</button>
-      <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
-    </div>
-    <div class="save-msg" id="saveMsg"></div>
-  </div>
 </div>
 
 <!-- Synopsis Modal -->
@@ -867,186 +755,6 @@ function showErrorModal(msg) {
 
 // ── Settings ──────────────────────────────────────────────────
 const gearBtn = document.getElementById('gearBtn');
-const settingsModal = document.getElementById('settingsModal');
-gearBtn.addEventListener('click', openSettings);
-settingsModal.addEventListener('click', e => { if (e.target === settingsModal) closeSettings(); });
-
-async function openSettings() {
-  settingsModal.classList.add('open');
-  const saveMsg = document.getElementById('saveMsg');
-  if (saveMsg) { saveMsg.style.display = 'none'; }
-  loadIgnoreDirs();
-  try {
-    const res = await fetch('/api/config');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const cfg = await res.json();
-    document.getElementById('cfgDocPath').value = cfg.docPath || '';
-    document.getElementById('cfgWorkDir').value = cfg.workDir || '';
-    document.getElementById('cfgPort').value = cfg.port || 8643;
-    const status = document.getElementById('configStatus');
-    if (cfg.installed) {
-      status.innerHTML = `<span class="ok">✓ Config loaded from /etc/docubrowse.config</span>`;
-    } else if (cfg.configSource) {
-      status.innerHTML = `<span class="warn">Config: ${esc(cfg.configSource)}</span><br>Copy to /etc for system-wide use`;
-    } else {
-      status.innerHTML = `<span class="ok">Using built-in defaults — save to create a config file</span>`;
-    }
-    document.getElementById('saveMsg').style.display = 'none';
-  } catch (e) {
-    console.error('Config fetch error:', e);
-    const status = document.getElementById('configStatus');
-    status.innerHTML = `<span class="warn">⚠ Could not load config: ${e.message}</span>`;
-  }
-}
-
-function closeSettings() { settingsModal.classList.remove('open'); closeBrowsers(); }
-
-async function saveConfig() {
-  const docPath = document.getElementById('cfgDocPath').value.trim();
-  const workDir = document.getElementById('cfgWorkDir').value.trim();
-  const port = parseInt(document.getElementById('cfgPort').value) || 8643;
-  if (!docPath || !workDir) { alert('Both fields are required'); return; }
-  try {
-    const res = await fetch('/api/config', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({docPath, workDir, port})
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    await res.json();
-    closeSettings();
-    showToast('Config saved');
-  } catch (e) {
-    console.error('Config save error:', e);
-    alert('Error saving config: ' + e.message);
-  }
-}
-
-// ── Directory Browser ─────────────────────────────────────────
-function closeBrowsers() {
-  document.querySelectorAll('.dir-browser').forEach(b => b.classList.remove('open'));
-}
-
-function fieldInputId(field) {
-  if (field === 'docPath') return 'cfgDocPath';
-  if (field === 'workDir') return 'cfgWorkDir';
-  if (field === 'ignoreDir') return 'cfgIgnoreDir';
-  return null;
-}
-
-async function openBrowser(field) {
-  const browser = document.getElementById('browser-' + field);
-  const input = document.getElementById(fieldInputId(field));
-  const startPath = input.value || '~';
-  browser.classList.toggle('open');
-  if (browser.classList.contains('open')) await loadDir(field, startPath);
-}
-
-async function loadDir(field, path) {
-  const browser = document.getElementById('browser-' + field);
-  try {
-    const res = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    let html = `<div class="dir-path">${esc(data.path)} <button class="dir-select-btn" onclick="selectDir('${field}','${esc(data.path)}')">select this</button></div>`;
-    if (data.error) html += `<div class="dir-entry" style="color:var(--accent3)">${esc(data.error)}</div>`;
-    for (const e of (data.entries || [])) {
-      const icon = e.parent ? '⬆️' : '📁';
-      const label = e.parent ? '.. (up)' : esc(e.name);
-      html += `<div class="dir-entry" onclick="loadDir('${field}','${esc(e.path)}')"><span class="icon">${icon}</span> ${label}</div>`;
-    }
-    browser.innerHTML = html;
-    browser.scrollTop = 0;
-    browser.scrollIntoView({ block: 'nearest' });
-  } catch (e) {
-    console.error('Dir browse error:', e);
-    browser.innerHTML = `<div class="dir-entry" style="color:var(--accent3)">⚠ Error loading directory: ${e.message}</div>`;
-    browser.scrollIntoView({ block: 'nearest' });
-  }
-}
-
-function selectDir(field, path) {
-  const input = document.getElementById(fieldInputId(field));
-  input.value = path;
-  document.getElementById('browser-' + field).classList.remove('open');
-}
-
-// ── Ignored directories ─────────────────────────────────────────
-let ignoreDirs = [];
-let selectedIgnoreDir = null;
-
-async function loadIgnoreDirs() {
-  selectedIgnoreDir = null;
-  try {
-    const res = await fetch('/api/ignore-dirs');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    ignoreDirs = data.dirs || [];
-  } catch (e) {
-    console.error('Ignore-dirs fetch error:', e);
-    ignoreDirs = [];
-  }
-  renderIgnoreDirs();
-}
-
-function renderIgnoreDirs() {
-  const box = document.getElementById('ignoreDirList');
-  if (!ignoreDirs.length) {
-    box.innerHTML = `<div class="list-empty">No ignored directories</div>`;
-  } else {
-    box.innerHTML = ignoreDirs.map(d =>
-      `<div class="list-item${d === selectedIgnoreDir ? ' selected' : ''}" onclick="selectIgnoreDir('${esc(d)}')">${esc(d)}</div>`
-    ).join('');
-  }
-  document.getElementById('ignoreDirRemoveBtn').disabled = !selectedIgnoreDir;
-}
-
-function selectIgnoreDir(d) {
-  selectedIgnoreDir = (selectedIgnoreDir === d) ? null : d;
-  renderIgnoreDirs();
-}
-
-async function addIgnoreDir() {
-  const input = document.getElementById('cfgIgnoreDir');
-  const path = input.value.trim();
-  if (!path) return;
-  try {
-    const res = await fetch('/api/ignore-dirs', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({action: 'add', path})
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    ignoreDirs = data.dirs || [];
-    selectedIgnoreDir = null;
-    input.value = '';
-    document.getElementById('browser-ignoreDir').classList.remove('open');
-    renderIgnoreDirs();
-    showToast(data.purged ? `Added — purged ${data.purged} indexed doc(s)` : 'Added to ignore list');
-  } catch (e) {
-    console.error('Add ignore dir error:', e);
-    alert('Error adding directory: ' + e.message);
-  }
-}
-
-async function removeIgnoreDir() {
-  if (!selectedIgnoreDir) return;
-  const path = selectedIgnoreDir;
-  try {
-    const res = await fetch('/api/ignore-dirs', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({action: 'remove', path})
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    ignoreDirs = data.dirs || [];
-    selectedIgnoreDir = null;
-    renderIgnoreDirs();
-    showToast('Removed — run rescan to re-index');
-  } catch (e) {
-    console.error('Remove ignore dir error:', e);
-    alert('Error removing directory: ' + e.message);
-  }
-}
 
 // ── Initialize ────────────────────────────────────────────────
 renderAll();

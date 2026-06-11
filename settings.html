@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — DocuBrowse</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=DM+Sans:wght@400;500;600&display=swap');
+
+  /* ── Dark theme (default) ── */
+  :root, [data-theme="dark"] {
+    --bg: #0a0e14; --surface: #11151c; --surface2: #1a1f2b;
+    --border: #2a3040; --text: #c5cdd8; --text-dim: #6b7a8d;
+    --accent: #39d353; --accent2: #58a6ff; --accent3: #f0883e;
+    --tag-bg: #1e2733; --tag-text: #7eb8da;
+    --header-bg: rgba(10,14,20,0.95);
+  }
+
+  /* ── Light theme ── */
+  [data-theme="light"] {
+    --bg: #f0f4f8; --surface: #ffffff; --surface2: #e4eaf1;
+    --border: #c8d3df; --text: #1c2b3a; --text-dim: #5a6a7a;
+    --accent: #157a2b; --accent2: #0969da; --accent3: #a84a0a;
+    --tag-bg: #dde3ea; --tag-text: #1a4a7a;
+    --header-bg: rgba(240,244,248,0.95);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; transition:background 0.2s, color 0.2s; }
+
+  .header {
+    border-bottom:1px solid var(--border); padding:1rem 2rem;
+    display:flex; align-items:center; gap:1.5rem;
+    position:sticky; top:0; background:var(--header-bg); z-index:100;
+    backdrop-filter:blur(12px);
+  }
+  .logo { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:1.1rem; color:var(--accent); white-space:nowrap; }
+  .logo span { color:var(--text-dim); font-weight:300; }
+  .header-title { font-family:'JetBrains Mono',monospace; font-size:1rem; color:var(--text); flex:1; }
+
+  .back-link {
+    background:none; border:1px solid var(--border); cursor:pointer;
+    padding:4px 12px; border-radius:6px;
+    display:flex; align-items:center; gap:0.4rem;
+    color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+    text-decoration:none; transition:border-color 0.2s, color 0.2s;
+    white-space:nowrap;
+  }
+  .back-link:hover { border-color:var(--accent2); color:var(--accent2); }
+
+  /* ── Theme toggle ── */
+  .theme-btn {
+    background:none; border:1px solid var(--border); cursor:pointer;
+    padding:4px 10px; border-radius:6px;
+    display:flex; align-items:center; gap:0.4rem;
+    color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+    transition:border-color 0.2s, color 0.2s;
+    white-space:nowrap;
+  }
+  .theme-btn svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; flex-shrink:0; }
+  .theme-btn:hover { border-color:var(--accent2); color:var(--accent2); }
+
+  .content { padding:2rem; max-width:840px; margin:0 auto; }
+
+  .panel {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:2rem; margin-bottom:1.5rem;
+  }
+  .panel h2 { font-family:'JetBrains Mono',monospace; font-size:1.1rem; color:var(--accent); margin-bottom:1.5rem; }
+
+  label { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--text-dim); display:block; margin-bottom:0.3rem; }
+  .field-row { display:flex; gap:0.5rem; margin-bottom:1.2rem; }
+  .field-row input {
+    flex:1; padding:0.5rem 0.8rem; background:var(--bg); border:1px solid var(--border);
+    border-radius:6px; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:0.85rem; outline:none;
+  }
+  .field-row input:focus { border-color:var(--accent); }
+  .browse-btn {
+    padding:0.5rem 1rem; background:var(--surface2); border:1px solid var(--border);
+    border-radius:6px; color:var(--text-dim); cursor:pointer; font-family:'JetBrains Mono',monospace;
+    font-size:0.8rem; white-space:nowrap; transition:all 0.15s;
+  }
+  .browse-btn:hover { border-color:var(--accent2); color:var(--accent2); }
+  .modal-actions { display:flex; gap:0.8rem; margin-top:1.5rem; }
+  .btn-primary {
+    padding:0.6rem 1.5rem; background:var(--accent); color:var(--bg); border:none;
+    border-radius:6px; font-family:'JetBrains Mono',monospace; font-weight:600;
+    font-size:0.85rem; cursor:pointer; transition:opacity 0.15s;
+  }
+  .btn-primary:hover { opacity:0.85; }
+  .btn-secondary {
+    padding:0.6rem 1.5rem; background:transparent; color:var(--text-dim); border:1px solid var(--border);
+    border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:0.85rem; cursor:pointer;
+  }
+  .btn-secondary:hover { border-color:var(--text-dim); }
+  .config-status {
+    font-family:'JetBrains Mono',monospace; font-size:0.75rem; padding:0.6rem 0.8rem;
+    background:var(--bg); border-radius:6px; margin-bottom:1.2rem; line-height:1.6;
+  }
+  .config-status .ok { color:var(--accent); }
+  .config-status .warn { color:var(--accent2); }
+  .save-msg {
+    font-family:'JetBrains Mono',monospace; font-size:0.8rem; margin-top:1rem;
+    padding:0.8rem; border-radius:6px; background:rgba(57,211,83,0.1);
+    border:1px solid rgba(57,211,83,0.3); color:var(--accent); white-space:pre-line; display:none;
+  }
+
+  /* ── Directory browser ── */
+  .dir-browser {
+    display:none; background:var(--bg); border:1px solid var(--border); border-radius:8px;
+    max-height:45vh; overflow-y:auto; margin-bottom:1rem;
+  }
+  .dir-browser.open { display:block; }
+  .dir-entry {
+    padding:0.4rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+    color:var(--text); cursor:pointer; display:flex; align-items:center; gap:0.5rem;
+    border-bottom:1px solid var(--border);
+  }
+  .dir-entry:hover { background:var(--surface2); }
+  .dir-entry .icon { color:var(--accent3); }
+  .dir-select-btn {
+    padding:0.3rem 0.8rem; background:var(--accent2); color:var(--bg); border:none;
+    border-radius:4px; font-size:0.7rem; cursor:pointer; margin-left:auto;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .dir-path { font-size:0.75rem; color:var(--text-dim); padding:0.5rem 0.8rem; border-bottom:1px solid var(--border); background:var(--surface); position:sticky; top:0; }
+
+  /* ── Ignored directories list ── */
+  .list-box {
+    background:var(--bg); border:1px solid var(--border); border-radius:8px;
+    max-height:240px; overflow-y:auto; margin-bottom:0.8rem;
+  }
+  .list-item {
+    padding:0.4rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+    color:var(--text); cursor:pointer; border-bottom:1px solid var(--border);
+    word-break:break-all;
+  }
+  .list-item:last-child { border-bottom:none; }
+  .list-item:hover { background:var(--surface2); }
+  .list-item.selected { background:var(--accent2); color:var(--bg); }
+  .list-empty {
+    padding:0.6rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+    color:var(--text-dim); font-style:italic;
+  }
+  .add-btn { color:var(--accent); border-color:var(--accent); }
+  .add-btn:hover { background:var(--surface2); }
+  .remove-btn { color:var(--accent3); border-color:var(--accent3); }
+  .remove-btn:hover { background:var(--surface2); }
+  .remove-btn:disabled, .add-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+  /* ── Toast notification ── */
+  .toast {
+    position:fixed; bottom:2rem; right:2rem; padding:0.8rem 1.2rem;
+    background:var(--surface); border:1px solid var(--border); border-radius:6px;
+    font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--accent);
+    box-shadow:0 4px 12px rgba(0,0,0,0.2);
+    z-index:300; animation:slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { transform:translateX(400px); opacity:0; } to { transform:translateX(0); opacity:1; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">docu<span>/</span>browse</div>
+  <div class="header-title">Settings</div>
+  <button class="theme-btn" id="themeBtn" title="Toggle light/dark theme">
+    <svg id="themeIcon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"></svg>
+    <span id="themeLabel"></span>
+  </button>
+  <a class="back-link" href="/">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    Back to search
+  </a>
+</div>
+
+<div class="content">
+  <div class="panel">
+    <h2>General</h2>
+    <div class="config-status" id="configStatus"></div>
+    <label>docPath — root directory containing documents</label>
+    <div class="field-row">
+      <input type="text" id="cfgDocPath" placeholder="/mnt/data/Documents">
+      <button class="browse-btn" onclick="openBrowser('docPath')">browse</button>
+    </div>
+    <div class="dir-browser" id="browser-docPath"></div>
+    <label>workDir — where docubrowse files live</label>
+    <div class="field-row">
+      <input type="text" id="cfgWorkDir" placeholder="/path/to/DocuBrowse">
+      <button class="browse-btn" onclick="openBrowser('workDir')">browse</button>
+    </div>
+    <div class="dir-browser" id="browser-workDir"></div>
+    <label>port — HTTP server port</label>
+    <div class="field-row">
+      <input type="number" id="cfgPort" placeholder="8643" min="1024" max="65535" style="max-width:140px">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveConfig()">Save</button>
+    </div>
+    <div class="save-msg" id="saveMsg"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Ignored Directories</h2>
+    <label>Excluded from scanning (auto-purges indexed docs on add)</label>
+    <div class="field-row">
+      <input type="text" id="cfgIgnoreDir" placeholder="/path/to/exclude">
+      <button class="browse-btn" onclick="openBrowser('ignoreDir')">browse</button>
+      <button class="browse-btn add-btn" onclick="addIgnoreDir()">+ Add</button>
+    </div>
+    <div class="dir-browser" id="browser-ignoreDir"></div>
+    <div class="list-box" id="ignoreDirList"></div>
+    <div class="field-row" style="margin-bottom:0;">
+      <button class="browse-btn remove-btn" id="ignoreDirRemoveBtn" onclick="removeIgnoreDir()" disabled>− Remove</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : ''; }
+
+function showToast(msg, duration = 2000) {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), duration);
+}
+
+// ── Theme ─────────────────────────────────────────────────────
+const html = document.documentElement;
+const themeBtn = document.getElementById('themeBtn');
+const themeIcon = document.getElementById('themeIcon');
+const themeLabel = document.getElementById('themeLabel');
+const sunPath = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+const moonPath = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+
+function applyTheme(theme) {
+  html.setAttribute('data-theme', theme);
+  localStorage.setItem('db-theme', theme);
+  if (theme === 'dark') {
+    themeIcon.innerHTML = sunPath;
+    themeLabel.textContent = 'Light';
+  } else {
+    themeIcon.innerHTML = moonPath;
+    themeLabel.textContent = 'Dark';
+  }
+}
+
+themeBtn.addEventListener('click', () => {
+  applyTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+});
+
+applyTheme(localStorage.getItem('db-theme') || 'dark');
+
+// ── Settings ──────────────────────────────────────────────────
+async function loadConfig() {
+  loadIgnoreDirs();
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const cfg = await res.json();
+    document.getElementById('cfgDocPath').value = cfg.docPath || '';
+    document.getElementById('cfgWorkDir').value = cfg.workDir || '';
+    document.getElementById('cfgPort').value = cfg.port || 8643;
+    const status = document.getElementById('configStatus');
+    if (cfg.installed) {
+      status.innerHTML = `<span class="ok">✓ Config loaded from /etc/docubrowse.config</span>`;
+    } else if (cfg.configSource) {
+      status.innerHTML = `<span class="warn">Config: ${esc(cfg.configSource)}</span><br>Copy to /etc for system-wide use`;
+    } else {
+      status.innerHTML = `<span class="ok">Using built-in defaults — save to create a config file</span>`;
+    }
+    document.getElementById('saveMsg').style.display = 'none';
+  } catch (e) {
+    console.error('Config fetch error:', e);
+    const status = document.getElementById('configStatus');
+    status.innerHTML = `<span class="warn">⚠ Could not load config: ${e.message}</span>`;
+  }
+}
+
+async function saveConfig() {
+  const docPath = document.getElementById('cfgDocPath').value.trim();
+  const workDir = document.getElementById('cfgWorkDir').value.trim();
+  const port = parseInt(document.getElementById('cfgPort').value) || 8643;
+  if (!docPath || !workDir) { alert('Both fields are required'); return; }
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({docPath, workDir, port})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    await res.json();
+    showToast('Config saved');
+    loadConfig();
+  } catch (e) {
+    console.error('Config save error:', e);
+    alert('Error saving config: ' + e.message);
+  }
+}
+
+// ── Directory Browser ─────────────────────────────────────────
+function fieldInputId(field) {
+  if (field === 'docPath') return 'cfgDocPath';
+  if (field === 'workDir') return 'cfgWorkDir';
+  if (field === 'ignoreDir') return 'cfgIgnoreDir';
+  return null;
+}
+
+async function openBrowser(field) {
+  const browser = document.getElementById('browser-' + field);
+  const input = document.getElementById(fieldInputId(field));
+  const startPath = input.value || '~';
+  browser.classList.toggle('open');
+  if (browser.classList.contains('open')) await loadDir(field, startPath);
+}
+
+async function loadDir(field, path) {
+  const browser = document.getElementById('browser-' + field);
+  try {
+    const res = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    let html = `<div class="dir-path">${esc(data.path)} <button class="dir-select-btn" onclick="selectDir('${field}','${esc(data.path)}')">select this</button></div>`;
+    if (data.error) html += `<div class="dir-entry" style="color:var(--accent3)">${esc(data.error)}</div>`;
+    for (const e of (data.entries || [])) {
+      const icon = e.parent ? '⬆️' : '📁';
+      const label = e.parent ? '.. (up)' : esc(e.name);
+      html += `<div class="dir-entry" onclick="loadDir('${field}','${esc(e.path)}')"><span class="icon">${icon}</span> ${label}</div>`;
+    }
+    browser.innerHTML = html;
+    browser.scrollTop = 0;
+    browser.scrollIntoView({ block: 'nearest' });
+  } catch (e) {
+    console.error('Dir browse error:', e);
+    browser.innerHTML = `<div class="dir-entry" style="color:var(--accent3)">⚠ Error loading directory: ${e.message}</div>`;
+    browser.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function selectDir(field, path) {
+  const input = document.getElementById(fieldInputId(field));
+  input.value = path;
+  document.getElementById('browser-' + field).classList.remove('open');
+}
+
+// ── Ignored directories ─────────────────────────────────────────
+let ignoreDirs = [];
+let selectedIgnoreDir = null;
+
+async function loadIgnoreDirs() {
+  selectedIgnoreDir = null;
+  try {
+    const res = await fetch('/api/ignore-dirs');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    ignoreDirs = data.dirs || [];
+  } catch (e) {
+    console.error('Ignore-dirs fetch error:', e);
+    ignoreDirs = [];
+  }
+  renderIgnoreDirs();
+}
+
+function renderIgnoreDirs() {
+  const box = document.getElementById('ignoreDirList');
+  if (!ignoreDirs.length) {
+    box.innerHTML = `<div class="list-empty">No ignored directories</div>`;
+  } else {
+    box.innerHTML = ignoreDirs.map(d =>
+      `<div class="list-item${d === selectedIgnoreDir ? ' selected' : ''}" onclick="selectIgnoreDir('${esc(d)}')">${esc(d)}</div>`
+    ).join('');
+  }
+  document.getElementById('ignoreDirRemoveBtn').disabled = !selectedIgnoreDir;
+}
+
+function selectIgnoreDir(d) {
+  selectedIgnoreDir = (selectedIgnoreDir === d) ? null : d;
+  renderIgnoreDirs();
+}
+
+async function addIgnoreDir() {
+  const input = document.getElementById('cfgIgnoreDir');
+  const path = input.value.trim();
+  if (!path) return;
+  try {
+    const res = await fetch('/api/ignore-dirs', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action: 'add', path})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    ignoreDirs = data.dirs || [];
+    selectedIgnoreDir = null;
+    input.value = '';
+    document.getElementById('browser-ignoreDir').classList.remove('open');
+    renderIgnoreDirs();
+    showToast(data.purged ? `Added — purged ${data.purged} indexed doc(s)` : 'Added to ignore list');
+  } catch (e) {
+    console.error('Add ignore dir error:', e);
+    alert('Error adding directory: ' + e.message);
+  }
+}
+
+async function removeIgnoreDir() {
+  if (!selectedIgnoreDir) return;
+  const path = selectedIgnoreDir;
+  try {
+    const res = await fetch('/api/ignore-dirs', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action: 'remove', path})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    ignoreDirs = data.dirs || [];
+    selectedIgnoreDir = null;
+    renderIgnoreDirs();
+    showToast('Removed — run rescan to re-index');
+  } catch (e) {
+    console.error('Remove ignore dir error:', e);
+    alert('Error removing directory: ' + e.message);
+  }
+}
+
+// ── Initialize ────────────────────────────────────────────────
+loadConfig();
+</script>
+</body>
+</html>
