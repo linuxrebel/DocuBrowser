@@ -80,6 +80,25 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 
 ## Session History
 
+### 2026-06-11 (continued) — Settings page UI tweaks
+- Removed leftover modal-era `max-width` restriction; settings page now uses
+  full available width.
+- Added a "Done" button in the header that saves config and returns to the
+  search tab (`window.close()`, falling back to redirecting to `/`).
+- Relabeled and redesigned the Ignored Directories panel: added description
+  text, "Add a directory to exclude" input row, and a "Currently excluded
+  directories" list with inline ✕ remove buttons (replacing the old
+  select-then-remove pattern).
+- Adding an excluded directory now shows a confirm dialog warning that
+  already-indexed documents under that path will be purged. Removing one
+  shows an alert that a rescan is needed to re-index it.
+- Verified via Playwright: full-width layout, add/remove confirm+alert
+  dialogs, and Done button all working correctly with 0 console errors.
+- Items 7 (multiple top-level doc directories), 8 (handle moved/missing/
+  deleted docs), and 9 (logo icon) logged as deferred future work in
+  DECISIONS.md.
+- Committed 4adfa59.
+
 ### 2026-06-11 — Alpha index bar: global server-side letter filter
 - Index bar (0-9, A-Z) now queries `/api/search?letter=X` for ALL matching
   documents, not just the currently-loaded page. Paginated by the existing
