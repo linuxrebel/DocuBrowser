@@ -80,6 +80,18 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 
 ## Session History
 
+### 2026-06-11 (continued) — Synopsis cold-start error after reboot
+- Diagnosed: after a fresh reboot, the first synopsis request hit Ollama
+  before the model was loaded into memory, exceeding the 30s timeout and
+  showing a generic "Synopsis generation failed or timed out" error — even
+  though the synopsis generated fine moments later.
+- `generate_synopsis()` now returns `(text, reason)` with reason
+  `"empty"`/`"timeout"`/`"error"`; `SYNOPSIS_TIMEOUT_SECS` raised 30s → 90s;
+  `handle_synopsis` returns a reason-specific message, e.g. for timeout:
+  "The AI model is still loading after a recent restart — this can take a
+  minute the first time. Please wait a moment and try again."
+- Restarted doc_search.py to pick up the change. Committed f94a72a.
+
 ### 2026-06-11 (continued) — Settings page UI tweaks
 - Removed leftover modal-era `max-width` restriction; settings page now uses
   full available width.
