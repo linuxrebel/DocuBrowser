@@ -107,18 +107,19 @@ See Completed Decisions table.
 
 ## Open Issues
 
-### ⚠ gemma4:latest broken in current Ollama — synopsis feature using dolphin-uncensored as interim model
-**Symptom**: `gemma4:latest` (intended model for the synopsis feature, 9.6GB Q4_K_M) crashes
-Ollama's `/api/generate` with `GGML_ASSERT(n_inputs < GGML_SCHED_MAX_SPLIT_INPUTS) failed` —
-the llama-server process terminates entirely. `openclaw:latest` (also 9.6GB) hits the same
-assert, so this looks like a model/build incompatibility with the installed Ollama version
-rather than a corrupt single download.
-**Interim fix (2026-06-10)**: `SYNOPSIS_MODEL` in `doc_search.py` set to
-`uandinotai/dolphin-uncensored:latest` (2GB, works fine, ~12s/synopsis).
-**Action**: Once Ollama is upgraded, re-pull/re-test `gemma4:latest` against `/api/generate`
-with a trivial prompt. If it no longer crashes, switch `SYNOPSIS_MODEL` back to
-`gemma4:latest` in `doc_search.py` (better quality for the Kindle-style synopsis). Keep
-`gemma4:latest` installed until then — do not remove it.
+### ⚠ gemma4 family too slow on this hardware — synopsis feature using dolphin-uncensored
+**Original symptom (resolved)**: `gemma4:latest` (9.6GB Q4_K_M) and `openclaw:latest` (9.6GB)
+crashed Ollama's `/api/generate` with `GGML_ASSERT(n_inputs < GGML_SCHED_MAX_SPLIT_INPUTS) failed`.
+**2026-06-10**: Ollama upgraded to 0.30.7, and `gemma4:12b` (7.6GB) installed specifically to
+fit in 16GB RAM. The crash is gone — `gemma4:12b` completes successfully. However, it's
+far too slow on this hardware: warm eval was **68.9s for a 1-sentence response (~1.8 tok/s)**,
+vs. ~12s for a full synopsis with `dolphin-uncensored`. The 7.6GB model doesn't fit the
+4GB GPU (RTX 3050 Laptop) and runs mostly on CPU. At that rate a synopsis would take
+1-2 minutes — well past the 25s `SYNOPSIS_TIMEOUT_SECS`.
+**Decision**: `SYNOPSIS_MODEL` stays `uandinotai/dolphin-uncensored:latest` (2GB, ~12s/synopsis).
+**Action**: If a smaller/quantized gemma variant becomes available that fits in ~4GB VRAM
+(e.g. a Q4 quant under ~4GB), re-test. Otherwise no further action — dolphin-uncensored
+quality has been acceptable in spot checks.
 
 ---
 
