@@ -176,6 +176,56 @@ def is_server_running(port: int) -> bool:
     return server_stats(port) is not None
 
 
+# ─── systemd integration ──────────────────────────────────────────────────────
+
+SYSTEMD_UNIT = "docubrowser.service"
+
+
+def _systemd_unit_loaded() -> bool:
+    """True if docubrowser.service is installed/known to systemd."""
+    try:
+        ret = subprocess.run(
+            ["systemctl", "show", "-p", "LoadState", "--value", SYSTEMD_UNIT],
+            capture_output=True, text=True, timeout=5,
+        )
+        return ret.returncode == 0 and ret.stdout.strip() == "loaded"
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def _systemd_is_active() -> bool:
+    try:
+        ret = subprocess.run(
+            ["systemctl", "is-active", SYSTEMD_UNIT],
+            capture_output=True, text=True, timeout=5,
+        )
+        return ret.stdout.strip() == "active"
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def _systemd_is_enabled() -> str:
+    try:
+        ret = subprocess.run(
+            ["systemctl", "is-enabled", SYSTEMD_UNIT],
+            capture_output=True, text=True, timeout=5,
+        )
+        return ret.stdout.strip() or "unknown"
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+
+
+def _systemctl(action: str) -> bool:
+    """Run `systemctl <action> docubrowser.service`. Returns True on success."""
+    ret = subprocess.run(["systemctl", action, SYSTEMD_UNIT])
+    if ret.returncode != 0:
+        print(f"systemctl {action} {SYSTEMD_UNIT} failed (exit {ret.returncode}).")
+        print("If this needs elevated privileges, run:")
+        print(f"  sudo systemctl {action} {SYSTEMD_UNIT}")
+        return False
+    return True
+
+
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
 def cmd_start(config: dict, args):
@@ -193,6 +243,11 @@ def cmd_start(config: dict, args):
             print(f"Stale PID file found (PID {pid}). Cleaning up.")
             clear_pid()
 
+    if is_server_running(port):
+        print(f"DocuBrowse is already running on port {port}.")
+        print(f"  UI: http://localhost:{port}")
+        return
+
     # Verify Ollama is available before starting (needed for semantic search)
     if not ensure_ollama():
         sys.exit(1)
@@ -202,6 +257,25 @@ def cmd_start(config: dict, args):
         print(f"ERROR: Database not found: {db_path}")
         print("Run 'docubrowser.py rescan' to create and populate the database.")
         sys.exit(1)
+
+    # If a systemd unit is installed, prefer it — it owns the process,
+    # PID file (/run/docubrowser), and log directory (/var/log/docubrowser).
+    # The Ollama/DB checks above still run regardless of how it's started.
+    if _systemd_unit_loaded():
+        print(f"Starting DocuBrowse via systemd ({SYSTEMD_UNIT})...")
+        if not _systemctl("start"):
+            sys.exit(1)
+        for _ in range(10):
+            time.sleep(0.5)
+            if is_server_running(port):
+                print("DocuBrowse is running.")
+                print(f"  UI:       http://localhost:{port}")
+                print(f"  Database: {db_path}")
+                return
+        print("WARNING: systemd reports the unit started but it is not responding yet.")
+        print(f"  Check: systemctl status {SYSTEMD_UNIT}")
+        print(f"         journalctl -u {SYSTEMD_UNIT}")
+        return
 
     # Kill anything already occupying the port (stale process not tracked by PID file)
     _kill_port(port)
@@ -237,6 +311,13 @@ def cmd_start(config: dict, args):
 
 def cmd_stop(config: dict, args):
     port = args.port or config["port"]
+
+    if _systemd_unit_loaded() and _systemd_is_active():
+        print(f"Stopping DocuBrowse via systemd ({SYSTEMD_UNIT})...")
+        _systemctl("stop")
+        clear_pid()
+        return
+
     pid  = read_pid()
 
     if not pid:
@@ -271,6 +352,21 @@ def cmd_stop(config: dict, args):
 
 
 def cmd_restart(config: dict, args):
+    if _systemd_unit_loaded() and _systemd_is_active():
+        port = args.port or config["port"]
+        print(f"Restarting DocuBrowse via systemd ({SYSTEMD_UNIT})...")
+        if not _systemctl("restart"):
+            sys.exit(1)
+        for _ in range(10):
+            time.sleep(0.5)
+            if is_server_running(port):
+                print("DocuBrowse is running.")
+                print(f"  UI: http://localhost:{port}")
+                return
+        print("WARNING: systemd reports the unit restarted but it is not responding yet.")
+        print(f"  Check: systemctl status {SYSTEMD_UNIT}")
+        return
+
     cmd_stop(config, args)
     time.sleep(1)
     cmd_start(config, args)
@@ -353,7 +449,14 @@ def cmd_status(config: dict, args):
     print(f"  Config:   {config.get('_config_source', '(defaults)')}")
     print(f"  Database: {args.db or config['db_path']}")
     print(f"  Port:     {port}")
-    print(f"  PID file: {PID_FILE}")
+
+    if _systemd_unit_loaded():
+        active  = "active" if _systemd_is_active() else "inactive"
+        enabled = _systemd_is_enabled()
+        print(f"  systemd:  {SYSTEMD_UNIT} ({active}, {enabled})")
+        print(f"  Logs:     journalctl -u {SYSTEMD_UNIT}")
+    else:
+        print(f"  PID file: {PID_FILE}")
 
     if pid:
         print(f"  PID:      {pid}")
