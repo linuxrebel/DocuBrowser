@@ -9,6 +9,7 @@ HTTP server on port 8643 with merged keyword + semantic search.
 import json
 import os
 import math
+import socket
 import sqlite3
 import struct
 import subprocess
@@ -28,7 +29,11 @@ DEFAULT_PORT = 8643
 OLLAMA_HOST = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
-SYNOPSIS_TIMEOUT_SECS = 30
+# Cold Ollama starts (e.g. right after a reboot) need to load the model into
+# memory before the first generation can begin, which can take well over 30s
+# on top of the generation time itself. Use a generous timeout so the first
+# request after startup doesn't spuriously fail.
+SYNOPSIS_TIMEOUT_SECS = 90
 
 
 def cosine_similarity(v1: list, v2: list) -> float:
@@ -76,16 +81,19 @@ def embed_text(text: str) -> list:
         return None
 
 
-def generate_synopsis(title: str, description: str, snippet: str) -> str:
+def generate_synopsis(title: str, description: str, snippet: str) -> tuple:
     """Ask Ollama for a one-paragraph, back-cover-style synopsis.
 
-    Returns the generated text, or None on any failure/timeout — callers
-    should treat None as "couldn't generate right now" rather than an error
-    to persist.
+    Returns (text, error_reason). On success, text is the generated
+    synopsis and error_reason is None. On failure, text is None and
+    error_reason is one of: "empty" (no source text to work from),
+    "timeout" (Ollama didn't respond in time — often because it's still
+    loading the model into memory after a fresh start), or "error" (any
+    other failure, e.g. Ollama not running).
     """
     context = "\n\n".join(p for p in [description or "", snippet or ""] if p.strip())
     if not context.strip():
-        return None
+        return None, "empty"
 
     prompt = (
         "Write a one-paragraph synopsis of the document below, in the style "
@@ -111,9 +119,15 @@ def generate_synopsis(title: str, description: str, snippet: str) -> str:
         with urlopen(request, timeout=SYNOPSIS_TIMEOUT_SECS) as response:
             data = json.loads(response.read().decode('utf-8'))
             text = (data.get('response') or '').strip()
-            return text or None
+            return (text, None) if text else (None, "error")
+    except socket.timeout:
+        return None, "timeout"
+    except URLError as e:
+        if isinstance(e.reason, socket.timeout):
+            return None, "timeout"
+        return None, "error"
     except Exception:
-        return None
+        return None, "error"
 
 
 def normalize_score(score: float, max_val: float = 1.0) -> float:
@@ -548,12 +562,18 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.json_response({"ok": True, "synopsis": synopsis, "cached": True})
             return
 
-        synopsis = generate_synopsis(title or name, description, snippet)
+        synopsis, reason = generate_synopsis(title or name, description, snippet)
         if not synopsis:
             conn.close()
+            messages = {
+                "empty": "No description or text is available for this document to summarize.",
+                "timeout": "The AI model is still loading after a recent restart — this can "
+                           "take a minute the first time. Please wait a moment and try again.",
+                "error": "Couldn't reach the AI model (Ollama). Make sure it's running, then try again.",
+            }
             self.json_response({
                 "ok": False,
-                "error": "Synopsis generation failed or timed out. Try again."
+                "error": messages.get(reason, "Synopsis generation failed. Try again.")
             })
             return
 
