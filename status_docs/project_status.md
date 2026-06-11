@@ -157,6 +157,24 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 - Added a "Home" button as the first item (left of "0-9"), same `.index-btn`
   styling, `onclick="renderAll()"` — lets users return to All Documents from
   any view including search results.
+
+### 2026-06-11 (continued) — Ignored Directories UX overhaul + Additional Scan Directories panel
+- Ignored Directories panel: reworked the add row to "Browse…"/"Add"/"Clear"
+  buttons; browsing now live-syncs the displayed path straight into the
+  `/path/to/exclude` field (no "select this" step). Added description text
+  under "Currently excluded directories" and a confirm (OK/Cancel) before
+  removing an entry.
+- New "Additional Scan Directories" panel (simplified clone of the Ignored
+  Directories UX): users can browse/add/clear/remove extra top-level
+  directories to scan, persisted to `scan_dirs.txt` via
+  `_load_scan_dirs()`/`SCAN_DIRS_FILENAME` in scan_docs.py and new
+  `/api/scan-dirs` GET/POST endpoints in doc_search.py.
+- Adding a scan directory shows a reminder alert with the exact CLI command:
+  `cd "<workDir>" && python3 docubrowser.py scan --doc-dir "<path>" --limit 100`
+  — running it again resumes with the next 100 unindexed files.
+- Verified via Playwright: 0 console errors, panel renders correctly, browse
+  live-sync works, add shows the correct reminder/command and updates the
+  list, remove confirms and clears back to the empty-state message.
 - Added `getActiveLetters()` with a module-level cache of `/api/letters` so
   the active/disabled state of letter buttons doesn't refetch on every
   render.

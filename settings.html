@@ -229,6 +229,30 @@
     </p>
     <div class="list-box" id="ignoreDirList"></div>
   </div>
+
+  <div class="panel">
+    <h2>Additional Scan Directories</h2>
+    <p class="panel-desc">
+      Extra top-level directories to index, in addition to docPath above. Adding a directory here
+      does not scan it automatically — run the reminder command shown from the command line to
+      index it.
+    </p>
+
+    <label>Add a directory to scan</label>
+    <div class="field-row">
+      <input type="text" id="cfgScanDir" placeholder="/path/to/scan">
+      <button class="browse-btn" onclick="openBrowser('scanDir')">Browse…</button>
+      <button class="browse-btn add-btn" onclick="addScanDir()">Add</button>
+      <button class="browse-btn" onclick="clearScanDirInput()">Clear</button>
+    </div>
+    <div class="dir-browser" id="browser-scanDir"></div>
+
+    <label style="margin-top:1rem;">Additional directories to scan</label>
+    <p class="panel-desc">
+      Click the ✕ to the right of a directory to remove it from this list.
+    </p>
+    <div class="list-box" id="scanDirList"></div>
+  </div>
 </div>
 
 <script>
@@ -271,6 +295,7 @@ applyTheme(localStorage.getItem('db-theme') || 'dark');
 // ── Settings ──────────────────────────────────────────────────
 async function loadConfig() {
   loadIgnoreDirs();
+  loadScanDirs();
   try {
     const res = await fetch('/api/config');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -336,6 +361,7 @@ function fieldInputId(field) {
   if (field === 'docPath') return 'cfgDocPath';
   if (field === 'workDir') return 'cfgWorkDir';
   if (field === 'ignoreDir') return 'cfgIgnoreDir';
+  if (field === 'scanDir') return 'cfgScanDir';
   return null;
 }
 
@@ -354,8 +380,8 @@ async function loadDir(field, path) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     let html;
-    if (field === 'ignoreDir') {
-      // Keep the exclude-path input in sync with the directory being browsed.
+    if (field === 'ignoreDir' || field === 'scanDir') {
+      // Keep the path input in sync with the directory being browsed.
       document.getElementById(fieldInputId(field)).value = data.path;
       html = `<div class="dir-path">${esc(data.path)}</div>`;
     } else {
@@ -385,6 +411,10 @@ function selectDir(field, path) {
 
 function clearIgnoreDirInput() {
   document.getElementById('cfgIgnoreDir').value = '';
+}
+
+function clearScanDirInput() {
+  document.getElementById('cfgScanDir').value = '';
 }
 
 // ── Ignored directories ─────────────────────────────────────────
@@ -462,6 +492,88 @@ async function removeIgnoreDir(path) {
     );
   } catch (e) {
     console.error('Remove ignore dir error:', e);
+    alert('Error removing directory: ' + e.message);
+  }
+}
+
+// ── Additional scan directories ─────────────────────────────────
+let scanDirs = [];
+
+async function loadScanDirs() {
+  try {
+    const res = await fetch('/api/scan-dirs');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    scanDirs = data.dirs || [];
+  } catch (e) {
+    console.error('Scan-dirs fetch error:', e);
+    scanDirs = [];
+  }
+  renderScanDirs();
+}
+
+function renderScanDirs() {
+  const box = document.getElementById('scanDirList');
+  if (!scanDirs.length) {
+    box.innerHTML = `<div class="list-empty">No additional scan directories configured</div>`;
+  } else {
+    box.innerHTML = scanDirs.map(d =>
+      `<div class="list-item">
+        <span class="list-item-path">${esc(d)}</span>
+        <button class="list-remove-btn" onclick="removeScanDir('${esc(d)}')" title="Remove from scan list">✕</button>
+      </div>`
+    ).join('');
+  }
+}
+
+function scanCommandFor(path) {
+  const workDir = (document.getElementById('cfgWorkDir').value || '.').trim();
+  return `cd "${workDir}" && python3 docubrowser.py scan --doc-dir "${path}" --limit 100`;
+}
+
+async function addScanDir() {
+  const input = document.getElementById('cfgScanDir');
+  const path = input.value.trim();
+  if (!path) return;
+  try {
+    const res = await fetch('/api/scan-dirs', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action: 'add', path})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    scanDirs = data.dirs || [];
+    input.value = '';
+    document.getElementById('browser-scanDir').classList.remove('open');
+    renderScanDirs();
+    alert(
+      `Added "${path}" to the scan list.\n\n` +
+      `Run this from a terminal to index the first 100 documents:\n\n` +
+      `  ${scanCommandFor(path)}\n\n` +
+      `If it reports more files remain, run the same command again — it ` +
+      `automatically resumes where the previous run left off, processing ` +
+      `the next 100 each time.`
+    );
+  } catch (e) {
+    console.error('Add scan dir error:', e);
+    alert('Error adding directory: ' + e.message);
+  }
+}
+
+async function removeScanDir(path) {
+  const proceed = confirm(`Remove "${path}" from the additional scan directories list?`);
+  if (!proceed) return;
+  try {
+    const res = await fetch('/api/scan-dirs', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action: 'remove', path})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    scanDirs = data.dirs || [];
+    renderScanDirs();
+  } catch (e) {
+    console.error('Remove scan dir error:', e);
     alert('Error removing directory: ' + e.message);
   }
 }
