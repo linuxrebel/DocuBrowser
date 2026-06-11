@@ -82,7 +82,7 @@ Build MVP extractors, database, search server, and UI. Target: searchable index 
 **docubrowse.py** (cross-platform Python):
 - Commands: `start`, `stop`, `restart`, `status`, `rescan`, `duplist`, `dupclean`
 - Load config from `/etc/docubrowse.config` or local
-- Manage PID file at `/tmp/docubrowse.pid`
+- Manage PID file at `/var/run/docubrowser/docubrowser.pid` (falls back to `~/.local/share/docubrowser/` if unwritable)
 - Kill stale processes on port 8643 before start
 - Delegate `duplist`/`dupclean` to subprocess tools
 

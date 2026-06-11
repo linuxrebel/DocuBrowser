@@ -40,12 +40,46 @@ from urllib.error import URLError
 DEFAULT_PORT    = 8643
 DEFAULT_DB      = Path(__file__).parent / "du-docs.db"
 DEFAULT_DOC_DIR = "/mnt/data/Documents"
-PID_FILE        = Path("/tmp/docubrowse.pid")
-SCAN_PID_FILE   = Path("/tmp/docubrowse_scan.pid")   # PGID of running scan
 CONFIG_PATHS    = [
     Path("/etc/docubrowse.config"),
     Path(__file__).parent / "docubrowse.config",
 ]
+
+
+def _pick_runtime_path(preferred: Path, fallback: Path) -> Path:
+    """
+    Return `preferred` if its parent directory exists (or can be created)
+    and is writable; otherwise return `fallback` (creating its parent dir).
+
+    Used so PID/log files land in standard system locations
+    (/var/run, /var/log) when the process has permission to create
+    them there, while still working for unprivileged/local installs by
+    falling back to ~/.local/share/docubrowser/.
+    """
+    try:
+        preferred.parent.mkdir(parents=True, exist_ok=True)
+        if os.access(preferred.parent, os.W_OK):
+            return preferred
+    except (PermissionError, OSError):
+        pass
+    fallback.parent.mkdir(parents=True, exist_ok=True)
+    return fallback
+
+
+_LOCAL_STATE_DIR = Path.home() / ".local/share/docubrowser"
+
+PID_FILE        = _pick_runtime_path(
+    Path("/var/run/docubrowser/docubrowser.pid"),
+    _LOCAL_STATE_DIR / "docubrowser.pid",
+)
+SCAN_PID_FILE   = _pick_runtime_path(
+    Path("/var/run/docubrowser/docubrowse_scan.pid"),
+    _LOCAL_STATE_DIR / "docubrowse_scan.pid",
+)   # PGID of running scan
+LOG_FILE        = _pick_runtime_path(
+    Path("/var/log/docubrowser.log"),
+    _LOCAL_STATE_DIR / "docubrowser.log",
+)
 
 # ─── Config loader ────────────────────────────────────────────────────────────
 
@@ -178,10 +212,11 @@ def cmd_start(config: dict, args):
         print(f"ERROR: Server script not found: {server_script}")
         sys.exit(1)
 
+    log_fh = open(LOG_FILE, "a")   # noqa: SIM115 — kept open for proc lifetime
     proc = subprocess.Popen(
         [sys.executable, str(server_script), db_path, str(port)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=log_fh,
+        stderr=log_fh,
         start_new_session=True,
     )
     write_pid(proc.pid)
@@ -450,18 +485,10 @@ def cmd_rescan(config: dict, args):
     # stderr is redirected to the log file so that Python's resource_tracker
     # "leaked semaphore" warnings (printed when workers are hard-killed) never
     # appear on the terminal.
-    _log_paths = [
-        Path("/var/log/docubrowser.log"),
-        Path.home() / ".local/share/docubrowser/docubrowser.log",
-    ]
-    _scan_stderr = subprocess.DEVNULL
-    for _lp in _log_paths:
-        try:
-            _lp.parent.mkdir(parents=True, exist_ok=True)
-            _scan_stderr = open(_lp, "a")   # noqa: SIM115 — kept open for proc lifetime
-            break
-        except (PermissionError, OSError):
-            continue
+    try:
+        _scan_stderr = open(LOG_FILE, "a")   # noqa: SIM115 — kept open for proc lifetime
+    except (PermissionError, OSError):
+        _scan_stderr = subprocess.DEVNULL
     proc = subprocess.Popen(cmd, start_new_session=True, stderr=_scan_stderr)
     SCAN_PID_FILE.write_text(str(proc.pid))
     try:
