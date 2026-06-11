@@ -1,8 +1,8 @@
 # DocuBrowse Project Status
 
-**Version**: v0.6.0  
+**Version**: v0.7.2  
 **Status**: 🟢 **STABLE — daily use, active development**  
-**Last Updated**: 2026-06-09  
+**Last Updated**: 2026-06-11  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
@@ -343,3 +343,12 @@ See `status_docs/DECISIONS.md` for full details. Key open items:
 2. **Scanned PDFs not searchable** — indexed with placeholder; OCR deferred to Phase 3.
 3. **No file-type filter in search UI** — searching "docx" returns semantically similar PDFs. Fix: `?type=` filter (deferred).
 4. **ocr_list_pdfs.txt may have duplicate lines** — multiple scan runs of the same image-only PDF append the path again. OCR processing must deduplicate on read.
+
+---
+
+### 2026-06-11 (continued) — v0.7.2 release prep
+- Captured a fresh `/settings` screenshot (light mode, 1440x900) showing the consolidated General panel (docPath + additional scan directories + workDir) and Ignored Directories panel; saved as `screenshots/screenshot-settings-page.png`.
+- Updated README.md: bumped version to v0.7.2 (title + footer), replaced the stale settings screenshot with the new one and removed the "stale" note, added a "Settings (`/settings`)" feature section, noted index-bar persistence + Home button under User Interface, and reworded the "Multiple top-level doc directories" Known Limitation to reflect the now-available (manual-rescan) Additional Scan Directories feature.
+- Updated DECISIONS.md: reworded the "Multiple top-level doc directories" deferred row to "partially superseded" given the scan-dirs feature.
+- Updated INSTALL.md tarball example from v0.5.0 to v0.7.2.
+- Tagged `v0.7.2` and generated `docubrowse-v0.7.2.tar.gz` release tarball.

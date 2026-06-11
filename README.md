@@ -1,4 +1,4 @@
-# DocuBrowse v0.7.0
+# DocuBrowse v0.7.2
 
 <a name="top"></a>
 
@@ -50,10 +50,14 @@ machine — no cloud, no API keys.
 ### 🎨 User Interface
 - Dark/Light theme toggle
 - Paginated results (50 docs/page) with Back/Next controls
-- Alphabetic index bar (A–Z, 0–9) for quick navigation
+- Alphabetic index bar (A–Z, 0–9) for quick navigation, with state preserved across page loads; Home button to reset
 - Tag cloud for filtering by topic
 - Relevance score badges (0–100%) on every result
 - Click document title to open the file; 📋 copies path to clipboard; 🗑 deletes file from disk and index (with confirmation)
+
+### ⚙️ Settings (`/settings`)
+- General panel: document directory (with live directory browser), any number of additional scan directories (added/removed under the same panel, each shown with the rescan command needed to index it), working directory, and port
+- Ignored Directories panel: browse to add a directory to `ignore_dirs.txt`, with a confirmation prompt before purging already-indexed documents under it, and a confirmation before removing an entry
 
 ### ⚡ Performance
 - Search latency: <150ms typical
@@ -74,9 +78,9 @@ Click any thumbnail to view full size.
 
 | Settings | AI Synopsis |
 |---|---|
-| [![Settings page](screenshots/screenshot-settings-modal.png)](screenshots/screenshot-settings-modal.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
+| [![Settings page](screenshots/screenshot-settings-page.png)](screenshots/screenshot-settings-page.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
 
-> Note: Settings is now a standalone page at `/settings` (opened in a new tab via the gear icon), not a modal. The screenshot above is stale and should be regenerated — see DECISIONS.md.
+> Settings is a standalone page at `/settings` (opened in a new tab via the gear icon). The General panel covers the document directory (with live directory browser, plus any number of additional scan directories), working directory, and port; the Ignored Directories panel manages scan exclusions, each with a directory browser, add/clear controls, and confirmation before removal.
 
 ---
 
@@ -524,7 +528,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 |------------|--------|
 | DRM-encrypted AZW not fully searchable | Metadata indexed; DeDRM_tools required for body text |
 | Scanned PDFs not searchable | Listed in ocr_list_pdfs.txt; OCR deferred |
-| No config persistence in UI | Settings reset on reload |
+| Multiple top-level doc directories | Additional scan directories supported (General panel / `scan_dirs.txt`), but each requires a manual rescan via the printed CLI command — not yet automatic |
 | No authentication | Local use only |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 
@@ -591,4 +595,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.7.0** — Fast, local, AI-powered document search.
+**DocuBrowse v0.7.2** — Fast, local, AI-powered document search.
