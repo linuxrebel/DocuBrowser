@@ -36,7 +36,7 @@ machine — no cloud, no API keys.
 
 ### 📖 AI Synopsis
 - Click any document title for a Kindle-style book-jacket synopsis, generated on demand
-  via Ollama (`uandinotai/dolphin-uncensored:latest`) and cached in the database after
+  via Ollama (`dolphin3:latest`) and cached in the database after
   first generation
 
 ### 📚 Document Indexing
@@ -96,7 +96,7 @@ cd /path/to/DocuBrowse
 
 `docubrowser.py start` automatically verifies Ollama is installed, running, and has
 both required models — `nomic-embed-text:latest` (embeddings) and
-`uandinotai/dolphin-uncensored:latest` (synopsis generation) — installing/starting/pulling
+`dolphin3:latest` (synopsis generation) — installing/starting/pulling
 as needed.
 
 ---
@@ -251,7 +251,7 @@ work_dir = /home/user/DocuBrowse
                       ↓
         ┌──────────────────────────────────────────────────┐
         │  du-docs.db  (SQLite FTS5)                       │
-        │  Ollama (nomic-embed-text + dolphin-uncensored)  │
+        │  Ollama (nomic-embed-text + dolphin3)  │
         └──────────────────────────────────────────────────┘
 ```
 
@@ -475,7 +475,7 @@ tail -f ~/.local/share/docubrowser/docubrowser.log
 ollama serve                       # start manually
 ollama list                        # verify both models are present
 ollama pull nomic-embed-text:latest              # embeddings, if missing
-ollama pull uandinotai/dolphin-uncensored:latest # synopsis generation, if missing
+ollama pull dolphin3:latest                      # synopsis generation, if missing
 ```
 
 ---

@@ -27,8 +27,8 @@ from docubrowse_db import get_db
 DEFAULT_PORT = 8643
 OLLAMA_HOST = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
-SYNOPSIS_MODEL = "uandinotai/dolphin-uncensored:latest"
-SYNOPSIS_TIMEOUT_SECS = 25
+SYNOPSIS_MODEL = "dolphin3:latest"
+SYNOPSIS_TIMEOUT_SECS = 30
 
 
 def cosine_similarity(v1: list, v2: list) -> float:

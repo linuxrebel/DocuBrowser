@@ -25,7 +25,7 @@ from urllib.request import urlopen
 # (model name, approx download size, what it's used for)
 REQUIRED_MODELS = [
     ('nomic-embed-text:latest', '~274 MB', 'semantic search embeddings (ingestion)'),
-    ('uandinotai/dolphin-uncensored:latest', '~2 GB', 'document synopsis generation (operational AI)'),
+    ('dolphin3:latest', '~4.9 GB', 'document synopsis generation (operational AI)'),
 ]
 
 OLLAMA_API = 'http://localhost:11434'
