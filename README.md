@@ -1,4 +1,4 @@
-# DocuBrowse v0.6.0
+# DocuBrowse v0.7.0
 
 <a name="top"></a>
 
@@ -571,4 +571,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.6.0** — Fast, local, AI-powered document search.
+**DocuBrowse v0.7.0** — Fast, local, AI-powered document search.
