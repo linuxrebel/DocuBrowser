@@ -131,7 +131,8 @@ unguarded stat() call in sort key, NameError from conditionally-defined variable
 
 ### Process Management
 - `start_new_session=True` in Popen gives the scan its own PGID.
-- SCAN_PID_FILE (`/tmp/docubrowse_scan.pid`) stores the PGID for group kill.
+- SCAN_PID_FILE (`/var/run/docubrowser/docubrowse_scan.pid`, falls back to `~/.local/share/docubrowser/` if unwritable) stores the PGID for group kill.
+- PID_FILE (`/var/run/docubrowser/docubrowser.pid`) and LOG_FILE (`/var/log/docubrowser.log`) follow the same fallback pattern via `_pick_runtime_path()`.
 - `_stop_running_scans()` uses `os.killpg(pgid, SIGTERM)` to kill parent + all workers.
 - `cmd_stopall()` kills scans, embeds, and server in one command.
 - Every `rescan` auto-calls `_stop_running_scans()` first — no zombie workers.
