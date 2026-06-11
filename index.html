@@ -213,6 +213,29 @@
   }
   .dir-path { font-size:0.75rem; color:var(--text-dim); padding:0.5rem 0.8rem; border-bottom:1px solid var(--border); background:var(--surface); }
 
+  /* ── Ignored directories list ── */
+  .list-box {
+    background:var(--bg); border:1px solid var(--border); border-radius:8px;
+    max-height:160px; overflow-y:auto; margin-bottom:0.8rem;
+  }
+  .list-item {
+    padding:0.4rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+    color:var(--text); cursor:pointer; border-bottom:1px solid var(--border);
+    word-break:break-all;
+  }
+  .list-item:last-child { border-bottom:none; }
+  .list-item:hover { background:var(--surface2); }
+  .list-item.selected { background:var(--accent2); color:var(--bg); }
+  .list-empty {
+    padding:0.6rem 0.8rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+    color:var(--text-dim); font-style:italic;
+  }
+  .add-btn { color:var(--accent); border-color:var(--accent); }
+  .add-btn:hover { background:var(--surface2); }
+  .remove-btn { color:var(--accent3); border-color:var(--accent3); }
+  .remove-btn:hover { background:var(--surface2); }
+  .remove-btn:disabled, .add-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
   /* ── Document-specific badges ── */
   .doc-type-badge { font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:500; background:var(--accent2); color:var(--bg); }
 
@@ -339,6 +362,17 @@
     <label>port — HTTP server port</label>
     <div class="field-row">
       <input type="number" id="cfgPort" placeholder="8643" min="1024" max="65535" style="max-width:140px">
+    </div>
+    <label>Ignored Directories — excluded from scanning (auto-purges indexed docs on add)</label>
+    <div class="field-row">
+      <input type="text" id="cfgIgnoreDir" placeholder="/path/to/exclude">
+      <button class="browse-btn" onclick="openBrowser('ignoreDir')">browse</button>
+      <button class="browse-btn add-btn" onclick="addIgnoreDir()">+ Add</button>
+    </div>
+    <div class="dir-browser" id="browser-ignoreDir"></div>
+    <div class="list-box" id="ignoreDirList"></div>
+    <div class="field-row" style="margin-bottom:1.2rem;">
+      <button class="browse-btn remove-btn" id="ignoreDirRemoveBtn" onclick="removeIgnoreDir()" disabled>− Remove</button>
     </div>
     <div class="modal-actions">
       <button class="btn-primary" onclick="saveConfig()">Save</button>
@@ -841,6 +875,7 @@ async function openSettings() {
   settingsModal.classList.add('open');
   const saveMsg = document.getElementById('saveMsg');
   if (saveMsg) { saveMsg.style.display = 'none'; }
+  loadIgnoreDirs();
   try {
     const res = await fetch('/api/config');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -891,9 +926,16 @@ function closeBrowsers() {
   document.querySelectorAll('.dir-browser').forEach(b => b.classList.remove('open'));
 }
 
+function fieldInputId(field) {
+  if (field === 'docPath') return 'cfgDocPath';
+  if (field === 'workDir') return 'cfgWorkDir';
+  if (field === 'ignoreDir') return 'cfgIgnoreDir';
+  return null;
+}
+
 async function openBrowser(field) {
   const browser = document.getElementById('browser-' + field);
-  const input = document.getElementById(field === 'docPath' ? 'cfgDocPath' : 'cfgWorkDir');
+  const input = document.getElementById(fieldInputId(field));
   const startPath = input.value || '/';
   browser.classList.toggle('open');
   if (browser.classList.contains('open')) await loadDir(field, startPath);
@@ -918,9 +960,87 @@ async function loadDir(field, path) {
 }
 
 function selectDir(field, path) {
-  const input = document.getElementById(field === 'docPath' ? 'cfgDocPath' : 'cfgWorkDir');
+  const input = document.getElementById(fieldInputId(field));
   input.value = path;
   document.getElementById('browser-' + field).classList.remove('open');
+}
+
+// ── Ignored directories ─────────────────────────────────────────
+let ignoreDirs = [];
+let selectedIgnoreDir = null;
+
+async function loadIgnoreDirs() {
+  selectedIgnoreDir = null;
+  try {
+    const res = await fetch('/api/ignore-dirs');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    ignoreDirs = data.dirs || [];
+  } catch (e) {
+    console.error('Ignore-dirs fetch error:', e);
+    ignoreDirs = [];
+  }
+  renderIgnoreDirs();
+}
+
+function renderIgnoreDirs() {
+  const box = document.getElementById('ignoreDirList');
+  if (!ignoreDirs.length) {
+    box.innerHTML = `<div class="list-empty">No ignored directories</div>`;
+  } else {
+    box.innerHTML = ignoreDirs.map(d =>
+      `<div class="list-item${d === selectedIgnoreDir ? ' selected' : ''}" onclick="selectIgnoreDir('${esc(d)}')">${esc(d)}</div>`
+    ).join('');
+  }
+  document.getElementById('ignoreDirRemoveBtn').disabled = !selectedIgnoreDir;
+}
+
+function selectIgnoreDir(d) {
+  selectedIgnoreDir = (selectedIgnoreDir === d) ? null : d;
+  renderIgnoreDirs();
+}
+
+async function addIgnoreDir() {
+  const input = document.getElementById('cfgIgnoreDir');
+  const path = input.value.trim();
+  if (!path) return;
+  try {
+    const res = await fetch('/api/ignore-dirs', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action: 'add', path})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    ignoreDirs = data.dirs || [];
+    selectedIgnoreDir = null;
+    input.value = '';
+    document.getElementById('browser-ignoreDir').classList.remove('open');
+    renderIgnoreDirs();
+    showToast(data.purged ? `Added — purged ${data.purged} indexed doc(s)` : 'Added to ignore list');
+  } catch (e) {
+    console.error('Add ignore dir error:', e);
+    alert('Error adding directory: ' + e.message);
+  }
+}
+
+async function removeIgnoreDir() {
+  if (!selectedIgnoreDir) return;
+  const path = selectedIgnoreDir;
+  try {
+    const res = await fetch('/api/ignore-dirs', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action: 'remove', path})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    ignoreDirs = data.dirs || [];
+    selectedIgnoreDir = null;
+    renderIgnoreDirs();
+    showToast('Removed — run rescan to re-index');
+  } catch (e) {
+    console.error('Remove ignore dir error:', e);
+    alert('Error removing directory: ' + e.message);
+  }
 }
 
 // ── Initialize ────────────────────────────────────────────────

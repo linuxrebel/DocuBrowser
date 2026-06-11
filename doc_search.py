@@ -156,6 +156,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_delete(query)
             elif path == '/api/synopsis':
                 self.handle_synopsis(query)
+            elif path == '/api/ignore-dirs':
+                self.handle_ignore_dirs()
             else:
                 self.error_response(404, "Not found")
         except Exception as e:
@@ -169,6 +171,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         try:
             if path == '/api/config':
                 self.handle_config_post()
+            elif path == '/api/ignore-dirs':
+                self.handle_ignore_dirs_post()
             else:
                 self.error_response(404, "Not found")
         except Exception as e:
@@ -539,6 +543,68 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         conn.commit()
         conn.close()
         self.json_response({"ok": True, "synopsis": synopsis, "cached": False})
+
+    def handle_ignore_dirs(self):
+        """GET /api/ignore-dirs - List directories excluded from scanning."""
+        sys.path.insert(0, str(Path(__file__).parent))
+        from scan_docs import _load_ignore_dirs
+        dirs = sorted(_load_ignore_dirs(Path(self.db_path)))
+        self.json_response({"dirs": dirs})
+
+    def handle_ignore_dirs_post(self):
+        """POST /api/ignore-dirs - {action: 'add'|'remove', path: str}.
+
+        'add' appends the directory to ignore_dirs.txt and purges any
+        already-indexed documents under it. 'remove' drops it from the
+        file (caller must rescan to re-index).
+        """
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length)
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            self.error_response(400, "Invalid JSON")
+            return
+
+        action = data.get("action")
+        raw_path = str(data.get("path", "")).strip()
+        if action not in ("add", "remove") or not raw_path:
+            self.error_response(400, "action ('add'/'remove') and path are required")
+            return
+
+        sys.path.insert(0, str(Path(__file__).parent))
+        from scan_docs import IGNORE_DIRS_FILENAME, _load_ignore_dirs, purge_path_prefix
+
+        db_path = Path(self.db_path)
+        ig_path = db_path.parent / IGNORE_DIRS_FILENAME
+        try:
+            target = str(Path(raw_path).expanduser().resolve())
+        except OSError as e:
+            self.error_response(400, f"Invalid path: {e}")
+            return
+
+        dirs = _load_ignore_dirs(db_path)
+
+        if action == "add":
+            purged = 0
+            if target not in dirs:
+                dirs.add(target)
+                ig_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(ig_path, "a", encoding="utf-8") as fh:
+                    fh.write(target + "\n")
+            if db_path.exists():
+                conn = get_db(self.db_path)
+                purged = purge_path_prefix(conn, target)
+                conn.close()
+            self.json_response({"ok": True, "dirs": sorted(dirs), "purged": purged})
+        else:  # remove
+            if target in dirs:
+                dirs.discard(target)
+                if dirs:
+                    ig_path.write_text("\n".join(sorted(dirs)) + "\n", encoding="utf-8")
+                else:
+                    ig_path.unlink(missing_ok=True)
+            self.json_response({"ok": True, "dirs": sorted(dirs)})
 
     def handle_config(self):
         """GET /api/config - Return current configuration."""
