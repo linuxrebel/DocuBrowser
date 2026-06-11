@@ -1,0 +1,29 @@
+[Unit]
+Description=DocuBrowse search server
+After=network.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+User=james
+Group=james
+WorkingDirectory=/mnt/data/git/AI/DocuBrowse
+ExecStart=/usr/bin/python3 /mnt/data/git/AI/DocuBrowse/doc_search.py /mnt/data/git/AI/DocuBrowse/du-docs.db 8643
+
+# Creates /run/docubrowser (-> /var/run/docubrowser) owned by james, used for
+# docubrowser.pid by docubrowser.py's _pick_runtime_path()
+RuntimeDirectory=docubrowser
+RuntimeDirectoryMode=0750
+
+# Creates /var/log/docubrowser owned by james, for docubrowser.log
+LogsDirectory=docubrowser
+LogsDirectoryMode=0750
+
+StandardOutput=append:/var/log/docubrowser/docubrowser.log
+StandardError=append:/var/log/docubrowser/docubrowser.log
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

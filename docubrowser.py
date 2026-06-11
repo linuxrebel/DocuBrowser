@@ -77,7 +77,7 @@ SCAN_PID_FILE   = _pick_runtime_path(
     _LOCAL_STATE_DIR / "docubrowse_scan.pid",
 )   # PGID of running scan
 LOG_FILE        = _pick_runtime_path(
-    Path("/var/log/docubrowser.log"),
+    Path("/var/log/docubrowser/docubrowser.log"),
     _LOCAL_STATE_DIR / "docubrowser.log",
 )
 

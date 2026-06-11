@@ -132,7 +132,8 @@ unguarded stat() call in sort key, NameError from conditionally-defined variable
 ### Process Management
 - `start_new_session=True` in Popen gives the scan its own PGID.
 - SCAN_PID_FILE (`/var/run/docubrowser/docubrowse_scan.pid`, falls back to `~/.local/share/docubrowser/` if unwritable) stores the PGID for group kill.
-- PID_FILE (`/var/run/docubrowser/docubrowser.pid`) and LOG_FILE (`/var/log/docubrowser.log`) follow the same fallback pattern via `_pick_runtime_path()`.
+- PID_FILE (`/var/run/docubrowser/docubrowser.pid`) and LOG_FILE (`/var/log/docubrowser/docubrowser.log`) follow the same fallback pattern via `_pick_runtime_path()`.
+- `systemd/docubrowser.service` — system unit that runs `doc_search.py` directly (not via `docubrowser.py start`), using `RuntimeDirectory=docubrowser` and `LogsDirectory=docubrowser` so systemd creates `/run/docubrowser` and `/var/log/docubrowser` owned by `User=james`. Install with `sudo cp systemd/docubrowser.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now docubrowser.service`.
 - `_stop_running_scans()` uses `os.killpg(pgid, SIGTERM)` to kill parent + all workers.
 - `cmd_stopall()` kills scans, embeds, and server in one command.
 - Every `rescan` auto-calls `_stop_running_scans()` first — no zombie workers.
