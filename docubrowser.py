@@ -398,7 +398,8 @@ def cmd_rescan(config: dict, args):
     if not scan_extensions:
         from collections import Counter as _Counter
         print(f"No type filter specified — counting files in {doc_dir} ...")
-        _SUPPORTED = {".pdf", ".html", ".txt", ".md"}
+        from scan_docs import DEFAULT_EXTENSIONS as _DEFAULT_EXTENSIONS
+        _SUPPORTED = set(_DEFAULT_EXTENSIONS)
         _counts: dict = _Counter()
         try:
             for _f in Path(doc_dir).rglob("*"):
@@ -599,7 +600,8 @@ def cmd_report(config: dict, args):
         print(f"ERROR: Directory not found: {doc_dir}")
         sys.exit(1)
 
-    SUPPORTED = {".pdf", ".html", ".txt", ".md"}
+    from scan_docs import DEFAULT_EXTENSIONS
+    SUPPORTED = set(DEFAULT_EXTENSIONS)
 
     print(f"File type report: {doc_dir}")
     print("Scanning directory (no changes made)...")

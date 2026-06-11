@@ -33,9 +33,17 @@ DEFAULT_EXTENSIONS = [".pdf", ".docx", ".pptx", ".xlsx",
                       ".epub", ".mobi", ".azw", ".azw3",
                       ".txt", ".md", ".html",
                       ".json", ".yml", ".yaml",
-                      ".py", ".sh", ".js", ".css"]
+                      ".py", ".sh", ".js", ".css",
+                      ".rs", ".c", ".h", ".cpp", ".hpp", ".cc",
+                      ".go", ".java", ".ts", ".tsx", ".jsx",
+                      ".rb", ".php", ".toml"]
 
-_CODE_EXTENSIONS = frozenset({".json", ".yml", ".yaml", ".py", ".sh", ".js", ".css"})
+_CODE_EXTENSIONS = frozenset({
+    ".json", ".yml", ".yaml", ".py", ".sh", ".js", ".css",
+    ".rs", ".c", ".h", ".cpp", ".hpp", ".cc",
+    ".go", ".java", ".ts", ".tsx", ".jsx",
+    ".rb", ".php", ".toml",
+})
 
 # Physical-core-aware default — hyperthreads don't help pdfplumber
 try:
