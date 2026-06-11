@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
@@ -27,6 +27,8 @@ from docubrowse_db import get_db
 DEFAULT_PORT = 8643
 OLLAMA_HOST = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
+SYNOPSIS_MODEL = "uandinotai/dolphin-uncensored:latest"
+SYNOPSIS_TIMEOUT_SECS = 25
 
 
 def cosine_similarity(v1: list, v2: list) -> float:
@@ -74,6 +76,46 @@ def embed_text(text: str) -> list:
         return None
 
 
+def generate_synopsis(title: str, description: str, snippet: str) -> str:
+    """Ask Ollama for a one-paragraph, back-cover-style synopsis.
+
+    Returns the generated text, or None on any failure/timeout — callers
+    should treat None as "couldn't generate right now" rather than an error
+    to persist.
+    """
+    context = "\n\n".join(p for p in [description or "", snippet or ""] if p.strip())
+    if not context.strip():
+        return None
+
+    prompt = (
+        "Write a one-paragraph synopsis of the document below, in the style "
+        "of a book jacket / Kindle store description — engaging and "
+        "informative, written for someone deciding whether to open it. "
+        "Do not use markdown, headings, or bullet points. Output only the "
+        "paragraph itself, with no preamble.\n\n"
+        f"Title: {title or '(untitled)'}\n\n"
+        f"Document excerpt:\n{context[:4000]}"
+    )
+
+    try:
+        url = f"{OLLAMA_HOST}/api/generate"
+        payload = json.dumps({
+            "model": SYNOPSIS_MODEL,
+            "prompt": prompt,
+            "stream": False,
+        }).encode('utf-8')
+
+        request = Request(url, data=payload, method='POST')
+        request.add_header('Content-Type', 'application/json')
+
+        with urlopen(request, timeout=SYNOPSIS_TIMEOUT_SECS) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            text = (data.get('response') or '').strip()
+            return text or None
+    except Exception:
+        return None
+
+
 def normalize_score(score: float, max_val: float = 1.0) -> float:
     """Normalize score to 0..1 range."""
     return min(1.0, max(0.0, score / max_val if max_val > 0 else 0))
@@ -112,6 +154,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_config()
             elif path == '/api/delete':
                 self.handle_delete(query)
+            elif path == '/api/synopsis':
+                self.handle_synopsis(query)
             else:
                 self.error_response(404, "Not found")
         except Exception as e:
@@ -454,6 +498,48 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         conn.close()
         self.json_response({"ok": True, "deleted": path})
 
+    def handle_synopsis(self, query: dict):
+        """GET /api/synopsis?path=<encoded-path>
+
+        Returns a cached synopsis if one exists; otherwise generates one
+        via Ollama, caches it in the documents table, and returns it.
+        """
+        path = query.get('path', [''])[0].strip()
+        if not path:
+            self.json_response({"ok": False, "error": "Missing path parameter"})
+            return
+
+        conn = get_db(self.db_path)
+        row = conn.execute(
+            'SELECT id, title, name, description, content_snippet, synopsis '
+            'FROM documents WHERE path = ?', (path,)
+        ).fetchone()
+        if not row:
+            conn.close()
+            self.json_response({"ok": False, "error": "Path not in document index"})
+            return
+
+        doc_id, title, name, description, snippet, synopsis = row
+
+        if synopsis and synopsis.strip():
+            conn.close()
+            self.json_response({"ok": True, "synopsis": synopsis, "cached": True})
+            return
+
+        synopsis = generate_synopsis(title or name, description, snippet)
+        if not synopsis:
+            conn.close()
+            self.json_response({
+                "ok": False,
+                "error": "Synopsis generation failed or timed out. Try again."
+            })
+            return
+
+        conn.execute('UPDATE documents SET synopsis = ? WHERE id = ?', (synopsis, doc_id))
+        conn.commit()
+        conn.close()
+        self.json_response({"ok": True, "synopsis": synopsis, "cached": False})
+
     def handle_config(self):
         """GET /api/config - Return current configuration."""
         cfg_paths = [
@@ -599,7 +685,7 @@ def main():
 
     server_address = ('localhost', port)
     try:
-        httpd = HTTPServer(server_address, DocSearchHandler)
+        httpd = ThreadingHTTPServer(server_address, DocSearchHandler)
     except OSError as e:
         if e.errno == 98:  # Address already in use
             print(f"ERROR: Port {port} is already in use.")
