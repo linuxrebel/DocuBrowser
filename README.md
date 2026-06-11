@@ -452,15 +452,25 @@ Large document collections may trigger:
 ```
 OSError: [Errno 28] inotify watch limit reached
 ```
-This is a Linux kernel limit, not a disk space issue.
+This is a Linux kernel limit, not a disk space issue. It's safe to ignore these
+warnings — but if you'd rather not see them, raise the limit for the duration
+of the scan:
 
-```bash
-# Increase limit
-sudo sh -c "echo fs.inotify.max_user_instances=0 >> /etc/sysctl.conf" && sudo sysctl -p
+1. Edit `/etc/sysctl.conf` and find the line:
+   ```
+   fs.inotify.max_user_instances=128
+   ```
+2. Raise it to `256` or `512`:
+   ```
+   fs.inotify.max_user_instances=256
+   ```
+3. Apply the change without rebooting:
+   ```bash
+   sudo sysctl -p
+   ```
 
-# Restore after scanning
-sudo sh -c "echo fs.inotify.max_user_instances=128 >> /etc/sysctl.conf" && sudo sysctl -p
-```
+Once ingestion is finished, you can set the value back to `128` (edit the
+file again and re-run `sudo sysctl -p`) — or just leave it raised.
 
 ### PDF hangs during scan
 
