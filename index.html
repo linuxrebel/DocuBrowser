@@ -955,9 +955,12 @@ async function loadDir(field, path) {
       html += `<div class="dir-entry" onclick="loadDir('${field}','${esc(e.path)}')"><span class="icon">${icon}</span> ${label}</div>`;
     }
     browser.innerHTML = html;
+    browser.scrollTop = 0;
+    browser.scrollIntoView({ block: 'nearest' });
   } catch (e) {
     console.error('Dir browse error:', e);
     browser.innerHTML = `<div class="dir-entry" style="color:var(--accent3)">⚠ Error loading directory: ${e.message}</div>`;
+    browser.scrollIntoView({ block: 'nearest' });
   }
 }
 
