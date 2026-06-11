@@ -80,6 +80,24 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 
 ## Session History
 
+### 2026-06-10 — Settings page refactor, dir-browser fix
+- Fixed dir-browser sizing/reachability bug: `.dir-browser { max-height: min(320px, 35vh) }` in
+  index.html, verified at 1280x720 and 1440x900 (commit 3861602).
+- Confirmed accidental ignoreDirs addition (`/mnt/data/Documents/Visual Studio 2022`) was intentional
+  per James.
+- Moved Settings UI from a modal (`#settingsModal`) to a standalone page: new `settings.html`,
+  new `GET /settings` route in `doc_search.py`, gear icon now opens it via `window.open('/settings',
+  '_blank')`. Removed modal markup/JS/CSS from index.html (kept `.modal`/`.btn-secondary` for the
+  synopsis/delete modals). Verified via Playwright (zero console errors on `/` and `/settings`,
+  dir-browser functional), QA PASS, committed c62231b.
+- Cleaned up an accidental commit of Playwright test artifacts and screenshots; added
+  `.playwright-mcp/` and `*.png` to `.gitignore` (commit 65b2d1a).
+- Updated README.md settings screenshot caption/note (screenshot itself still stale — needs
+  regeneration against `/settings`).
+- **Pending**: James flagged "a bunch of UI tweaks needed" for the new settings page —
+  specifics not yet gathered, to be addressed next session.
+- See `status_docs/DECISIONS.md` for full details on all of the above.
+
 ### 2026-06-09 (continued) — PDF hardening, scan-file, packaging
 - Investigated Security_of_Cloud-based_systems.pdf hang: confirmed pdfminer hangs on 22,421-object xref traversal at `open()` time. pypdf opens in 0.05s (lazy load).
 - Implemented pypdf pre-check in `pdf_extractor.py`: trailer `/Size` >8,000 → skip pdfplumber, use pypdf.

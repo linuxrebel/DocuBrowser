@@ -144,6 +144,65 @@ margin for the larger model), README.md, and INSTALL.md accordingly.
 
 ---
 
+## Settings: modal → standalone page (2026-06-10)
+**Decision**: Settings UI moved from `#settingsModal` (`.modal-overlay`/`.modal` in index.html) to a
+standalone page `settings.html`, served at new route `GET /settings` in `doc_search.py`. Gear icon
+(`#gearBtn`) now does `onclick="window.open('/settings', '_blank')"` instead of opening a modal.
+**Why**: As Ignored Directories + dir-browser were added, the modal's nested-scroll layout became
+unmanageable (Save/Cancel buttons could be pushed off-screen depending on viewport and dir-browser
+state). A full page gives both panels (General config, Ignored Directories) the full viewport with
+no nested scrolling.
+**What changed**:
+- New `settings.html` — self-contained page (own theme toggle/localStorage, own CSS incl.
+  `.dir-browser { max-height:45vh }`, `.list-box { max-height:240px }`), "← Back to search" link to `/`.
+  Settings JS (loadConfig/saveConfig/dir-browser/ignore-dirs functions) ported in, with `saveConfig()`
+  now re-loading config in place instead of closing a modal.
+- `doc_search.py`: added `elif path == '/settings': self.serve_file('settings.html')` in `do_GET`,
+  right after the `/` route.
+- `index.html`: removed `#settingsModal` markup block, removed all settings-related JS functions
+  (openSettings, closeSettings, saveConfig, dir-browser/ignore-dir helpers, ~170 lines), removed
+  now-dead CSS (`.field-row`, `.browse-btn`, `.btn-primary`, `.config-status`, `.save-msg`,
+  `.dir-browser*`, `.list-box*`, `.add-btn*`, `.remove-btn*`). Kept `.modal`/`.modal-actions`/
+  `.btn-secondary` (still used by synopsis and delete modals).
+- `.dir-browser { max-height: min(320px, 35vh) }` fix (from the prior dir-browser sizing bug) carried
+  forward into settings.html's own (larger, 45vh) version since it's now a full page.
+**Verified**: Playwright at default viewport — `/` and `/settings` both load with zero console errors;
+dir-browser opens correctly (405px height, 59 entries) on the settings page; both panels render without
+nested scroll. QA: PASS.
+**Commits**: c62231b (refactor), 65b2d1a (cleanup — see below).
+**Follow-up (pending, not yet specified)**: James said "a bunch of UI tweaks needed but the functionality
+is spot on" for the new settings page — specifics to be gathered in a future session.
+**Stale doc**: README.md screenshot `screenshots/screenshot-settings-modal.png` shows the old modal and
+needs to be regenerated against `/settings` (and likely renamed).
+
+### Cleanup: accidental test-artifact commit (2026-06-10)
+**What happened**: First commit of the settings-page refactor (c62231b) used `git add -A` and
+inadvertently included 12 `.playwright-mcp/*.yml` files and 4 PNG screenshots
+(settings_1280x720_scrolled.png, settings_after_nav.png, settings_browser_open.png,
+settings_page_full.png).
+**Fix**: `git rm --cached` on those paths, deleted the local files, added `.playwright-mcp/` and
+`*.png` to `.gitignore`, committed as 65b2d1a.
+**Note**: `*.png` in `.gitignore` is broad — it only affects untracked files, so existing tracked
+README screenshots remain tracked. Future screenshots intended for docs must be added with `git add -f`.
+
+### Dir-browser sizing/reachability fix (2026-06-10)
+**What happened**: `.dir-browser` in index.html was `max-height: 400px`, which combined with the
+ignore-dirs list and other modal content could push the Save/Cancel buttons below the visible modal
+area on smaller viewports.
+**Fix**: `.dir-browser { max-height: min(320px, 35vh) }`. Verified at 1280x720 (scrollHeight 1035 vs
+clientHeight 646 — fully scrollable, Save/Cancel reachable) and 1440x900 (1098 vs 808).
+**Commit**: 3861602.
+**Note**: superseded in practice by the settings-page move above (no longer a modal), but the fix is
+still present in index.html's CSS (now mostly dead) and was ported into settings.html as a larger
+(45vh) variant for the full-page layout.
+
+### ignoreDirs config: live mutation confirmed intentional (2026-06-10)
+**What happened**: During testing, `/mnt/data/Documents/Visual Studio 2022` was accidentally added to
+the live `ignore_dirs.txt` via the UI.
+**Resolution**: Disclosed to James; he confirmed "I do want it added yes" — entry stays.
+
+---
+
 ## Other Known Deferred Decisions
 
 ### Book metadata — author, subject, ISBN search

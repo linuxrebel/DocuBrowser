@@ -74,7 +74,9 @@ Click any thumbnail to view full size.
 
 | Settings | AI Synopsis |
 |---|---|
-| [![Settings modal](screenshots/screenshot-settings-modal.png)](screenshots/screenshot-settings-modal.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
+| [![Settings page](screenshots/screenshot-settings-modal.png)](screenshots/screenshot-settings-modal.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
+
+> Note: Settings is now a standalone page at `/settings` (opened in a new tab via the gear icon), not a modal. The screenshot above is stale and should be regenerated — see DECISIONS.md.
 
 ---
 
