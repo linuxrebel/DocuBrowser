@@ -397,7 +397,7 @@ function loadTags() {
         tagsList = Object.entries(d).map(([tag, count]) => ({tag, count}));
       }
       tagCloud.innerHTML = tagsList.filter(t => t.count >= 3)
-        .map(t => `<span class="tag" onclick="searchTag('${esc(t.tag)}')">${esc(t.tag)} <small style="opacity:0.5">${t.count}</small></span>`).join('');
+        .map(t => `<span class="tag" data-tag="${esc(t.tag)}">${esc(t.tag)} <small style="opacity:0.5">${t.count}</small></span>`).join('');
     })
     .catch(e => {
       console.error('Tags fetch error:', e);
@@ -409,6 +409,11 @@ loadStats();
 loadTags();
 
 function searchTag(tag) { input.value = tag; doSearch(); }
+// Delegated click for tag-cloud chips (data-tag instead of inline onclick).
+tagCloud.addEventListener('click', e => {
+  const el = e.target.closest('.tag');
+  if (el && el.dataset.tag != null) searchTag(el.dataset.tag);
+});
 input.addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(doSearch, 250); });
 
 async function doSearch() {
@@ -611,17 +616,18 @@ function renderDocs(docs, showScore, append = false) {
     // Description: first 2 lines
     const desc = d.description || d.content_snippet || '';
 
+    const titleText = d.title || d.name || 'Untitled';
     return `<div class="doc-card">
       <div class="doc-title">
-        <span onclick="showSynopsis('${esc(d.path)}', '${esc(d.title || d.name || 'Untitled')}')" class="doc-title-copy" title="View synopsis">${esc(d.title || d.name || 'Untitled')}</span>
+        <span class="doc-title-copy" data-path="${esc(d.path)}" data-title="${esc(titleText)}" title="View synopsis">${esc(titleText)}</span>
         ${badge}
         ${extBadge}
-        <span onclick="copyToClipboard('${esc(d.path)}')" title="Copy path to clipboard" style="font-size:0.7rem;opacity:0.5;cursor:pointer;margin-left:0.2rem;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</span>
-        <span class="doc-delete-btn" onclick="deleteDoc('${esc(d.path)}', this)" title="Delete from disk and index">🗑</span>
+        <span class="doc-copy-btn" data-path="${esc(d.path)}" title="Copy path to clipboard" style="font-size:0.7rem;opacity:0.5;cursor:pointer;margin-left:0.2rem;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</span>
+        <span class="doc-delete-btn" data-path="${esc(d.path)}" title="Delete from disk and index">🗑</span>
       </div>
-      <div class="doc-path" onclick="openFile('${esc(d.path)}', this)" title="${esc(d.path)}">${esc(d.path)}</div>
+      <div class="doc-path" data-path="${esc(d.path)}" title="${esc(d.path)}">${esc(d.path)}</div>
       ${desc ? `<div class="doc-desc">${esc(desc)}</div>` : ''}
-      ${tags.length ? `<div class="doc-tags">${tags.map(t=>`<span class="tag" onclick="searchTag('${esc(t)}')">${esc(t)}</span>`).join('')}</div>` : ''}
+      ${tags.length ? `<div class="doc-tags">${tags.map(t=>`<span class="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}</div>` : ''}
       <div class="doc-meta">
         <div class="doc-meta-left"></div>
         <div class="doc-meta-right">${dateStr}</div>
@@ -730,6 +736,26 @@ async function loadMorePrev() {
 }
 
 function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : ''; }
+
+// Delegated click handling for dynamically-rendered doc cards. Card actions
+// carry their data in data-* attributes and are dispatched here, instead of
+// inline onclick handlers built from document data — the latter is an XSS
+// vector because HTML-entity escaping (esc) is the wrong escaping for a
+// JS-string attribute context (the parser decodes &#39; back to ' before the
+// handler runs). dataset values are the real, decoded strings, so there is no
+// string-injection surface.
+grid.addEventListener('click', (e) => {
+  const titleEl = e.target.closest('.doc-title-copy');
+  if (titleEl) return showSynopsis(titleEl.dataset.path, titleEl.dataset.title);
+  const copyEl = e.target.closest('.doc-copy-btn');
+  if (copyEl) return copyToClipboard(copyEl.dataset.path);
+  const delEl = e.target.closest('.doc-delete-btn');
+  if (delEl) return deleteDoc(delEl.dataset.path, delEl);
+  const tagEl = e.target.closest('.doc-tags .tag');
+  if (tagEl) return searchTag(tagEl.dataset.tag);
+  const pathEl = e.target.closest('.doc-path');
+  if (pathEl) return openFile(pathEl.dataset.path, pathEl);
+});
 
 // fetch() throws a generic TypeError ("Failed to fetch" / "NetworkError when
 // attempting to fetch resource") when it can't reach the server at all —
