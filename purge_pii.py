@@ -22,7 +22,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from docubrowse_db import get_db
+from docubrowse_db import get_db, delete_document
 
 
 PII_BLACKLIST_FILENAME = "pii_blacklist.txt"
@@ -241,12 +241,10 @@ def run_purge(db_path: str, dry_run: bool = False) -> int:
     for doc_id, path, name, matches in hits:
         pattern_names = ", ".join(m[0] for m in matches)
         try:
-            # Cascade deletes doc_tags and doc_embeddings via FK ON DELETE CASCADE.
-            # doc_fts is a contentless FTS5 virtual table — SQLite does not support
-            # direct DELETE on contentless FTS5.  The search handler does not query
-            # doc_fts directly (it does Python-side keyword matching), so orphaned
-            # FTS entries for deleted documents are harmless.
-            conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+            # Shared helper: CASCADEs to tags/embeddings, leaves the harmless
+            # contentless-FTS orphan. commit=False keeps the whole purge
+            # all-or-nothing (committed once below, rolled back on any error).
+            delete_document(conn, doc_id, commit=False)
             to_blacklist.append((path, pattern_names, name))
         except Exception as exc:
             errors += 1

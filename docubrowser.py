@@ -1101,7 +1101,7 @@ def cmd_dupclean(config: dict, args):
                 continue
 
             # Delete from disk and DB (commit per-doc to avoid disk/DB split)
-            from docubrowse_db import get_db as _get_db
+            from docubrowse_db import get_db as _get_db, delete_document
             conn = _get_db(db_path)
             try:
                 for doc in targets:
@@ -1116,16 +1116,10 @@ def cmd_dupclean(config: dict, args):
 
                     try:
                         # Deleting the documents row CASCADEs to doc_tags and
-                        # doc_embeddings. doc_fts is contentless FTS5 (no cascade);
-                        # its orphaned row is harmless because keyword search JOINs
-                        # against documents. Do NOT DELETE from doc_fts here — on a
-                        # contentless table without contentless_delete it raises,
-                        # and the except's rollback would undo the documents delete,
-                        # leaving the file gone from disk but alive in the DB.
-                        # (Matches doc_search.handle_delete.)
-                        conn.execute('PRAGMA foreign_keys=ON')
-                        conn.execute('DELETE FROM documents WHERE id = ?', (doc['id'],))
-                        conn.commit()   # commit per-doc: keeps disk and DB in sync
+                        # Shared helper: CASCADEs to tags/embeddings and leaves
+                        # the harmless contentless-FTS orphan. Per-doc commit
+                        # keeps disk and DB in sync as each file is removed.
+                        delete_document(conn, doc['id'])
                         deleted_total += 1
                         print(f"  ✓ Deleted: {path}")
                     except Exception as e:
@@ -1167,7 +1161,7 @@ def cmd_scan_missing(config: dict, args):
     (new/changed files); it never checks whether existing DB rows still
     have a file behind them.
     """
-    from docubrowse_db import get_db, check_missing_path
+    from docubrowse_db import get_db, check_missing_path, delete_documents
 
     db_path = args.db or config['db_path']
     if not Path(db_path).exists():
@@ -1197,9 +1191,7 @@ def cmd_scan_missing(config: dict, args):
         for _, path in deleted:
             print(f"  - {path}")
     else:
-        for doc_id, _ in deleted:
-            conn.execute('DELETE FROM documents WHERE id = ?', (doc_id,))
-        conn.commit()
+        delete_documents(conn, [doc_id for doc_id, _ in deleted])
 
     conn.close()
 
