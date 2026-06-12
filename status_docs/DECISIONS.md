@@ -703,7 +703,18 @@ writes. Verified: init_db runs once across 5 same-path get_db calls; a real
   negatives (invoice 4-4-4-4 groups, invalid-area SSNs). Known precision-
   favoring edge case: a PAN immediately glued to a digit-bearing token by a
   single space is declined (IIN reject), not mis-flagged.
-- **SEC-L3 — frontend nits.** loadMorePrev hardcodes 50 vs pageSize; the
-  isLoadingMore guard isn't applied in doSearch/renderAll (fast typing can
-  render stale results); mixed alert/toast/modal error UX; json_response always
-  returns HTTP 200 even on logical failure. Batch UI polish for a later pass.
+- ~~**SEC-L3 — frontend nits.**~~ **PARTLY DONE (2026-06-12, commit pending).**
+  Fixed the two real bugs: loadMorePrev's Back guard now uses `<= pageSize`
+  (was hardcoded `<= 50`, breaking Back at page sizes 25/100), and a
+  request-generation token (`renderSeq`) makes doSearch/renderAll/loadMoreTop/
+  loadMorePrev/filterByLetter render only if still the latest request, so a
+  fast-typed new search can't be overwritten by a slower in-flight page load.
+  The two loadMore error paths switched from blocking alert() to a toast
+  (keeps current results visible). Verified via Playwright: Back/Next correct
+  at page sizes 25 & 100; a newer 'database' search cleanly superseded an
+  in-flight 'kubernetes' page load (final grid 100% database, no stale render),
+  0 console errors.
+  **Intentionally kept:** json_response returns HTTP 200 with `{ok:false,error}`
+  on logical failure — a deliberate "request handled, payload reports outcome"
+  design the whole frontend relies on (`if(!res.ok) throw` then inspect
+  data.ok); changing to 4xx would rewrite every error path for no real gain.

@@ -305,6 +305,11 @@ const tagToggle = document.getElementById('tagToggle');
 let debounceTimer = null, searchMode = 'both', allDocs = [];
 let currentOffset = 0, currentTotal = 0, currentHasMore = false, currentQuery = '', currentLetter = '';
 let isLoadingMore = false;
+// Monotonic token: every function that fetches a page and writes the grid
+// captures the current value at entry and bumps it. After its await it renders
+// only if it's still the latest request, so a fast-typed new search can't be
+// overwritten by a slower in-flight page load (last-writer-wins stale results).
+let renderSeq = 0;
 let pageSize = parseInt(localStorage.getItem('db-page-size') || '50');
 
 function pageSizeHtml() {
@@ -421,6 +426,7 @@ async function doSearch() {
   if (!q) { meta.innerHTML = ''; return renderAll(); }
 
   // Reset pagination for new search
+  const seq = ++renderSeq;
   currentOffset = 0;
   currentQuery = q;
   currentLetter = '';
@@ -430,6 +436,7 @@ async function doSearch() {
     const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&offset=0&limit=${pageSize}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    if (seq !== renderSeq) return;   // superseded by a newer search/render
     const ms = Math.round(performance.now() - t0);
     let docs = data.results || data.documents || data.docs || [];
 
@@ -464,6 +471,7 @@ async function renderAll() {
   try {
     console.log('renderAll() starting');
     // Reset for fresh "all documents" view
+    const seq = ++renderSeq;
     allDocs = [];
     currentOffset = 0;
     currentQuery = '';
@@ -472,6 +480,7 @@ async function renderAll() {
     const res = await fetch(`/api/search?q=&offset=0&limit=${pageSize}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    if (seq !== renderSeq) return;   // superseded by a newer search/render
     console.log('API response:', data);
     allDocs = data.results || data.documents || data.docs || [];
     console.log('allDocs loaded:', allDocs.length, 'documents');
@@ -560,11 +569,13 @@ async function filterByLetter(letter) {
   currentQuery = '';
   currentOffset = 0;
   isLoadingMore = true;
+  const seq = ++renderSeq;
 
   try {
     const res = await fetch(`/api/search?letter=${encodeURIComponent(letter)}&offset=0&limit=${pageSize}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    if (seq !== renderSeq) { isLoadingMore = false; return; }
     const docs = data.results || data.documents || data.docs || [];
 
     allDocs = docs;
@@ -645,6 +656,7 @@ function renderDocs(docs, showScore, append = false) {
 async function loadMoreTop() {
   if (isLoadingMore || !currentHasMore) return;
   isLoadingMore = true;
+  const seq = ++renderSeq;
 
   try {
     const q = currentQuery ? encodeURIComponent(currentQuery) : '';
@@ -655,6 +667,7 @@ async function loadMoreTop() {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    if (seq !== renderSeq) { isLoadingMore = false; return; }
     let docs = data.results || data.documents || data.docs || [];
 
     // Apply search mode filtering
@@ -683,14 +696,15 @@ async function loadMoreTop() {
     window.scrollTo(0, 0);
   } catch (e) {
     console.error('Load more error:', e);
-    alert('Error loading more documents: ' + friendlyError(e));
+    showToast('⚠ Error loading more documents: ' + friendlyError(e), 4000);
   }
   isLoadingMore = false;
 }
 
 async function loadMorePrev() {
-  if (isLoadingMore || currentOffset <= 50) return;
+  if (isLoadingMore || currentOffset <= pageSize) return;
   isLoadingMore = true;
+  const seq = ++renderSeq;
 
   try {
     const newOffset = Math.max(0, currentOffset - pageSize * 2);
@@ -702,6 +716,7 @@ async function loadMorePrev() {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    if (seq !== renderSeq) { isLoadingMore = false; return; }
     let docs = data.results || data.documents || data.docs || [];
 
     // Apply search mode filtering
@@ -730,7 +745,7 @@ async function loadMorePrev() {
     window.scrollTo(0, 0);
   } catch (e) {
     console.error('Load prev error:', e);
-    alert('Error loading previous documents: ' + friendlyError(e));
+    showToast('⚠ Error loading previous documents: ' + friendlyError(e), 4000);
   }
   isLoadingMore = false;
 }
