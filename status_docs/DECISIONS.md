@@ -539,3 +539,79 @@ delete files; DNS rebinding makes it remote.
 6. Constrain /api/browse (SEC-H2).
 7. ON CONFLICT upsert (CQ-H2), then real FTS MATCH + cached embedding matrix (CQ-H1).
 8. addEventListener/dataset instead of inline onclick (SEC-M1).
+
+---
+
+## Audit Remediation — Session 2026-06-12 (8 of the above fixed)
+
+Worked the recommended fix order. Each item below is implemented, tested
+(curl contract tests + isolated throwaway-DB tests + Playwright UI runs, with
+a verification subagent for the DB- and UI-level checks), and committed. The
+server was restarted after each batch and remains running on :8643.
+
+**SEC-H1 — Host header allow-list** (`doc_search.py`, commit 9bfe578).
+`_host_allowed()` rejects any request whose Host is not localhost / 127.0.0.1
+/ [::1] (optional :port must match server_port); called at the top of
+do_GET/do_POST. Kills DNS rebinding. Verified: loopback 200, evil.com 403,
+wrong-port 403.
+
+**SEC-C2 — Remove ACAO:\*** (`doc_search.py`, commit 9bfe578). Dropped
+`Access-Control-Allow-Origin: *` from json_response. No website can read the
+index cross-origin. Verified header absent.
+
+**CQ-C1 — embed_text response key** (`doc_search.py`, commit 9bfe578).
+Now reads `data.get('embedding') or (data.get('embeddings') or [None])[0]`,
+logs failures to stderr, and runs a startup embed self-test. Server-side
+semantic search works again. Verified: a semantic query that returned 0
+results now returns real cosine scores (0.84, 0.77, ...).
+
+**CQ-C2 — dupclean disk/DB corruption** (`docubrowser.py`, commit 9bfe578).
+Removed the `DELETE FROM doc_fts` (raises on the contentless table → rollback
+left files deleted on disk but alive in the DB). Now matches handle_delete:
+`PRAGMA foreign_keys=ON` + `DELETE FROM documents` (FK cascade cleans
+tags/embeddings; FTS orphan harmless). Verified on a throwaway DB: fixed path
+deletes file + row + cascades cleanly; old path reproduced the split.
+
+**SEC-C1 — CSRF / mutations to POST + token** (`doc_search.py`, `index.html`,
+`settings.html`, commit 84a68d5). Per-process token (`secrets.token_urlsafe`)
+injected as `<meta name=csrf-token>` into served HTML; `_guard_mutation()`
+requires a matching `X-CSRF-Token` header (constant-time compare) and rejects
+non-loopback Origin/Referer. `/api/delete` and `/api/open` moved GET→POST
+(GET routes removed); all POST routes guarded. Frontend reads the token into
+`CSRF` and sends it (index.html `apiPost()`; settings.html on browse +
+config/ignore-dirs/scan-dirs POSTs). Verified: 10/10 contract tests (403
+without token, 200 with, old GET 404, evil Origin 403, reads still open) +
+Playwright (token read, no console errors, no data touched).
+
+**SEC-H2 — Constrain /api/browse** (`doc_search.py`, commit 84a68d5). The
+unauthenticated whole-filesystem lister now runs `_guard_mutation()` — only
+the first-party UI (which has the token) can enumerate directories. Verified
+403 without token / 200 with.
+
+**CQ-H2 — ON CONFLICT upsert** (`scan_docs.py`, commit 1811125). Replaced
+`INSERT OR REPLACE INTO documents` (delete+insert → new id, CASCADE-wiped
+tags/embeddings, lost synopsis/created_at, orphaned FTS rowid) with
+`INSERT ... ON CONFLICT(path) DO UPDATE SET ...`. doc_id looked up by path
+(lastrowid unreliable on the update path); stale doc_tags cleared before
+regenerated tags re-inserted. Verified on a throwaway DB with the real
+_write_result: across re-index id/created_at/synopsis/embeddings preserved,
+content updates apply, tags replaced (no dupes); old path reproduced the loss.
+
+**CQ-H1 — FTS5 BM25 + cached embedding matrix** (`doc_search.py`, commit
+2369057). Non-empty queries no longer load the whole corpus + every blob.
+Keyword = FTS5 MATCH + `bm25()` with per-column weights echoing the old field
+boosts, tokens quoted+prefixed so arbitrary input can't break MATCH.
+Semantic = in-process L2-normalized numpy matrix scored with one matrix-vector
+product (cache invalidates on embeddings count / max(updated_at)). Scores
+merged over id-maps; metadata fetched for the page only. Orphan doc_fts
+rowids pruned against a cached live-doc-id set so they can't inflate totals.
+Empty-query/letter path unchanged. Verified: keyword ~4ms, both ~55ms;
+total ≤ 7,957 (was 7,993); full page-walk == total, no short pages, distinct
+pages; Playwright: modes produce distinct relevant sets, toggles+pagination
+work, 0 console errors. James chose the full BM25 rewrite over a perf-only
+change.
+
+**Still open from the audit (not yet done):** SEC-M1 (inline onclick →
+addEventListener), CQ-H3 (BrokenProcessPool mis-blacklist), CQ-H4+CQ-M1
+(commit cadence + init_db once per startup), and the Medium/Low sweep
+(CQ-M2..M7, SEC-M2, CQ-L1..L9, SEC-L1..L3).
