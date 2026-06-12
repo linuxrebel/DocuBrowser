@@ -313,3 +313,229 @@ Are these duplicates of each other? Web archive variants?
 | Ignored Directories UX overhaul | Ignored Directories panel: add row now reads "Browse…"/"Add"/"Clear" buttons; browsing live-syncs the displayed path into the `/path/to/exclude` input (no separate "select this" step). Added description text under "Currently excluded directories" explaining the ✕ removes the dir and a rescan brings docs back. Removing a dir now requires an OK/Cancel confirm before proceeding. | 2026-06-11 |
 | Additional Scan Directories — consolidated into General panel | Initially added as its own "Additional Scan Directories" panel; James felt this split one goal (managing which directories get scanned) across two places and was confusing alongside the old docPath/workDir "browse"+"select this" UI. Moved the add/browse/list UI for extra scan directories directly under docPath in the General panel (stored in `scan_dirs.txt` via `_load_scan_dirs()`/`SCAN_DIRS_FILENAME` in scan_docs.py, `/api/scan-dirs` GET/POST in doc_search.py — backend unchanged). Also updated docPath's and workDir's "browse" buttons to the same live-sync style (no "select this" button), matching Ignored Directories/scan-dir UX. Adding a scan directory shows a reminder alert with the exact CLI command: `cd "<workDir>" && python3 docubrowser.py scan --doc-dir "<path>" --limit 100` — re-running resumes with the next 100 unindexed files. Removing an entry requires confirm. Verified via Playwright: 0 console errors, docPath/workDir browse live-sync with no "select this", scan-dir add/remove flow works under General. | 2026-06-11 |
 | Documentation sync pass (README/INSTALL/User Guide) for item #8 | README.md and INSTALL.md updated to cover `scan-missing`, the `/api/open` 3-way missing/unmounted response, `scan_dirs.txt`, and the moved/missing-doc UI behavior (CLI tables, examples, API docs, file structure, Known Limitations, Recent Changes). `info_docs/DocuBrowse_User_Guide.docx` fully rewritten from v0.5.0 to the current v0.7.2.1 feature set (formats, settings UI, dup tools, scan-missing, ignore/scan dirs, AI synopsis, moved/missing doc handling) via docx-js. James opted to keep the version at v0.7.2.1 for this doc-only pass (no version bump/tag). Logo design exploration (open book+lens, folder+lens, abstract D/scan-beam, db monogram concepts) was reviewed and rejected by James as "too flat" — logo work remains in the "Logo icon (deferred)" row above, now annotated with this feedback for the next attempt. | 2026-06-11 |
+
+
+---
+
+## Code Quality & Security Assessment (2026-06-12)
+
+Two parallel review agents audited the full codebase: (A) backend Python code quality
+(all 14 source files read in full), (B) security + frontend robustness (doc_search.py,
+index.html, settings.html, purge_pii.py, docubrowse_db.py, config/list files).
+Findings recorded here so nothing is lost. **No fixes applied yet** — this is the
+findings log; each item should get its own decision/fix entry as it is addressed.
+
+### CRITICAL
+
+**CQ-C1. Server-side semantic search silently broken — wrong Ollama response key**
+`doc_search.py` `embed_text()` (~lines 62-83): POSTs to `/api/embed` with `"input"` but
+reads `data.get('embedding')`. That endpoint returns `"embeddings"` (list of lists);
+`embed_text()` therefore always returns None. Effect: `mode=semantic` returns zero
+results (0.30 threshold filters everything); `mode=both` silently degrades to
+keyword-only at 0.3 weight. `embed_docs.py:88` already handles both shapes —
+`data.get("embedding") or (data.get("embeddings") or [None])[0]` — proving the bug.
+Fix: same dual-key extraction in embed_text; add a startup self-test that embeds a
+known string and logs loudly instead of `except Exception: return None`.
+
+**CQ-C2. `dupclean` corrupts disk/DB consistency on its main path**
+`docubrowser.py` `cmd_dupclean` (~line 1080): after `Path(path).unlink()` it runs
+`DELETE FROM documents` then `DELETE FROM doc_fts WHERE rowid=?`. doc_fts is contentless
+(`content=''`, no `contentless_delete=1`) so the FTS delete raises; the except handler
+does `conn.rollback()`, which also rolls back the documents delete. Net: file gone from
+disk, DB row + tags + embedding survive. Fix: drop the doc_fts DELETE (match
+handle_delete's behavior), or recreate the table with contentless_delete=1 (SQLite
+>= 3.43) and clean orphans consistently everywhere.
+
+**SEC-C1. CSRF: arbitrary file deletion from any website**
+`/api/delete` is a GET with no CSRF token, no Origin/Referer validation, and
+`Access-Control-Allow-Origin: *`. Any web page the user visits can fire
+`<img src="http://localhost:8643/api/delete?path=...">` — no interaction needed. The
+"path must be in DB" check is not a defense: the attacker page can read
+`/api/search?q=` cross-origin (thanks to ACAO:*) to enumerate every indexed path first.
+Same GET-CSRF vector applies to `/api/open` (spontaneous app launches — exploit-delivery
+step) and `/api/config` POST (no Origin check; a text/plain JSON body is a CORS-simple
+request that bypasses preflight → port hijack or doc_dir pointed at `/`).
+Fix: make all mutating endpoints POST; validate Origin/Referer against
+localhost:<port>; add a CSRF token minted into index.html/settings.html.
+
+**SEC-C2. `Access-Control-Allow-Origin: *` on all JSON responses**
+`doc_search.py` `json_response`: grants any website JS read access to /api/search,
+/api/stats, /api/config — full document index (paths, titles, authors, snippets)
+exfiltratable by any page the user visits. Converts CSRF from blind-write to
+full-read + targeted-write. Fix: remove the header entirely; the first-party UI is
+same-origin and needs no CORS.
+
+### HIGH
+
+**CQ-H1. Search loads the entire corpus per request; FTS5 index is never queried**
+`doc_search.py` `handle_search` (~line 300): any non-empty query SELECTs all ~7,500 rows
+LEFT JOINed with doc_tags and doc_embeddings (~20+ MB of blobs), then does pure-Python
+substring scoring and pure-Python cosine similarity. No query anywhere uses MATCH —
+doc_fts is maintained but write-only dead weight; "keyword score" is hand-rolled
+substring boosts, not BM25. Fix: keyword path via
+`SELECT rowid, bm25(doc_fts) FROM doc_fts WHERE doc_fts MATCH ?`; semantic path via an
+in-memory cached embedding matrix + numpy (as dup_detect.find_near_dups already does).
+Also fixes the per-tag row explosion from joining doc_tags before GROUP_CONCAT.
+
+**CQ-H2. `INSERT OR REPLACE INTO documents` destroys data on every re-index**
+`scan_docs.py` `_write_result` (~line 400): with foreign_keys=ON, OR REPLACE is
+delete+insert — new AUTOINCREMENT id, FK cascade silently deletes doc_tags and
+doc_embeddings, cached synopsis and created_at lost, old rowid's doc_fts entry becomes a
+permanent ghost. A touched-but-unchanged file costs a full re-embed + re-synopsis.
+Fix: `INSERT ... ON CONFLICT(path) DO UPDATE SET ...` — preserves id, children,
+synopsis, and allows targeting the correct FTS rowid.
+
+**CQ-H3. BrokenProcessPool blacklists the wrong file**
+`scan_docs.py` `_handle_result` (~line 540): when a worker dies (RLIMIT_AS/OOM-kill),
+ALL in-flight futures raise BrokenProcessPool; the handler blacklists whichever future
+it processes first — frequently not the culprit. The real offender stays unblacklisted
+and crashes the next run too, blacklisting another innocent file each time.
+Fix: on BrokenProcessPool, mark all in-flight files "suspect" without blacklisting;
+retry suspects one-at-a-time in a fresh single-worker pool to identify the offender.
+
+**CQ-H4. Scanner holds the WAL write lock up to 50 docs per transaction**
+`scan_docs.py` commits every 50 completions (embed_docs.py every 25). sqlite3 opens an
+implicit transaction at first INSERT and holds the single WAL writer slot until commit —
+minutes during large-PDF stretches. Server writes (synopsis UPDATE, /api/delete, and
+init_db()'s per-request commit) block and can fail "database is locked" after 10s.
+Fix: commit per document or on a time budget (~2s); stop running init_db per request
+(see CQ-M1).
+
+**SEC-H1. No Host header validation — DNS rebinding defeats localhost-only binding**
+Server binds localhost but never checks Host. Attacker lures user to attacker.com, then
+re-resolves it to 127.0.0.1 — browser sends requests to the local server with a foreign
+Host, which is served happily. Combined with ACAO:* this makes the tool remotely
+exploitable. Fix: reject any request whose Host is not
+localhost:<port> / 127.0.0.1:<port> / [::1]:<port>. Single cheapest mitigation.
+
+**SEC-H2. `/api/browse` is an unauthenticated whole-filesystem directory lister**
+`handle_browse`: GET + ACAO:* returns subdirectory listings for ANY path
+(`Path(p).expanduser().iterdir()`). Any website can walk /home, /etc, /mnt and
+exfiltrate the tree. Dotfiles only hidden cosmetically — `path=/home/james/.ssh` still
+lists contents. Fix: Origin/Host validation; optionally constrain to docPath/home.
+
+### MEDIUM
+
+**CQ-M1.** `docubrowse_db.py` `get_db()` → `init_db()` runs full schema executescript,
+PRAGMA table_info, up to 10 ALTER attempts, FTS probe, and a commit on EVERY HTTP
+request. Makes every read endpoint a writer (lock contention, see CQ-H4) and risks a
+server/scanner race both detecting a missing FTS column and concurrently
+DROP/CREATE/repopulating doc_fts. Fix: init once at server startup; get_db only sets
+pragmas/row_factory.
+
+**CQ-M2.** `docubrowser.py` `read_pid()`: `os.kill(pid,0)` raising PermissionError means
+the process EXISTS (other user, e.g. root/systemd) but is treated as stale — PID file
+unlinked, cmd_start proceeds to _kill_port against a live instance. Fix: on
+PermissionError return the pid; only unlink on ValueError/ProcessLookupError.
+
+**CQ-M3.** `pkill -f scan_docs.py` / `pkill -f embed_docs.py` in _stop_running_scans and
+cmd_stopall matches ANY process whose cmdline contains the string — `vim scan_docs.py`
+in another terminal gets SIGTERM'd. Fix: rely on the PGID file; if a fallback is needed,
+verify /proc/<pid>/cmdline contains the interpreter + script path.
+
+**CQ-M4.** Document-deletion logic is independently re-implemented in 5 places
+(handle_delete, dupclean, purge_pii, purge_path_prefix, scan_missing) with divergent
+FTS-cleanup and commit policies. Orphaned doc_fts rows are only "harmless" because
+search never uses FTS (CQ-H1) — the moment that's fixed, or the migration repopulator
+runs, ghosts matter. Fix: one shared delete-document-by-id helper in docubrowse_db.
+
+**CQ-M5.** Mixed timestamp formats break embed staleness checks: code writes
+`datetime.now().isoformat()` (local, 'T' separator), column DEFAULTs write
+`datetime('now')` (UTC, space). String comparison `'...T...' > '... ...'` is always
+true; rows with NULL updated_at (post-ALTER backfill) are NEVER selected for re-embed
+(`NULL < x` is NULL). Fix: standardize on UTC ISO; add
+`OR de.updated_at IS NULL` to the staleness WHERE.
+
+**CQ-M6.** `purge_pii.run_purge`: abort path returns None (callers expect int) and the
+nested `input("Proceed? [y/N]")` raises EOFError uncaught when stdin isn't a TTY
+(pipe/cron/systemd) — crash instead of safe abort. Fix: try/except
+(EOFError, KeyboardInterrupt) → abort, return 0.
+
+**CQ-M7.** `scan_docs.py` `_extract_text_file` reads entire files (`read_text`) before
+truncating to 5,000 chars — a multi-GB .txt/.json burns the worker's 6 GB RLIMIT_AS and
+gets the file mis-blacklisted as "killed by resource limit" (compounds CQ-H3).
+Fix: read only a bounded prefix (`f.read(200_000)`).
+
+**SEC-M1. Stored XSS via inline onclick attributes (wrong escaping context)**
+index.html renderDocs/loadTags/searchTag interpolate esc()'d values into inline JS
+handler strings, e.g. `onclick="showSynopsis('${esc(d.path)}', ...)"`. esc() turns ' into
+&#39;, but the HTML parser decodes that back to a real quote INSIDE the attribute before
+the JS runs — a document titled `'),fetch('/api/delete?...'),('` executes on
+render/click. HTML-entity escaping is the wrong escaping for a JS-string context.
+Bounded by needing a malicious title/path indexed into the corpus, but real.
+Fix: no inline onclick built from data — addEventListener + dataset/closures.
+
+**SEC-M2.** TOCTOU/symlink in delete/open: DB membership is an authorization check, not
+a path-safety check; no realpath validation between the DB lookup and os.remove/Popen.
+Low real risk single-user, becomes moot once SEC-C1 lands. Fix: realpath + confirm
+within docPath before destructive ops.
+
+**SEC confirmations (no findings):** serve_file is only ever called with hardcoded
+'index.html'/'settings.html' — no traversal path. SQL injection: none — every query
+parameter across all endpoints is parameterized; q is matched in Python; offset/limit
+int()-clamped (bare int() can 500 on garbage — nit only). No shell=True anywhere.
+
+### LOW
+
+- **CQ-L1.** `cmd_status`: `f"{stats.get('total_docs','?'):,}"` raises ValueError when
+  the key is missing (`,` format spec invalid for str). Default to 0.
+- **CQ-L2.** `_kill_port` fuser fallback always returns False even on success → caller
+  prints "does not appear to be running" after stopping it. Check fuser's return code.
+- **CQ-L3.** `scan-file`: `" ".join(args.file)` collapses runs of multiple spaces in a
+  filename. Document or revert to a single quoted arg.
+- **CQ-L4.** `_extract_file` folder-tag loop never breaks when the file isn't under
+  doc_dir (mismatched --doc-dir) → tags like `mnt`, `data`, `home`. Guard with
+  `is_relative_to(doc_dir)`.
+- **CQ-L5.** Extension check against a list (O(n) per file); rescan pre-count walks the
+  whole tree a second time right before scan_directory walks it again. Use a set; share
+  one traversal.
+- **CQ-L6.** pdf_extractor pypdf pre-probe opens by path and relies on GC to close the
+  handle — fd release delayed in long scans. Open via `with open(p,'rb')`.
+- **CQ-L7.** `wait_for_memory()` has no max-wait (can block forever);
+  nvidia-smi runs at argparse-build time on every CLI invocation incl. status/stop.
+  Lazy-evaluate defaults.
+- **CQ-L8.** `handle_open` never reaps Popen → gio/xdg-open zombies; magic number
+  `entries[:201]` in handle_browse.
+- **CQ-L9.** scan_docs/purge_pii build_parser hardcode personal default DB path
+  `/mnt/data/git/AI/DocuBrowse/du-docs.db`, which differs from docubrowser.py's
+  `<script dir>/du-docs.db` — direct vs CLI invocation can target different DBs.
+- **SEC-L1. PII regex false negatives:** only ~800 chars scanned (description+snippet);
+  SSN only dashed form (misses spaced + 9-contiguous); CC only 4-4-4-4 grouped (misses
+  16-contiguous and 15-digit Amex; no Luhn); DOB/passport/MRN/DL all require labeled
+  prefixes — unlabeled values missed entirely.
+- **SEC-L2. PII false positives:** any 4-4-4-4 digit group trips the CC pattern (phone
+  sequences, part numbers); MRN/SSN patterns can match invoice numbers. Luhn check
+  would largely fix CC both ways.
+- **SEC-L3. Frontend nits:** loadMorePrev guard hardcodes 50 while pagination uses
+  pageSize (Back button logic inconsistent at 25/100); isLoadingMore guard not applied
+  in doSearch/renderAll → fast typing during in-flight loadMoreTop can render stale
+  results (last-writer-wins on grid.innerHTML); mixed alert/toast/modal error UX;
+  json_response always HTTP 200 even for logical failures (frontend must inspect
+  data.ok). localStorage usage clean.
+
+### Duplication / consistency summary
+Progress bar duplicated verbatim (scan_docs, embed_docs); blob<->vector pack/unpack
+triplicated (doc_search, embed_docs/docubrowse_db, dup_detect); config parsing
+duplicated (docubrowser.load_config vs doc_search.handle_config); ignore/scan-dirs file
+writes duplicated (CLI vs server); deletion logic in 5 copies (CQ-M4). handle_search is
+~200 lines doing parsing + two query strategies + scoring + pagination — split after
+CQ-H1.
+
+### Overall assessment
+Well-commented, genuinely defensive ops engineering (PGID kill groups, RLIMIT
+backstops, WAL + busy timeouts). But both flagship features have silent failures —
+server semantic search never works (CQ-C1) and dupclean corrupts consistency on its
+main path (CQ-C2) — masked by broad `except Exception` swallowing. Security exposure is
+architectural, not injection-based: unauthenticated GET mutations + ACAO:* + no Host
+validation mean any visited webpage can enumerate the index, browse the filesystem, and
+delete files; DNS rebinding makes it remote.
+
+**Recommended fix order (cheapest high-impact first):**
+1. Host header allow-list (SEC-H1) — one localized check, kills rebinding.
+2. Remove `Access-Control-Allow-Origin: *` (SEC-C2).
+3. Fix embed_text response key (CQ-C1).
+4. Drop the doc_fts DELETE in dupclean (CQ-C2).
+5. Origin/CSRF validation + move mutations to POST (SEC-C1).
+6. Constrain /api/browse (SEC-H2).
+7. ON CONFLICT upsert (CQ-H2), then real FTS MATCH + cached embedding matrix (CQ-H1).
+8. addEventListener/dataset instead of inline onclick (SEC-M1).
