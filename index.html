@@ -784,8 +784,16 @@ function closeSynopsis() {
   document.getElementById('synopsisModal').classList.remove('open');
 }
 
+// CSRF token injected into the page <head> by the server. Mutating
+// endpoints (/api/open, /api/delete) are POST-only and require this header;
+// a cross-origin page cannot read the token, so it cannot forge the request.
+const CSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+function apiPost(url) {
+  return fetch(url, { method: 'POST', headers: { 'X-CSRF-Token': CSRF } });
+}
+
 function openFile(path, el) {
-  fetch('/api/open?path=' + encodeURIComponent(path))
+  apiPost('/api/open?path=' + encodeURIComponent(path))
     .then(r => r.json())
     .then(d => {
       if (d.ok) {
@@ -814,7 +822,7 @@ function showMissingDocModal(path, card) {
   const dismiss = async () => {
     overlay.remove();
     try {
-      const res = await fetch('/api/delete?path=' + encodeURIComponent(path));
+      const res = await apiPost('/api/delete?path=' + encodeURIComponent(path));
       const data = await res.json();
       if (data.ok) {
         if (card) {
@@ -908,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const card = _delCard;
     _closeDelModal();
     try {
-      const res = await fetch('/api/delete?path=' + encodeURIComponent(path));
+      const res = await apiPost('/api/delete?path=' + encodeURIComponent(path));
       const data = await res.json();
       if (data.ok) {
         if (card) {

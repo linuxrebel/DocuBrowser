@@ -290,6 +290,11 @@ themeBtn.addEventListener('click', () => {
 
 applyTheme(localStorage.getItem('db-theme') || 'dark');
 
+// CSRF token injected into the page <head> by the server. /api/browse and
+// every mutating POST require this header; a cross-origin page cannot read
+// the token, so it cannot forge these requests.
+const CSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
 // ── Settings ──────────────────────────────────────────────────
 async function loadConfig() {
   loadIgnoreDirs();
@@ -324,7 +329,7 @@ async function saveConfig() {
   if (!docPath || !workDir) { alert('Both fields are required'); return false; }
   try {
     const res = await fetch('/api/config', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
       body: JSON.stringify({docPath, workDir, port})
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -374,7 +379,7 @@ async function openBrowser(field) {
 async function loadDir(field, path) {
   const browser = document.getElementById('browser-' + field);
   try {
-    const res = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
+    const res = await fetch(`/api/browse?path=${encodeURIComponent(path)}`, { headers: {'X-CSRF-Token': CSRF} });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     let html;
@@ -456,7 +461,7 @@ async function addIgnoreDir() {
   if (!proceed) return;
   try {
     const res = await fetch('/api/ignore-dirs', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
       body: JSON.stringify({action: 'add', path})
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -477,7 +482,7 @@ async function removeIgnoreDir(path) {
   if (!proceed) return;
   try {
     const res = await fetch('/api/ignore-dirs', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
       body: JSON.stringify({action: 'remove', path})
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -535,7 +540,7 @@ async function addScanDir() {
   if (!path) return;
   try {
     const res = await fetch('/api/scan-dirs', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
       body: JSON.stringify({action: 'add', path})
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -563,7 +568,7 @@ async function removeScanDir(path) {
   if (!proceed) return;
   try {
     const res = await fetch('/api/scan-dirs', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
       body: JSON.stringify({action: 'remove', path})
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -8,6 +8,7 @@ HTTP server on port 8643 with merged keyword + semantic search.
 
 import json
 import os
+import secrets
 import shutil
 import math
 import socket
@@ -146,6 +147,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
     db_path     = None          # Will be set by server
     server_port = DEFAULT_PORT  # Will be set by server
+    csrf_token  = None          # Per-process secret, set by server at startup
 
     def log_message(self, format, *args):
         """Suppress default logging."""
@@ -175,6 +177,31 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _guard_mutation(self) -> bool:
+        """Gate state-changing / sensitive endpoints against CSRF.
+
+        The primary defense is a per-process secret token that is injected
+        into the served HTML pages. A cross-origin attacker page cannot read
+        that token (the HTML is same-origin protected, and the JSON API no
+        longer returns Access-Control-Allow-Origin), so it cannot forge the
+        X-CSRF-Token header this requires. As defense in depth, any request
+        carrying a non-loopback Origin or Referer is rejected outright.
+
+        Sends a 403 and returns False on failure; returns True if allowed.
+        """
+        for hdr in ('Origin', 'Referer'):
+            val = self.headers.get(hdr)
+            if val:
+                host = urlparse(val).hostname
+                if host not in ('localhost', '127.0.0.1', '::1'):
+                    self.error_response(403, "Forbidden: cross-origin request rejected")
+                    return False
+        token = self.headers.get('X-CSRF-Token', '')
+        if not self.csrf_token or not secrets.compare_digest(token, self.csrf_token):
+            self.error_response(403, "Forbidden: missing or invalid CSRF token")
+            return False
+        return True
+
     def do_GET(self):
         """Handle GET requests."""
         if not self._host_allowed():
@@ -197,12 +224,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_letters()
             elif path == '/api/search':
                 self.handle_search(query)
-            elif path == '/api/open':
-                self.handle_open(query)
             elif path == '/api/config':
                 self.handle_config()
-            elif path == '/api/delete':
-                self.handle_delete(query)
             elif path == '/api/synopsis':
                 self.handle_synopsis(query)
             elif path == '/api/ignore-dirs':
@@ -223,14 +246,22 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             return
         parsed = urlparse(self.path)
         path = parsed.path
+        query = parse_qs(parsed.query)
 
         try:
+            # All POST routes are state-changing — gate them all against CSRF.
+            if not self._guard_mutation():
+                return
             if path == '/api/config':
                 self.handle_config_post()
             elif path == '/api/ignore-dirs':
                 self.handle_ignore_dirs_post()
             elif path == '/api/scan-dirs':
                 self.handle_scan_dirs_post()
+            elif path == '/api/delete':
+                self.handle_delete(query)
+            elif path == '/api/open':
+                self.handle_open(query)
             else:
                 self.error_response(404, "Not found")
         except Exception as e:
@@ -679,7 +710,14 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
     def handle_browse(self, query: dict):
         """GET /api/browse?path=DIR - List subdirectories of DIR for the
-        Settings-modal directory browser (docPath/workDir/ignoreDir)."""
+        Settings-modal directory browser (docPath/workDir/ignoreDir).
+
+        This exposes the host filesystem, so it is gated behind the same
+        CSRF token as the mutating endpoints — only the first-party UI
+        (which receives the token) may enumerate directories.
+        """
+        if not self._guard_mutation():
+            return
         path_param = query.get('path', ['/'])[0] or '/'
         try:
             path_obj = Path(path_param).expanduser()
@@ -913,6 +951,19 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             with open(filepath, 'rb') as f:
                 content = f.read()
 
+            # Inject the per-process CSRF token into served HTML so the
+            # first-party UI can authenticate its mutating requests. A
+            # cross-origin page cannot read this token, so it cannot forge
+            # the X-CSRF-Token header the mutating endpoints require.
+            if filename.endswith('.html') and self.csrf_token:
+                meta = f'<meta name="csrf-token" content="{self.csrf_token}">'
+                text = content.decode('utf-8')
+                if '</head>' in text:
+                    text = text.replace('</head>', f'  {meta}\n</head>', 1)
+                else:
+                    text = meta + text
+                content = text.encode('utf-8')
+
             self.send_response(200)
             if filename.endswith('.html'):
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
@@ -968,6 +1019,7 @@ def main():
     # Set database path and port for handler
     DocSearchHandler.db_path     = str(db_path)
     DocSearchHandler.server_port = port
+    DocSearchHandler.csrf_token  = secrets.token_urlsafe(32)
 
     server_address = ('localhost', port)
     try:
