@@ -27,40 +27,107 @@ from docubrowse_db import get_db
 
 PII_BLACKLIST_FILENAME = "pii_blacklist.txt"
 
+# ── PII validators ────────────────────────────────────────────────────────────
+# Structural identifiers (SSN, credit card) generate many false positives from
+# bare digit runs (phone numbers, invoice/part numbers, ISBNs). A regex finds
+# candidates; a validator then confirms the number is actually well-formed —
+# Luhn for cards, SSA allocation rules for SSNs — before we flag (and, in live
+# mode, DELETE) the document. This trades a little recall for much higher
+# precision, which matters because the purge is destructive.
+
+def _luhn_ok(digits: str) -> bool:
+    """Return True if `digits` passes the Luhn checksum (credit-card check)."""
+    total, parity = 0, len(digits) % 2
+    for i, ch in enumerate(digits):
+        d = ord(ch) - 48
+        if i % 2 == parity:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+    return total % 10 == 0
+
+
+def _valid_ssn(m) -> bool:
+    """Validate a candidate SSN against SSA allocation rules to reject
+    invoice/part numbers that merely have the 3-2-4 shape."""
+    digits = re.sub(r'\D', '', m.group())
+    if len(digits) != 9 or len(set(digits)) == 1:   # e.g. 000000000 / 111111111
+        return False
+    area, group, serial = digits[:3], digits[3:5], digits[5:]
+    # 000, 666 and 900-999 are never assigned; group/serial are never all zeros.
+    if area in ("000", "666") or area[0] == "9":
+        return False
+    if group == "00" or serial == "0000":
+        return False
+    return True
+
+
+def _valid_cc(m) -> bool:
+    """Validate a candidate card number: plausible PAN length, a real issuer
+    prefix, and Luhn. The IIN check (cards begin 2-6: Amex/Diners/JCB 3,
+    Visa 4, MasterCard 2 & 5, Discover/Maestro 6) rejects invoice/part numbers
+    that merely have 16 digits and happen to pass Luhn."""
+    digits = re.sub(r'\D', '', m.group())
+    if len(digits) not in (13, 14, 15, 16, 19):
+        return False
+    if digits[0] not in "23456":
+        return False
+    return _luhn_ok(digits)
+
+
 # ── PII regex patterns ────────────────────────────────────────────────────────
 # Checked against description + content_snippet (~800 chars of stored text).
-# Each entry: (display_name, compiled_regex)
+# Each entry: (display_name, compiled_regex, validator_or_None). The regex finds
+# candidates; if a validator is present it must also return True for a hit.
 
 _PII_PATTERNS = [
-    # Negative lookbehind for digit or hyphen prevents ISBN/phone substring matches.
-    # ISBNs have more digits before the SSN-like suffix (e.g. 978-90-5940-365-9).
+    # SSN, separated form — 3-2-4 with hyphen OR space separators. The
+    # lookarounds keep it from matching inside a longer digit run (ISBN/phone),
+    # and _valid_ssn applies SSA allocation rules.
     ("SSN",
-     re.compile(r'(?<![0-9\-])\b\d{3}-\d{2}-\d{4}\b(?![0-9\-])')),
+     re.compile(r'(?<![0-9\-])\d{3}[-\s]\d{2}[-\s]\d{4}(?![0-9\-])'),
+     _valid_ssn),
 
+    # SSN, unseparated 9-digit run — too false-positive-prone on its own, so
+    # only when an explicit SSN label precedes it.
+    ("SSN",
+     re.compile(r'(?:ssn|social\s+security(?:\s*(?:no|number|#))?)[:#\s]+(?<!\d)\d{9}(?!\d)',
+                re.IGNORECASE),
+     _valid_ssn),
+
+    # Credit card — 13-19 digits, optionally split into groups by single
+    # spaces/hyphens (covers 4-4-4-4, Amex 4-6-5, and contiguous). Luhn +
+    # length in _valid_cc reject phone/part/invoice numbers.
     ("Credit Card",
-     re.compile(r'\b(?:\d{4}[\s\-]){3}\d{4}\b')),
+     re.compile(r'(?<![0-9\-])(?:\d[ \-]?){12,18}\d(?![0-9\-])'),
+     _valid_cc),
 
     ("Passport Number",
      re.compile(r'\b(?:passport|pass\s*(?:no|number|#))[:\s]+[A-Z]{1,2}\d{7,9}\b',
-                re.IGNORECASE)),
+                re.IGNORECASE),
+     None),
 
     ("Date of Birth",
      re.compile(
          r'\b(?:dob|date\s+of\s+birth|born)[:\s]+\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}\b',
          re.IGNORECASE,
-     )),
+     ),
+     None),
 
     ("Medical Record Number",
      re.compile(
          r'\b(?:mrn|medical\s+record(?:\s+number)?|patient\s+id)[:\s#]+\d{4,12}\b',
          re.IGNORECASE,
-     )),
+     ),
+     None),
 
     ("Driver License",
      re.compile(
          r"\b(?:driver'?s?\s+licen[sc]e|dl\s+#?|license\s+#?)[:\s]+[A-Z0-9]{5,15}\b",
          re.IGNORECASE,
-     )),
+     ),
+     None),
 ]
 
 
@@ -77,12 +144,15 @@ def _pii_blacklist_add(db_path: Path, file_path: str, pattern_name: str) -> None
 
 
 def _scan_text(text: str) -> list:
-    """Return list of (pattern_name, matched_text) for all PII hits in text."""
+    """Return list of (pattern_name, matched_text) for all PII hits in text.
+    A pattern with a validator only counts a match the validator accepts; one
+    confirmed hit per pattern is enough to flag the document."""
     hits = []
-    for name, pat in _PII_PATTERNS:
-        m = pat.search(text)
-        if m:
-            hits.append((name, m.group()))
+    for name, pat, validator in _PII_PATTERNS:
+        for m in pat.finditer(text):
+            if validator is None or validator(m):
+                hits.append((name, m.group()))
+                break
     return hits
 
 
