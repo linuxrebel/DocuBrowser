@@ -16,8 +16,9 @@ DocuBrowse runs entirely on your own machine using local AI models — no intern
 connection required, no accounts, no API keys, and no per-query costs eating into a
 token budget. **Your data. Your AI.**
 
-Under the hood: SQLite FTS5 keyword search plus AI-powered semantic similarity (Ollama +
-nomic-embed-text). Supports PDF, DOCX, EPUB, MOBI, AZW3, HTML, TXT, and Markdown.
+Under the hood: SQLite FTS5 keyword search plus AI-powered semantic similarity and
+synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports PDF, DOCX, EPUB,
+MOBI, AZW3, HTML, TXT, and Markdown.
 
 ---
 
