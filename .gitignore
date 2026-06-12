@@ -83,5 +83,6 @@ scan_blacklist.txt
 pii_blacklist.txt
 ocr_list_pdfs.txt
 ignore_dirs.txt
+scan_dirs.txt
 .playwright-mcp/
 *.png
