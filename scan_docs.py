@@ -369,7 +369,10 @@ def _extract_file(args: tuple) -> dict:
         tags = set()
         tags.add(ext.lstrip("."))                             # extension
         for parent in file_path.parents:                     # folder names
-            if parent == doc_dir:
+            # Stop at doc_dir; also stop if the file isn't under doc_dir at all
+            # (mismatched --doc-dir) so we don't tag with filesystem-root dir
+            # names like 'mnt', 'data', 'home'.
+            if parent == doc_dir or not parent.is_relative_to(doc_dir):
                 break
             name = parent.name.lower()
             if len(name) > 2:
@@ -423,7 +426,13 @@ def _extract_text_file(file_path: Path) -> dict:
         "error": None,
     }
     try:
-        text = file_path.read_text(encoding="utf-8", errors="replace")
+        # Bounded read: only the indexed prefix is ever used (text[:5000]),
+        # so never load a multi-GB .txt/.json whole — that would burn the
+        # worker's 6 GB RLIMIT_AS and get the file mis-blacklisted as
+        # "killed by resource limit". 200 KB is ample for the prefix + HTML
+        # tag-stripping below.
+        with open(file_path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read(200_000)
         if file_path.suffix.lower() == ".html":
             import re, html as html_mod
             text = re.sub(r"<script[^>]*>.*?</script>", "", text,
@@ -934,8 +943,8 @@ def build_parser():
     )
     p.add_argument("doc_dir",  help="Directory containing documents to scan")
     p.add_argument("db_path",  nargs="?",
-                   default="/mnt/data/git/AI/DocuBrowse/du-docs.db",
-                   help="Path to SQLite database (default: du-docs.db in repo)")
+                   default=str(Path(__file__).resolve().parent / "du-docs.db"),
+                   help="Path to SQLite database (default: du-docs.db next to this script)")
     p.add_argument("--ext",    nargs="+", default=None,
                    metavar="EXT",
                    help="Extensions to index (default: pdf txt md html)")

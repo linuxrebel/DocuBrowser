@@ -126,7 +126,9 @@ def embed_docs(db_path: str, limit: int = None, workers: int = DEFAULT_WORKERS):
         SELECT d.id, d.name, d.title, d.description, d.content_snippet
         FROM documents d
         LEFT JOIN doc_embeddings de ON d.id = de.doc_id
-        WHERE de.doc_id IS NULL OR de.updated_at < d.updated_at
+        WHERE de.doc_id IS NULL
+           OR de.updated_at IS NULL
+           OR de.updated_at < d.updated_at
         ORDER BY d.id
     """
     if limit:

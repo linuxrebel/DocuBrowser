@@ -701,10 +701,15 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             # and reliably launches the default app under KDE/GNOME. Fall
             # back to xdg-open if gio isn't available.
             opener = ['gio', 'open', str(p)] if shutil.which('gio') else ['xdg-open', str(p)]
-            subprocess.Popen(opener,
-                             stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL,
-                             env=env)
+            proc = subprocess.Popen(opener,
+                                    stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL,
+                                    start_new_session=True,
+                                    env=env)
+            # The gio/xdg-open launcher spawns the real app and exits almost
+            # immediately; reap it in a detached thread so it doesn't linger as
+            # a zombie in this long-lived server.
+            threading.Thread(target=proc.wait, daemon=True).start()
             self.json_response({"ok": True, "path": path})
         except Exception as e:
             self.json_response({"ok": False, "error": f"xdg-open failed: {e}"})

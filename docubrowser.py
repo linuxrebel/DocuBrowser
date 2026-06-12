@@ -127,7 +127,12 @@ def read_pid() -> int | None:
         # Check the process actually exists
         os.kill(pid, 0)
         return pid
-    except (ValueError, ProcessLookupError, PermissionError):
+    except PermissionError:
+        # signal 0 was rejected, not "no such process": the process exists but
+        # is owned by another user (e.g. started by root/systemd). It IS
+        # running — don't unlink the PID file or treat it as stale.
+        return pid
+    except (ValueError, ProcessLookupError):
         PID_FILE.unlink(missing_ok=True)
         return None
 
@@ -467,9 +472,9 @@ def cmd_status(config: dict, args):
     if stats:
         print()
         print(f"  Server:   \033[92m● RUNNING\033[0m  http://localhost:{port}")
-        print(f"  Documents:  {stats.get('total_docs', '?'):,}")
-        print(f"  Embedded:   {stats.get('embedded', '?'):,}")
-        print(f"  Tags:       {stats.get('unique_tags', '?'):,}")
+        print(f"  Documents:  {stats.get('total_docs', 0):,}")
+        print(f"  Embedded:   {stats.get('embedded', 0):,}")
+        print(f"  Tags:       {stats.get('unique_tags', 0):,}")
     else:
         print()
         print(f"  Server:   \033[91m● STOPPED\033[0m")
@@ -1203,13 +1208,14 @@ def _kill_port(port: int, verbose: bool = False) -> bool:
                 pass
         return bool(pids)
     except FileNotFoundError:
-        # lsof not available; try fuser
+        # lsof not available; try fuser. fuser -k exits 0 only if it found
+        # (and signalled) a process — surface that instead of always False.
         try:
-            subprocess.run(["fuser", "-k", f"{port}/tcp"],
-                           capture_output=True)
+            r = subprocess.run(["fuser", "-k", f"{port}/tcp"],
+                               capture_output=True)
+            return r.returncode == 0
         except Exception:
-            pass
-        return False
+            return False
 
 
 def _run_embed(db_path: str, embed_workers: int = 6):
