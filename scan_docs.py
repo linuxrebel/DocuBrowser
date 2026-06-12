@@ -675,35 +675,16 @@ def scan_directory(
             f = executor.submit(_extract_file, item)
             in_flight[f] = item[0]
 
-    def _handle_result(future, fname="unknown"):
-        nonlocal completed, extracted, scanned, failed
-        completed += 1
+    def _progress():
+        if _IS_TTY:
+            print(_progress_bar(completed, total, start_time, failed),
+                  end="", flush=True)
 
-        # Worker killed by RLIMIT_AS (SIGSEGV/SIGBUS) or RLIMIT_CPU (SIGXCPU)
-        # raises BrokenProcessPool on the future.  Re-raise after logging so
-        # the executor loop can detect a fully broken pool and bail out.
-        try:
-            result = future.result()
-        except BrokenProcessPool:
-            failed += 1
-            _log.error("KILLED (resource limit)  %s", fname)
-            _blacklist_add(db_path, fname, "killed by resource limit (RLIMIT_AS/RLIMIT_CPU)")
-            if _IS_TTY:
-                print(_progress_bar(completed, total, start_time, failed),
-                      end="", flush=True)
-            raise   # let executor loop decide whether pool is recoverable
-        except Exception as exc:
-            failed += 1
-            _log.error("FUTURE ERROR  %s  —  %s", fname, exc)
-            _blacklist_add(db_path, fname, f"future error: {exc}")
-            if _IS_TTY:
-                print(_progress_bar(completed, total, start_time, failed),
-                      end="", flush=True)
-            return
-
-        name   = result["name"]
-        label  = f"[{completed:>{width}}/{total}]"
-
+    def _index_result(result):
+        """Write one finished extraction result dict to the DB and update
+        counters. Shared by the pooled loop and the single-worker retry."""
+        nonlocal extracted, scanned, failed
+        name = result["name"]
         if result["success"]:
             doc_id = _write_result(conn, result, doc_dir)
             if doc_id is not None:
@@ -722,41 +703,95 @@ def scan_directory(
             _log.warning("FAILED  %s  —  %s", name, result["error"])
             _blacklist_add(db_path, result["path"], f"extraction failed: {result['error']}")
 
-        # Terminal output: progress bar only (TTY) or nothing per-file (non-TTY)
-        if _IS_TTY:
-            print(_progress_bar(completed, total, start_time, failed),
-                  end="", flush=True)
+    def _retry_suspects(suspects):
+        """A worker was killed (RLIMIT_AS/RLIMIT_CPU) which breaks the *entire*
+        pool, so every file that was in flight raises BrokenProcessPool — but
+        only one of them is the real culprit. Blindly blacklisting the first
+        future to surface frequently punishes an innocent file and leaves the
+        true offender to crash the next run too. Instead, re-run each suspect
+        on its own in a fresh single-worker pool (same RLIMIT guards): the file
+        that kills its dedicated worker is the real offender and is the only one
+        blacklisted; the innocent suspects are indexed normally."""
+        nonlocal completed, failed
+        for fname, ddir in suspects:
+            try:
+                with ProcessPoolExecutor(max_workers=1,
+                                         initializer=_worker_init) as solo:
+                    result = solo.submit(_extract_file, (fname, ddir)).result()
+            except BrokenProcessPool:
+                completed += 1
+                failed += 1
+                _log.error("KILLED (resource limit, isolated retry)  %s", fname)
+                _blacklist_add(db_path, fname,
+                               "killed by resource limit (RLIMIT_AS/RLIMIT_CPU)")
+                _progress()
+                continue
+            except Exception as exc:
+                completed += 1
+                failed += 1
+                _log.error("FUTURE ERROR (isolated retry)  %s  —  %s", fname, exc)
+                _blacklist_add(db_path, fname, f"future error: {exc}")
+                _progress()
+                continue
+            completed += 1
+            _index_result(result)
+            _progress()
+            if completed % 50 == 0:
+                conn.commit()
 
-        if completed % 50 == 0:
-            conn.commit()
-
+    suspects_extra = []   # files whose future raised BrokenProcessPool this round
     try:
-        with ProcessPoolExecutor(max_workers=workers, initializer=_worker_init) as executor:
-            _fill_queue(executor)   # prime initial batch
+        while True:
+            broke = False
+            # A killed worker poisons the whole pool, so we run inside an outer
+            # loop and stand up a fresh pool after isolating the suspects.
+            with ProcessPoolExecutor(max_workers=workers,
+                                     initializer=_worker_init) as executor:
+                _fill_queue(executor)   # prime initial batch
+                while in_flight:
+                    done, _ = wait(list(in_flight.keys()),
+                                   return_when=FIRST_COMPLETED)
+                    for future in done:
+                        fname = in_flight.pop(future, "unknown")
+                        try:
+                            result = future.result()
+                        except BrokenProcessPool:
+                            # Don't trust this fname as the culprit — defer it.
+                            suspects_extra.append((fname, str(doc_dir)))
+                            broke = True
+                            continue
+                        except Exception as exc:
+                            completed += 1
+                            failed += 1
+                            _log.error("FUTURE ERROR  %s  —  %s", fname, exc)
+                            _blacklist_add(db_path, fname, f"future error: {exc}")
+                            _progress()
+                            continue
+                        completed += 1
+                        _index_result(result)
+                        _progress()
+                        if completed % 50 == 0:
+                            conn.commit()
+                    if broke:
+                        break   # leave the `with`, tearing down the broken pool
+                    _fill_queue(executor)
 
-            while in_flight:
-                done, _ = wait(list(in_flight.keys()), return_when=FIRST_COMPLETED)
-                for future in done:
-                    fname = in_flight.pop(future, "unknown")
-                    try:
-                        _handle_result(future, fname)
-                    except BrokenProcessPool:
-                        # Worker died (resource limit). Log and commit progress.
-                        # If the pool is still alive, _fill_queue will submit
-                        # to a replacement worker; if fully broken, executor.submit
-                        # will raise BrokenProcessPool and the outer handler fires.
-                        _log.error("Executor broken — all workers died. "
-                                   "Committing progress and stopping.")
-                        conn.commit()
-                        raise
-                _fill_queue(executor)
-    except BrokenProcessPool:
-        if _IS_TTY:
-            print()
-        print(f"\nExecutor broken — {extracted} extracted, {failed} failed. "
-              f"Progress saved. Re-run to continue.")
-        conn.close()
-        sys.exit(1)
+            if broke:
+                # Everything still in flight, plus any future that surfaced the
+                # break, is a suspect. Isolate them one at a time, then resume
+                # the main loop with a fresh pool for the remaining work.
+                suspects = [(fn, str(doc_dir)) for fn in in_flight.values()] \
+                    + suspects_extra
+                in_flight.clear()
+                suspects_extra = []
+                if _IS_TTY:
+                    print()  # finish the progress-bar line
+                _log.error("Worker died — isolating %d suspect file(s) via "
+                           "single-worker retries.", len(suspects))
+                conn.commit()
+                _retry_suspects(suspects)
+                continue   # rebuild the pool and keep going with remaining work
+            break          # in_flight drained with no break → all work done
     except KeyboardInterrupt:
         if _IS_TTY:
             print()  # move past progress bar
