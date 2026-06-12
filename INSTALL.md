@@ -266,8 +266,9 @@ git pull origin main
 # Stop everything
 ./docubrowser.py stopall
 
-# Remove the database and blacklists (irreversible)
-rm du-docs.db scan_blacklist.txt pii_blacklist.txt ocr_list_pdfs.txt
+# Remove the database, blacklists, and local config (irreversible)
+rm du-docs.db scan_blacklist.txt pii_blacklist.txt ocr_list_pdfs.txt \
+   ignore_dirs.txt scan_dirs.txt docubrowse.config
 
 # Remove the directory
 cd ..
