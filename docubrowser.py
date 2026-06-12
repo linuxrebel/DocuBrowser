@@ -377,6 +377,43 @@ def cmd_restart(config: dict, args):
     cmd_start(config, args)
 
 
+def _pkill_script(script_name: str) -> bool:
+    """SIGTERM any process running <script_name> under a Python interpreter,
+    matching on /proc/<pid>/cmdline (argv) instead of `pkill -f <name>`. The
+    latter matches the substring anywhere on the command line, so it would also
+    kill incidental processes like `vim scan_docs.py` or `grep scan_docs.py`.
+    Returns True if at least one process was signalled."""
+    killed = False
+    my_pid = os.getpid()
+    try:
+        entries = os.listdir('/proc')
+    except OSError:
+        return False
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        if pid == my_pid:
+            continue
+        try:
+            with open(f'/proc/{pid}/cmdline', 'rb') as fh:
+                argv = [a.decode('utf-8', 'replace')
+                        for a in fh.read().split(b'\x00') if a]
+        except (FileNotFoundError, ProcessLookupError, PermissionError, OSError):
+            continue
+        if not argv:
+            continue
+        is_python = os.path.basename(argv[0]).lower().startswith('python')
+        runs_script = any(a.endswith(script_name) for a in argv[1:])
+        if is_python and runs_script:
+            try:
+                os.kill(pid, signal.SIGTERM)
+                killed = True
+            except (ProcessLookupError, PermissionError):
+                pass
+    return killed
+
+
 def _stop_running_scans(verbose: bool = True) -> bool:
     """
     Kill any running scan process group (scan_docs.py + all its workers).
@@ -398,11 +435,7 @@ def _stop_running_scans(verbose: bool = True) -> bool:
             SCAN_PID_FILE.unlink(missing_ok=True)
 
     # Belt-and-suspenders: catch any orphaned workers not in the pidfile
-    orphan = subprocess.run(
-        ["pkill", "-f", "scan_docs.py"],
-        capture_output=True,
-    )
-    if orphan.returncode == 0 and not killed:
+    if _pkill_script("scan_docs.py") and not killed:
         if verbose:
             print("Stopped orphaned scan worker(s).")
         killed = True
@@ -421,8 +454,7 @@ def cmd_stopall(config: dict, args):
         any_killed = True
 
     # Embeds
-    orphan = subprocess.run(["pkill", "-f", "embed_docs.py"], capture_output=True)
-    if orphan.returncode == 0:
+    if _pkill_script("embed_docs.py"):
         print("Stopped running embed process.")
         any_killed = True
 

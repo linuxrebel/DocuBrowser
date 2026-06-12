@@ -123,8 +123,10 @@ def extract_pdf(pdf_path: str) -> Dict:
             use_pypdf = False
             if HAS_PYPDF:
                 try:
-                    _r = pypdf.PdfReader(str(pdf_path))
-                    obj_count = _r.trailer.get('/Size', 0)
+                    # Open via a context manager so the fd is released
+                    # immediately instead of waiting on GC during long scans.
+                    with open(pdf_path, 'rb') as _fh:
+                        obj_count = pypdf.PdfReader(_fh).trailer.get('/Size', 0)
                     if obj_count > OBJECT_COUNT_THRESHOLD:
                         use_pypdf = True
                 except Exception:
