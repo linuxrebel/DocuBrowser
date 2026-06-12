@@ -689,10 +689,20 @@ writes. Verified: init_db runs once across 5 same-path get_db calls; a real
 - **CQ-L7** wait_for_memory has no max-wait (can block indefinitely under
   sustained pressure); nvidia-smi runs at argparse-build time on every CLI
   invocation — make defaults lazy. Moderate; deferred.
-- **SEC-L1 / SEC-L2 — PII regex coverage + Luhn.** Real behavior change to the
-  PII matcher (false-negative coverage for spaced/contiguous SSNs and 16-digit/
-  Amex cards; Luhn to cut false positives). Deserves its own pass with explicit
-  before/after test corpora rather than a rushed end-of-session edit.
+- ~~**SEC-L1 / SEC-L2 — PII regex coverage + Luhn.**~~ **DONE (2026-06-12, commit
+  pending).** purge_pii now validates structural identifiers instead of
+  matching shape alone. SSN: dashed + spaced 3-2-4 forms plus a label-gated
+  9-contiguous form, validated by SSA allocation rules (area not 000/666/
+  900-999, group != 00, serial != 0000, not all-same-digit). Credit card:
+  13-19 digit runs (grouped or contiguous, covering Amex-15/MC-2-series/
+  Discover/13-digit Visa), validated by length + IIN first digit in "23456" +
+  Luhn. Restructured _PII_PATTERNS to (name, regex, validator) and _scan_text
+  to validate; passport/DOB/MRN/DL label patterns unchanged. Verified on a
+  26-string labeled corpus: 1.0 precision/recall; the old detector missed 9
+  true positives (spaced/contiguous/Amex/MC/Discover) and false-flagged 6
+  negatives (invoice 4-4-4-4 groups, invalid-area SSNs). Known precision-
+  favoring edge case: a PAN immediately glued to a digit-bearing token by a
+  single space is declined (IIN reject), not mis-flagged.
 - **SEC-L3 — frontend nits.** loadMorePrev hardcodes 50 vs pageSize; the
   isLoadingMore guard isn't applied in doSearch/renderAll (fast typing can
   render stale results); mixed alert/toast/modal error UX; json_response always
