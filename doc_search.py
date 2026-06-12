@@ -23,7 +23,7 @@ from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 
-from docubrowse_db import get_db
+from docubrowse_db import get_db, check_missing_path
 
 
 DEFAULT_PORT = 8643
@@ -501,7 +501,13 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         p = Path(path)
         if not p.exists():
-            self.json_response({"ok": False, "error": f"File not found on disk: {path}"})
+            status = check_missing_path(path)
+            if status == "unmounted":
+                self.json_response({"ok": False, "error": "unmounted",
+                                     "message": f"Cannot verify — the device for this path does not appear to be mounted: {path}"})
+            else:
+                self.json_response({"ok": False, "error": "missing",
+                                     "message": f"File not found on disk: {path}"})
             return
 
         # Check if a default app is registered before firing xdg-open.

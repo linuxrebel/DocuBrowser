@@ -619,7 +619,7 @@ function renderDocs(docs, showScore, append = false) {
         <span onclick="copyToClipboard('${esc(d.path)}')" title="Copy path to clipboard" style="font-size:0.7rem;opacity:0.5;cursor:pointer;margin-left:0.2rem;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</span>
         <span class="doc-delete-btn" onclick="deleteDoc('${esc(d.path)}', this)" title="Delete from disk and index">🗑</span>
       </div>
-      <div class="doc-path" onclick="openFile('${esc(d.path)}')" title="${esc(d.path)}">${esc(d.path)}</div>
+      <div class="doc-path" onclick="openFile('${esc(d.path)}', this)" title="${esc(d.path)}">${esc(d.path)}</div>
       ${desc ? `<div class="doc-desc">${esc(desc)}</div>` : ''}
       ${tags.length ? `<div class="doc-tags">${tags.map(t=>`<span class="tag" onclick="searchTag('${esc(t)}')">${esc(t)}</span>`).join('')}</div>` : ''}
       <div class="doc-meta">
@@ -784,14 +784,54 @@ function closeSynopsis() {
   document.getElementById('synopsisModal').classList.remove('open');
 }
 
-function openFile(path) {
+function openFile(path, el) {
   fetch('/api/open?path=' + encodeURIComponent(path))
     .then(r => r.json())
     .then(d => {
-      if (d.ok) showToast('Opening…');
-      else showErrorModal(d.error || 'Could not open file');
+      if (d.ok) {
+        showToast('Opening…');
+      } else if (d.error === 'unmounted') {
+        showToast('⚠ ' + (d.message || 'Device not mounted'), 4000);
+      } else if (d.error === 'missing') {
+        showMissingDocModal(path, el ? el.closest('.doc-card') : null);
+      } else {
+        showErrorModal(d.message || d.error || 'Could not open file');
+      }
     })
     .catch(e => showToast('⚠ Error: ' + friendlyError(e)));
+}
+
+function showMissingDocModal(path, card) {
+  const overlay = document.createElement('div');
+  overlay.className = 'err-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-icon">⚠️</div>
+      <div class="modal-msg">This document no longer exists on disk and will be removed from the index:<br><strong>${esc(path)}</strong></div>
+      <button class="modal-ok" id="missingOkBtn">OK</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  const dismiss = async () => {
+    overlay.remove();
+    try {
+      const res = await fetch('/api/delete?path=' + encodeURIComponent(path));
+      const data = await res.json();
+      if (data.ok) {
+        if (card) {
+          card.style.transition = 'opacity 0.25s';
+          card.style.opacity = '0';
+          setTimeout(() => card.remove(), 260);
+        }
+      } else {
+        showToast('⚠ Cleanup failed: ' + (data.error || 'unknown error'));
+      }
+    } catch (e) {
+      showToast('⚠ Cleanup failed: ' + friendlyError(e));
+    }
+  };
+  overlay.querySelector('#missingOkBtn').addEventListener('click', dismiss);
+  overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(); });
+  overlay.querySelector('#missingOkBtn').focus();
 }
 
 function copyToClipboard(text) {

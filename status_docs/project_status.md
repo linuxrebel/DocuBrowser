@@ -352,3 +352,10 @@ See `status_docs/DECISIONS.md` for full details. Key open items:
 - Updated DECISIONS.md: reworded the "Multiple top-level doc directories" deferred row to "partially superseded" given the scan-dirs feature.
 - Updated INSTALL.md tarball example from v0.5.0 to v0.7.2.
 - Tagged `v0.7.2` and generated `docubrowse-v0.7.2.tar.gz` release tarball.
+
+### 2026-06-11/12 — Handle moved/missing/deleted documents (item #8)
+- Added `check_missing_path(path)` to `docubrowse_db.py`: shared helper classifying a non-existent path as `missing` (mounted, genuinely gone) or `unmounted` (can't verify, leave alone), based on walking up to the first existing ancestor and comparing `st_dev` against `/`.
+- `doc_search.py`: `handle_open` now returns `{"ok": false, "error": "missing"|"unmounted", "message": ...}` for non-existent files instead of a generic error string.
+- `index.html`: `openFile(path, el)` branches on the 3-way `/api/open` result — `unmounted` shows a toast (no DB change), `missing` shows a new OK-dismiss modal (`showMissingDocModal`) and on dismiss calls `/api/delete` then fades/removes the `.doc-card`.
+- `docubrowser.py`: new opt-in `scan-missing [--db PATH] [--dry-run]` command — iterates all DB rows, classifies each via `check_missing_path`, deletes `missing` rows (cascades via FK), leaves `unmounted`/`present` rows untouched, and reports counts. Not part of the normal `scan`/`rescan` flow.
+- Verified end-to-end via Playwright (test DB row → search → click → modal → OK → card removed + DB row deleted, cascade confirmed) and `scan-missing --dry-run` against the live 7,957-doc DB (0 deleted, 0 unmounted, all present).
