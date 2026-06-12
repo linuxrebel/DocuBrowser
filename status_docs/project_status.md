@@ -80,6 +80,34 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 
 ## Session History
 
+### 2026-06-12 — Audit remediation, batch 1 (8 of 12 items)
+- Worked the 2026-06-12 code-quality & security audit's recommended fix order.
+  Fixed and committed, each tested (curl contract tests, isolated throwaway-DB
+  tests, and Playwright UI runs, with a verification subagent for DB/UI checks):
+  - **SEC-H1** Host-header allow-list (kills DNS rebinding) — 9bfe578
+  - **SEC-C2** removed `Access-Control-Allow-Origin: *` — 9bfe578
+  - **CQ-C1** fixed `embed_text` response key → server semantic search works
+    again (returned 0 results before) — 9bfe578
+  - **CQ-C2** dupclean no longer corrupts disk/DB (dropped the throwing
+    `DELETE FROM doc_fts`) — 9bfe578
+  - **SEC-C1** CSRF: per-process token injected into served HTML;
+    `/api/delete` + `/api/open` moved GET→POST; all mutations require
+    `X-CSRF-Token` + loopback Origin — 84a68d5
+  - **SEC-H2** `/api/browse` gated behind the same token — 84a68d5
+  - **CQ-H2** `INSERT ... ON CONFLICT(path) DO UPDATE` replaces
+    `INSERT OR REPLACE` (no more wiping tags/embeddings/synopsis on
+    re-index) — 1811125
+  - **CQ-H1** search now uses FTS5 `bm25()` + a cached numpy embedding matrix
+    instead of loading the whole corpus per request (keyword ~4ms, both
+    ~55ms; totals corrected) — 2369057
+- The server is no longer remotely exploitable (no unauth GET mutations, no
+  ACAO:\*, Host-validated, CSRF-gated) and both previously-silent flagship
+  failures (server semantic search, dupclean consistency) are fixed.
+- **Remaining audit items (deferred to next session):** SEC-M1 (inline
+  onclick → addEventListener), CQ-H3 (BrokenProcessPool mis-blacklist),
+  CQ-H4+CQ-M1 (commit cadence + init_db once), Medium/Low sweep. See
+  `status_docs/DECISIONS.md` → "Audit Remediation — Session 2026-06-12".
+
 ### 2026-06-11 (continued) — Synopsis cold-start error after reboot
 - Diagnosed: after a fresh reboot, the first synopsis request hit Ollama
   before the model was loaded into memory, exceeding the 30s timeout and
