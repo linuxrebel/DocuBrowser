@@ -615,3 +615,85 @@ change.
 addEventListener), CQ-H3 (BrokenProcessPool mis-blacklist), CQ-H4+CQ-M1
 (commit cadence + init_db once per startup), and the Medium/Low sweep
 (CQ-M2..M7, SEC-M2, CQ-L1..L9, SEC-L1..L3).
+
+---
+
+## Audit Remediation — Session 2026-06-12, batch 2 (SEC-M1, CQ-H3, CQ-H4/M1, M/L sweep)
+
+Continued the fix order. All items below implemented, tested (isolated
+throwaway-DB / subprocess tests + Playwright UI + a real worker-death test,
+via verification subagents where DB/UI/concurrency behavior needed proving),
+and committed. Server restarted after each batch.
+
+**SEC-M1 — inline onclick → delegated listeners** (`index.html`, commit
+735ecff). Doc-card/tag-cloud actions moved from data-interpolated inline
+onclick (esc() is the wrong escaping for a JS-string attribute context) to
+data-* attributes + delegated click listeners on the grid and tag cloud.
+Verified via Playwright: a hostile injected title is stored as inert literal
+data (window.__xss never fires), no onclick= in the grid, and synopsis/tag/
+open/delete still work with zero console errors.
+
+**CQ-H3 — worker-death suspect isolation** (`scan_docs.py`, commit 340a733).
+A killed worker breaks the whole pool; the old loop blacklisted whichever
+broken future surfaced first (often innocent) and stopped. Now every
+in-flight file becomes a 'suspect', the broken pool is torn down, and each
+suspect is re-run in its own single-worker pool — only the file that kills its
+dedicated worker is blacklisted; innocents are indexed; the scan resumes.
+Verified with a real os._exit worker death: only the bomb blacklisted, all 8
+innocents indexed; old logic mis-blacklisted + stalled.
+
+**CQ-M1 + CQ-H4 — init once / commit cadence** (`docubrowse_db.py`,
+`scan_docs.py`, `embed_docs.py`, commit a217b66). init_db now runs once per
+(process, db_path) via a module-level guard instead of on every connection.
+Scanner and embedder commit on a ~2s time budget instead of every 50/25 docs,
+so the WAL writer isn't held long enough to block server synopsis/delete
+writes. Verified: init_db runs once across 5 same-path get_db calls; a real
+2-worker scan of 12 files indexed + durably committed all of them.
+
+**Medium/Low sweep** (commits 1679413, b1265fa):
+- CQ-M2 read_pid: PermissionError from os.kill(pid,0) now means "running"
+  (process owned by another user), not stale.
+- CQ-M3 stop fallback: replaced `pkill -f <script>` (kills `vim scan_docs.py`)
+  with a /proc cmdline matcher requiring a python argv[0] + the script path.
+  Verified it kills a python scan_docs.py but spares `tail scan_docs.py`.
+- CQ-M5 embed staleness: added `OR de.updated_at IS NULL` so NULL-timestamp
+  embeddings are re-embedded.
+- CQ-M6 purge_pii: non-interactive stdin no longer crashes with EOFError; all
+  abort paths return 0 (int).
+- CQ-M7 text extract: bounded 200 KB read instead of loading whole file
+  (a multi-GB file used to burn RLIMIT_AS and get mis-blacklisted).
+- CQ-L1 cmd_status: missing stat keys default to 0 (no ValueError on `:,`).
+- CQ-L2 _kill_port: fuser fallback returns its real exit code, not always False.
+- CQ-L4 folder tags: is_relative_to(doc_dir) guard stops tagging with
+  'mnt'/'data'/'home' when a file isn't under doc_dir.
+- CQ-L6 pdf probe: opens via `with open(...)` so the fd is released promptly.
+- CQ-L8 handle_open: launcher is reaped via start_new_session + a daemon
+  thread proc.wait() (no zombies in the long-lived server).
+- CQ-L9 default DB path: scan_docs/purge_pii derive du-docs.db next to the
+  script instead of a hardcoded personal path.
+
+### Deferred (audit items intentionally NOT done this pass — reasons logged)
+- **CQ-M4 — single shared delete-document helper.** Deletion logic is
+  reimplemented in ~5 places (handle_delete, dupclean, purge_pii,
+  purge_path_prefix, scan_missing). Consolidating is a worthwhile refactor but
+  touches 5 callsites; deferred to its own focused change so each can be
+  re-tested. Lower urgency now that CQ-C2 fixed the one actively-corrupting
+  copy and search no longer depends on FTS orphans.
+- **SEC-M2 — realpath/symlink check before delete/open.** Largely mooted by
+  SEC-C1 (mutations are now POST + CSRF-gated, single-user localhost). Low real
+  risk; revisit if multi-user/network exposure is ever added.
+- **CQ-L3** scan-file `" ".join` collapses runs of multiple spaces in a
+  filename — cosmetic edge case; document or switch to a single quoted arg.
+- **CQ-L5** extension membership uses a list (O(n)); rescan pre-count walks the
+  tree a second time — perf micro-opt only.
+- **CQ-L7** wait_for_memory has no max-wait (can block indefinitely under
+  sustained pressure); nvidia-smi runs at argparse-build time on every CLI
+  invocation — make defaults lazy. Moderate; deferred.
+- **SEC-L1 / SEC-L2 — PII regex coverage + Luhn.** Real behavior change to the
+  PII matcher (false-negative coverage for spaced/contiguous SSNs and 16-digit/
+  Amex cards; Luhn to cut false positives). Deserves its own pass with explicit
+  before/after test corpora rather than a rushed end-of-session edit.
+- **SEC-L3 — frontend nits.** loadMorePrev hardcodes 50 vs pageSize; the
+  isLoadingMore guard isn't applied in doSearch/renderAll (fast typing can
+  render stale results); mixed alert/toast/modal error UX; json_response always
+  returns HTTP 200 even on logical failure. Batch UI polish for a later pass.

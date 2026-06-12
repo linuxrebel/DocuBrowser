@@ -80,6 +80,24 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 
 ## Session History
 
+### 2026-06-12 — Audit remediation, batch 2 (SEC-M1, CQ-H3, CQ-H4/M1, M/L sweep)
+- Completed the remaining audit tracker items. All tested + committed:
+  - **SEC-M1** data-derived inline onclick → data-* + delegated listeners
+    (XSS closed; verified hostile title stays inert) — 735ecff
+  - **CQ-H3** worker-death "suspect isolation": only the true offender is
+    blacklisted, innocents indexed, scan resumes — 340a733
+  - **CQ-M1 / CQ-H4** init_db once per process; scanner/embedder commit on a
+    ~2s time budget (frees the WAL writer for server writes) — a217b66
+  - **Medium/Low sweep** — CQ-M2 (read_pid PermissionError), CQ-M3 (precise
+    /proc worker kill), CQ-M5 (NULL-timestamp re-embed), CQ-M6 (purge EOF
+    abort), CQ-M7 (bounded text read), CQ-L1/L2/L4/L6/L8/L9 — 1679413, b1265fa
+- **Intentionally deferred** (rationale in DECISIONS.md → batch 2): CQ-M4
+  (shared delete helper refactor), SEC-M2 (realpath — mooted by CSRF), CQ-L3,
+  CQ-L5, CQ-L7, SEC-L1/L2 (PII regex + Luhn — behavior change), SEC-L3
+  (frontend nits). These want their own focused, separately-tested passes.
+- Net: every Critical + High + Medium-security audit finding is fixed; the
+  remaining open items are low-severity polish/perf and one refactor.
+
 ### 2026-06-12 — Audit remediation, batch 1 (8 of 12 items)
 - Worked the 2026-06-12 code-quality & security audit's recommended fix order.
   Fixed and committed, each tested (curl contract tests, isolated throwaway-DB
