@@ -54,6 +54,9 @@ machine — no cloud, no API keys.
 - Tag cloud for filtering by topic
 - Relevance score badges (0–100%) on every result
 - Click document title to open the file; 📋 copies path to clipboard; 🗑 deletes file from disk and index (with confirmation)
+- Moved/deleted documents: clicking a doc whose file no longer exists shows a dismissable
+  modal (and removes it from the index on dismiss) if its filesystem is mounted, or a
+  toast (no index change) if the filesystem can't be verified (e.g. unmounted drive)
 
 ### ⚙️ Settings (`/settings`)
 - General panel: document directory (with live directory browser), any number of additional scan directories (added/removed under the same panel, each shown with the rescan command needed to index it), working directory, and port
@@ -147,6 +150,7 @@ Usage: docubrowser.py <command> [options]
 | `purge` | Scan index for PII and remove matching documents |
 | `ignore add\|remove\|list DIR` | Manage directories excluded from scanning (auto-purges on add) |
 | `report` | Walk doc directory and show file-type breakdown (no DB changes) |
+| `scan-missing [--db PATH] [--dry-run]` | Opt-in cleanup: classify every indexed path as present/missing/unmounted, delete `missing` rows (cascades), leave `unmounted` rows alone |
 | `stopall` | Stop all running scans, embeds, and the server |
 | `duplist` | List duplicate documents (exact SHA256 + optional near-duplicate) |
 | `dupclean` | Interactive TUI to review and remove duplicate documents |
@@ -201,6 +205,10 @@ Usage: docubrowser.py <command> [options]
 ./docubrowser.py duplist --near-dups --threshold 0.95
 ./docubrowser.py dupclean                      # interactive Keep A/Keep B/Keep Both TUI
 ./docubrowser.py dupclean --near-dups          # include near-duplicates in cleanup
+
+# Cleaning up moved/deleted documents (opt-in, not run automatically)
+./docubrowser.py scan-missing --dry-run        # report counts only, no DB changes
+./docubrowser.py scan-missing                  # delete rows for genuinely-missing files
 ```
 
 ### scan / rescan Type Filters
@@ -323,9 +331,25 @@ Base URL: `http://localhost:8643`
 | `GET` | `/api/stats` | Total docs, embedded count, unique tag count |
 | `GET` | `/api/tags` | Tag list with counts (≥3 occurrences) |
 | `GET` | `/api/search` | Search with pagination |
-| `GET` | `/api/open` | Open a file with xdg-open (validates against DB) |
+| `GET` | `/api/open` | Open a file with xdg-open/gio (validates against DB) |
 | `GET` | `/api/config` | Current server configuration |
+| `GET` | `/api/scan-dirs` | List/add/remove additional scan directories |
 | `GET` | `/api/delete` | Delete a file from disk and remove from index (path must be indexed) |
+
+### /api/open — missing and unmounted files
+
+If the indexed path no longer exists on disk, `/api/open` returns one of:
+
+```json
+{"ok": false, "error": "missing", "message": "..."}
+{"ok": false, "error": "unmounted", "message": "..."}
+```
+
+`missing` means the file's filesystem is mounted and the file is genuinely gone — the UI
+shows a dismissable modal and deletes the document from the index (and disk-adjacent DB
+rows) when dismissed. `unmounted` means the path's filesystem can't currently be verified
+(likely an unmounted drive) — the UI shows a toast and makes no DB changes. See
+`scan-missing` for the equivalent batch cleanup.
 
 ### Search Parameters
 
@@ -436,6 +460,7 @@ DocuBrowse/
 ├── pii_blacklist.txt       # PII-removed files — permanent (gitignored)
 ├── ocr_list_pdfs.txt       # Image-only PDFs needing OCR (gitignored)
 ├── ignore_dirs.txt         # Directories excluded from scanning (gitignored)
+├── scan_dirs.txt           # Additional scan directories (gitignored)
 ├── docubrowse.config       # Local config (optional, gitignored)
 ├── INSTALL.md              # Step-by-step install guide
 ├── README.md               # This file
@@ -529,6 +554,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | DRM-encrypted AZW not fully searchable | Metadata indexed; DeDRM_tools required for body text |
 | Scanned PDFs not searchable | Listed in ocr_list_pdfs.txt; OCR deferred |
 | Multiple top-level doc directories | Additional scan directories supported (General panel / `scan_dirs.txt`), but each requires a manual rescan via the printed CLI command — not yet automatic |
+| Moved/renamed files | Not detected as moves — old path is removed (interactively or via `scan-missing`), new path is picked up on next rescan as a fresh entry; true duplicates are caught by `duplist`/`dupclean` |
 | No authentication | Local use only |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 
@@ -537,6 +563,15 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 ## Recent Changes
 
 [↑ Top](#top)
+
+### Unreleased — Handle moved/missing/deleted documents
+- `/api/open` now returns `{"ok": false, "error": "missing"|"unmounted", "message": ...}`
+  for files that no longer exist, instead of a generic error.
+- The UI shows a dismissable modal for `missing` files (and removes them from the index
+  on dismiss), or a toast for `unmounted` files (filesystem can't be verified, no index
+  change).
+- New opt-in `scan-missing [--dry-run]` CLI command batch-cleans `missing` rows across
+  the whole index without touching `unmounted` rows.
 
 ### v0.7.2.1 — Bugfix
 - Fixed "Open file" (`/api/open`) silently doing nothing — the server's
