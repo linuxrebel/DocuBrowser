@@ -8,6 +8,7 @@ HTTP server on port 8643 with merged keyword + semantic search.
 
 import json
 import os
+import shutil
 import math
 import socket
 import sqlite3
@@ -440,6 +441,49 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             "has_more": has_more
         })
 
+    def _desktop_env(self):
+        """Build an environment dict with the vars xdg-open/xdg-mime need to
+        reach the user's desktop session bus and launch GUI apps.
+
+        The server process may have been started from a shell/session where
+        these are missing or set to bogus values (e.g.
+        DBUS_SESSION_BUS_ADDRESS=disabled:), in which case xdg-open silently
+        fails to launch anything even though it exits 0."""
+        env = os.environ.copy()
+        uid = os.getuid()
+
+        runtime_dir = env.get('XDG_RUNTIME_DIR')
+        if not runtime_dir or not os.path.isdir(runtime_dir):
+            runtime_dir = f'/run/user/{uid}'
+        env['XDG_RUNTIME_DIR'] = runtime_dir
+
+        bus_addr = env.get('DBUS_SESSION_BUS_ADDRESS')
+        bus_path = os.path.join(runtime_dir, 'bus')
+        if not bus_addr or 'disabled' in bus_addr or not os.path.exists(bus_path):
+            if os.path.exists(bus_path):
+                bus_addr = f'unix:path={bus_path}'
+            else:
+                bus_addr = None
+        if bus_addr:
+            env['DBUS_SESSION_BUS_ADDRESS'] = bus_addr
+
+        if not env.get('DISPLAY'):
+            env['DISPLAY'] = ':0'
+
+        if not env.get('WAYLAND_DISPLAY'):
+            env['WAYLAND_DISPLAY'] = 'wayland-0'
+
+        if not env.get('XAUTHORITY') or not os.path.exists(env['XAUTHORITY']):
+            try:
+                for name in os.listdir(runtime_dir):
+                    if name.startswith('xauth_'):
+                        env['XAUTHORITY'] = os.path.join(runtime_dir, name)
+                        break
+            except OSError:
+                pass
+
+        return env
+
     def handle_open(self, query: dict):
         """GET /api/open?path=<encoded-path> - Open a file with xdg-open."""
         path = query.get('path', [''])[0].strip()
@@ -463,6 +507,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         # Check if a default app is registered before firing xdg-open.
         # xdg-mime query default needs a MIME type; fall back to Python's
         # mimetypes module, then to a raw xdg-mime filetype query.
+        env = self._desktop_env()
         try:
             import mimetypes
             mime, _ = mimetypes.guess_type(str(p))
@@ -470,14 +515,14 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 # Ask xdg-mime directly (handles freedesktop magic bytes)
                 r = subprocess.run(
                     ['xdg-mime', 'query', 'filetype', str(p)],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True, text=True, timeout=5, env=env,
                 )
                 mime = r.stdout.strip() or None
 
             if mime:
                 r2 = subprocess.run(
                     ['xdg-mime', 'query', 'default', mime],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True, text=True, timeout=5, env=env,
                 )
                 handler = r2.stdout.strip()
                 if not handler:
@@ -487,9 +532,14 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                     })
                     return
 
-            subprocess.Popen(['xdg-open', str(p)],
+            # Prefer `gio open` - it talks to the desktop session over D-Bus
+            # and reliably launches the default app under KDE/GNOME. Fall
+            # back to xdg-open if gio isn't available.
+            opener = ['gio', 'open', str(p)] if shutil.which('gio') else ['xdg-open', str(p)]
+            subprocess.Popen(opener,
                              stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL)
+                             stderr=subprocess.DEVNULL,
+                             env=env)
             self.json_response({"ok": True, "path": path})
         except Exception as e:
             self.json_response({"ok": False, "error": f"xdg-open failed: {e}"})
