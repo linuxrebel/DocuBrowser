@@ -26,7 +26,7 @@ from concurrent.futures.process import BrokenProcessPool
 from datetime import datetime
 from pathlib import Path
 
-from docubrowse_db import get_db
+from docubrowse_db import get_db, delete_documents
 
 
 DEFAULT_EXTENSIONS = [".pdf", ".docx", ".pptx", ".xlsx",
@@ -158,13 +158,7 @@ def purge_path_prefix(conn, prefix: str) -> int:
         (prefix, like_pattern),
     ).fetchall()
     ids = [r[0] for r in rows]
-    if not ids:
-        return 0
-    conn.execute("PRAGMA foreign_keys=ON")
-    qmarks = ",".join("?" * len(ids))
-    conn.execute(f"DELETE FROM documents WHERE id IN ({qmarks})", ids)
-    conn.commit()
-    return len(ids)
+    return delete_documents(conn, ids)
 
 
 def _blacklist_add(db_path: Path, file_path: str, reason: str) -> None:

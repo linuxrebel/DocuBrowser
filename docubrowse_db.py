@@ -232,6 +232,43 @@ def get_db(db_path):
     return conn
 
 
+def delete_documents(conn, doc_ids, commit: bool = True) -> int:
+    """Delete documents by id; return the number of rows removed.
+
+    Single source of truth for document deletion (used by the UI delete,
+    dupclean, PII purge, scan-missing and ignore-dir purge). Deleting from
+    `documents` CASCADEs to doc_tags and doc_embeddings (foreign_keys is
+    enabled here to be sure). doc_fts is a contentless FTS5 table that does
+    NOT support DELETE — it raises "cannot DELETE from contentless fts5
+    table" — so its derived rows are intentionally left as harmless orphans:
+    keyword search prunes any rowid that no longer maps to a document
+    (doc_search._valid_doc_ids), so a deleted document never surfaces.
+
+    Pass commit=False to take part in a larger all-or-nothing transaction.
+    """
+    ids = [int(i) for i in doc_ids]
+    if not ids:
+        return 0
+    conn.execute("PRAGMA foreign_keys=ON")
+    removed = 0
+    CHUNK = 500   # stay well under SQLite's bound-variable limit
+    for start in range(0, len(ids), CHUNK):
+        chunk = ids[start:start + CHUNK]
+        qmarks = ",".join("?" * len(chunk))
+        cur = conn.execute(
+            f"DELETE FROM documents WHERE id IN ({qmarks})", chunk
+        )
+        removed += cur.rowcount if (cur.rowcount or 0) >= 0 else len(chunk)
+    if commit:
+        conn.commit()
+    return removed
+
+
+def delete_document(conn, doc_id, commit: bool = True) -> bool:
+    """Delete a single document by id. Returns True if a row was removed."""
+    return delete_documents(conn, [doc_id], commit=commit) > 0
+
+
 def ensure_db(db_path):
     """
     Ensure database exists and schema is initialized.

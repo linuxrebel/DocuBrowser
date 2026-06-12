@@ -26,7 +26,7 @@ from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 
-from docubrowse_db import get_db, check_missing_path
+from docubrowse_db import get_db, check_missing_path, delete_document
 
 try:
     import numpy as _np
@@ -744,13 +744,10 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.json_response({"ok": False, "error": f"Could not delete file: {disk_error}"})
             return
 
-        # Remove from DB: documents CASCADE deletes doc_tags + doc_embeddings.
-        # doc_fts is contentless FTS5 (no cascade); orphaned rows are harmless
-        # because keyword search JOINs with documents.
+        # Remove from DB via the shared helper (CASCADEs to tags/embeddings;
+        # leaves the harmless contentless-FTS orphan).
         try:
-            conn.execute('PRAGMA foreign_keys=ON')
-            conn.execute('DELETE FROM documents WHERE id = ?', (doc_id,))
-            conn.commit()
+            delete_document(conn, doc_id)
         except Exception as e:
             conn.close()
             self.json_response({"ok": False, "error": f"DB delete failed: {e}"})
