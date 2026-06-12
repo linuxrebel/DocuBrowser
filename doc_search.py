@@ -11,9 +11,11 @@ import os
 import secrets
 import shutil
 import math
+import re
 import socket
 import sqlite3
 import struct
+import threading
 import subprocess
 import sys
 import time
@@ -25,6 +27,11 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError
 
 from docubrowse_db import get_db, check_missing_path
+
+try:
+    import numpy as _np
+except Exception:  # numpy is normally present (dup_detect uses it); degrade gracefully
+    _np = None
 
 
 DEFAULT_PORT = 8643
@@ -140,6 +147,128 @@ def generate_synopsis(title: str, description: str, snippet: str) -> tuple:
 def normalize_score(score: float, max_val: float = 1.0) -> float:
     """Normalize score to 0..1 range."""
     return min(1.0, max(0.0, score / max_val if max_val > 0 else 0))
+
+
+# ── Cached embedding matrix for semantic search ───────────────────────────────
+# Loading every embedding BLOB and running a Python cosine loop on each request
+# was the dominant cost of search. Instead we cache an L2-normalized matrix of
+# all embeddings in-process and score a query with a single matrix-vector
+# product. The cache is invalidated when the embeddings table's row count or
+# latest updated_at changes (covers adds, deletes and re-embeds).
+_EMB_CACHE = {"key": None, "ids": None, "matrix": None, "vectors": None}
+_EMB_LOCK = threading.Lock()
+
+
+def _load_embedding_matrix(conn):
+    """Return (ids, matrix, vectors) for all stored embeddings, cached.
+
+    matrix is an L2-normalized float32 ndarray (N, dim) when numpy is
+    available, else None — in which case callers fall back to per-vector
+    cosine using the parallel python 'vectors' list.
+    """
+    row = conn.execute(
+        "SELECT COUNT(*), COALESCE(MAX(updated_at), '') FROM doc_embeddings"
+    ).fetchone()
+    key = (row[0], row[1])
+    if _EMB_CACHE["key"] == key:
+        return _EMB_CACHE["ids"], _EMB_CACHE["matrix"], _EMB_CACHE["vectors"]
+    with _EMB_LOCK:
+        if _EMB_CACHE["key"] == key:  # another thread rebuilt it while we waited
+            return _EMB_CACHE["ids"], _EMB_CACHE["matrix"], _EMB_CACHE["vectors"]
+        ids, vectors = [], []
+        for doc_id, blob in conn.execute(
+            "SELECT doc_id, embedding FROM doc_embeddings"
+        ):
+            vec = blob_to_vector(blob)
+            if vec:
+                ids.append(doc_id)
+                vectors.append(vec)
+        matrix = None
+        if _np is not None and vectors:
+            matrix = _np.asarray(vectors, dtype=_np.float32)
+            norms = _np.linalg.norm(matrix, axis=1, keepdims=True)
+            norms[norms == 0] = 1.0
+            matrix = matrix / norms
+        _EMB_CACHE.update({"key": key, "ids": ids, "matrix": matrix,
+                           "vectors": vectors})
+        return ids, matrix, vectors
+
+
+def _semantic_scores(conn, query_vec) -> dict:
+    """Map doc_id -> cosine similarity for every embedded document."""
+    if not query_vec:
+        return {}
+    ids, matrix, vectors = _load_embedding_matrix(conn)
+    if not ids:
+        return {}
+    if _np is not None and matrix is not None:
+        qv = _np.asarray(query_vec, dtype=_np.float32)
+        n = _np.linalg.norm(qv)
+        if n == 0:
+            return {}
+        sims = matrix @ (qv / n)  # (N,) cosine similarities, one vectorized pass
+        return {doc_id: float(s) for doc_id, s in zip(ids, sims)}
+    # numpy unavailable: per-vector cosine on the cached vectors (no blob reload)
+    return {doc_id: cosine_similarity(query_vec, vec)
+            for doc_id, vec in zip(ids, vectors)}
+
+
+def _fts_match_expr(q: str):
+    """Build a safe FTS5 MATCH expression: prefix-OR over the query's word
+    tokens. Quoting each token neutralizes FTS operators (AND/OR/NOT/NEAR,
+    quotes, colons, etc.) so arbitrary user input can't break the query."""
+    tokens = re.findall(r'\w+', q.lower())
+    if not tokens:
+        return None
+    return ' OR '.join(f'"{t}"*' for t in tokens)
+
+
+def _keyword_scores(conn, q: str) -> dict:
+    """Map doc_id -> normalized BM25 keyword score (0..1) via the FTS5 index.
+
+    Replaces the old full-corpus Python substring scan. Column weights echo
+    the previous hand-tuned field boosts (title/author highest)."""
+    expr = _fts_match_expr(q)
+    if not expr:
+        return {}
+    try:
+        # doc_fts column order: name,title,author,subject,description,
+        # content_snippet,tags.
+        rows = conn.execute(
+            "SELECT rowid, bm25(doc_fts, 6.0, 8.0, 7.0, 5.0, 3.0, 3.0, 4.0) AS rank "
+            "FROM doc_fts WHERE doc_fts MATCH ? ORDER BY rank",
+            (expr,)
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    if not rows:
+        return {}
+    # bm25 returns more-negative for better matches; flip then normalize 0..1.
+    raw = {rowid: -rank for rowid, rank in rows}
+    best = max(raw.values())
+    if best <= 0:
+        return {}
+    return {doc_id: val / best for doc_id, val in raw.items()}
+
+
+# doc_fts is contentless and has no FK, so it can hold orphan rowids from past
+# deletes. Keyword (bm25) hits are pruned against this cached set of live
+# document ids so phantom rowids don't inflate result totals or short a page.
+# (Semantic hits come from doc_embeddings, which CASCADE-delete with documents,
+# so they need no such pruning.)
+_DOCID_CACHE = {"key": None, "ids": None}
+
+
+def _valid_doc_ids(conn) -> set:
+    row = conn.execute(
+        "SELECT COUNT(*), COALESCE(MAX(updated_at), '') FROM documents"
+    ).fetchone()
+    key = (row[0], row[1])
+    if _DOCID_CACHE["key"] == key:
+        return _DOCID_CACHE["ids"]
+    ids = {r[0] for r in conn.execute("SELECT id FROM documents")}
+    _DOCID_CACHE.update({"key": key, "ids": ids})
+    return ids
 
 
 class DocSearchHandler(BaseHTTPRequestHandler):
@@ -389,119 +518,83 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             })
             return
 
+        # ── Non-empty query: hybrid keyword (FTS5 BM25, index-backed) +
+        #    semantic (cached embedding matrix). Scores are computed over id
+        #    maps only; document metadata is fetched for the requested page
+        #    alone instead of loading the whole corpus per request. ──────────
         conn = get_db(self.db_path)
 
-        # Prepare query embedding for semantic search
-        query_embedding = None
-        if mode in ['both', 'semantic']:
-            query_embedding = embed_text(q)
+        kw_scores = _keyword_scores(conn, q) if mode in ('both', 'keyword') else {}
+        if kw_scores:  # drop orphan FTS rowids that no longer map to a document
+            valid = _valid_doc_ids(conn)
+            kw_scores = {k: v for k, v in kw_scores.items() if k in valid}
+        sem_scores = _semantic_scores(conn, embed_text(q)) if mode in ('both', 'semantic') else {}
 
-        # Get all documents
-        all_docs = conn.execute('''
-            SELECT d.id, d.name, d.title, d.author, d.subject, d.description, d.path,
-                   d.modified_at, GROUP_CONCAT(dt.tag, ',') as tags,
-                   de.embedding
-            FROM documents d
-            LEFT JOIN doc_tags dt ON d.id = dt.doc_id
-            LEFT JOIN doc_embeddings de ON d.id = de.doc_id
-            GROUP BY d.id
-        ''').fetchall()
+        # Build the scored candidate set per mode: (doc_id, final, fts, sem)
+        scored = []
+        if mode == 'keyword':
+            for doc_id, fts in kw_scores.items():
+                if fts > 0.01:
+                    scored.append((doc_id, fts, fts, 0.0))
+        elif mode == 'semantic':
+            for doc_id, sem in sem_scores.items():
+                if sem >= 0.30:  # noise floor for semantic-only results
+                    scored.append((doc_id, sem, 0.0, sem))
+        else:  # both
+            for doc_id in (set(kw_scores) | set(sem_scores)):
+                fts = kw_scores.get(doc_id, 0.0)
+                sem = sem_scores.get(doc_id, 0.0)
+                final = 0.3 * fts + 0.7 * sem
+                if final > 0.01:
+                    scored.append((doc_id, final, fts, sem))
 
+        scored.sort(key=lambda x: x[1], reverse=True)
+        total_results = len(scored)
+        page = scored[offset:offset + limit]
+
+        # Fetch metadata only for the page's documents.
         results = []
-        q_lower = q.lower()
-
-        for doc_row in all_docs:
-            doc_id, name, title, author, subject, desc, path, modified_at, tags_str, embedding_blob = doc_row
-
-            fts_score = 0.0
-            sem_score = 0.0
-
-            # Keyword/FTS matching
-            if mode in ['both', 'keyword']:
-                name_lower    = (name    or '').lower()
-                title_lower   = (title   or '').lower()
-                author_lower  = (author  or '').lower()
-                subject_lower = (subject or '').lower()
-                desc_lower    = (desc    or '').lower()
-                tags_lower    = (tags_str or '').lower()
-
-                # Simple keyword matching with boosts
-                if q_lower in title_lower:
-                    fts_score += 0.8
-                elif q_lower in name_lower:
-                    fts_score += 0.6
-                if q_lower in author_lower:
-                    fts_score += 0.7   # strong — searching by author name is explicit intent
-                if q_lower in subject_lower:
-                    fts_score += 0.5
-                if q_lower in desc_lower:
-                    fts_score += 0.3
-                if q_lower in tags_lower:
-                    fts_score += 0.4
-
-                # Substring/token matching
-                for token in q_lower.split():
-                    if token in title_lower:
-                        fts_score += 0.1
-                    if token in author_lower:
-                        fts_score += 0.1
-                    if token in subject_lower:
-                        fts_score += 0.05
-                    if token in desc_lower:
-                        fts_score += 0.05
-
-            # Semantic matching
-            if mode in ['both', 'semantic'] and query_embedding and embedding_blob:
-                try:
-                    doc_embedding = blob_to_vector(embedding_blob)
-                    if doc_embedding:
-                        sem_score = cosine_similarity(query_embedding, doc_embedding)
-                except Exception:
-                    pass
-
-            # Merge scores based on mode
-            if mode == 'keyword':
-                final_score = min(1.0, fts_score)
-            elif mode == 'semantic':
-                final_score = sem_score
-            else:  # both
-                final_score = 0.3 * min(1.0, fts_score) + 0.7 * sem_score
-
-            # Filter noise: semantic-only must exceed threshold
-            if mode == 'semantic' and final_score < 0.30:
-                continue
-
-            if final_score > 0.01:  # Only include matches with some relevance
+        if page:
+            id_order = [doc_id for doc_id, *_ in page]
+            placeholders = ','.join('?' for _ in id_order)
+            meta = {}
+            for r in conn.execute(f'''
+                SELECT d.id, d.name, d.title, d.author, d.subject, d.description,
+                       d.path, d.modified_at, GROUP_CONCAT(dt.tag, ',') as tags
+                FROM documents d
+                LEFT JOIN doc_tags dt ON d.id = dt.doc_id
+                WHERE d.id IN ({placeholders})
+                GROUP BY d.id
+            ''', id_order):
+                meta[r[0]] = r
+            for doc_id, final, fts, sem in page:
+                row = meta.get(doc_id)
+                if not row:
+                    continue
+                _id, name, title, author, subject, desc, path, modified_at, tags_str = row
                 results.append({
-                    "id": doc_id,
+                    "id": _id,
                     "name": name,
                     "title": title or name,
                     "author": author or "",
                     "subject": subject or "",
                     "description": desc or "",
                     "path": path,
-                    "tags": [t.strip() for t in tags_str.split(',') if t.strip()] if tags_str else [],
+                    "tags": [t.strip() for t in (tags_str or '').split(',') if t.strip()],
                     "modified_at": modified_at,
-                    "score": round(final_score, 3),
-                    "fts_score": round(fts_score, 3),
-                    "sem_score": round(sem_score, 3)
+                    "score": round(final, 3),
+                    "fts_score": round(fts, 3),
+                    "sem_score": round(sem, 3),
                 })
-
-        # Sort by score descending
-        results.sort(key=lambda x: x['score'], reverse=True)
-        total_results = len(results)
-
-        # Paginate: return only 50 per page
-        paginated = results[offset:offset + limit]
 
         conn.close()
 
         has_more = (offset + limit) < total_results
         self.json_response({
-            "documents": paginated,
+            "documents": results,
             "query": q,
             "mode": mode,
-            "count": len(paginated),
+            "count": len(results),
             "total": total_results,
             "offset": offset,
             "has_more": has_more
