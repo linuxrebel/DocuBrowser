@@ -1078,10 +1078,16 @@ def cmd_dupclean(config: dict, args):
                         continue
 
                     try:
+                        # Deleting the documents row CASCADEs to doc_tags and
+                        # doc_embeddings. doc_fts is contentless FTS5 (no cascade);
+                        # its orphaned row is harmless because keyword search JOINs
+                        # against documents. Do NOT DELETE from doc_fts here — on a
+                        # contentless table without contentless_delete it raises,
+                        # and the except's rollback would undo the documents delete,
+                        # leaving the file gone from disk but alive in the DB.
+                        # (Matches doc_search.handle_delete.)
+                        conn.execute('PRAGMA foreign_keys=ON')
                         conn.execute('DELETE FROM documents WHERE id = ?', (doc['id'],))
-                        # doc_fts is a contentless FTS5 table — no FK cascade,
-                        # must be cleaned manually to avoid ghost search results.
-                        conn.execute('DELETE FROM doc_fts WHERE rowid = ?', (doc['id'],))
                         conn.commit()   # commit per-doc: keeps disk and DB in sync
                         deleted_total += 1
                         print(f"  ✓ Deleted: {path}")

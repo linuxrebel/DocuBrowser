@@ -77,8 +77,13 @@ def embed_text(text: str) -> list:
 
         with urlopen(request, timeout=30) as response:
             data = json.loads(response.read().decode('utf-8'))
-            return data.get('embedding')
-    except Exception:
+            # /api/embed returns {"embeddings": [[...]]} (list of vectors),
+            # while the older /api/embeddings returned {"embedding": [...]}.
+            # Accept either shape so semantic search keeps working regardless
+            # of the Ollama endpoint/version. (Matches embed_docs.py.)
+            return data.get('embedding') or (data.get('embeddings') or [None])[0]
+    except Exception as e:
+        sys.stderr.write(f"[embed_text] embedding request failed: {e}\n")
         return None
 
 
@@ -146,8 +151,35 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         """Suppress default logging."""
         pass
 
+    def _host_allowed(self) -> bool:
+        """Reject requests whose Host header isn't a local loopback name.
+
+        The server binds to localhost only, but a browser tricked by DNS
+        rebinding (attacker.com re-resolved to 127.0.0.1) would still send
+        requests here with a foreign Host header. Allow only loopback hosts,
+        and if a port is present it must match the port we're serving on.
+        """
+        host = self.headers.get('Host', '')
+        if not host:
+            # HTTP/1.0 clients may omit Host; the only thing that can reach a
+            # localhost-bound socket without a Host header is a local client.
+            return True
+        hostname, _, port = host.rpartition(':')
+        if not hostname:           # no colon → rpartition put it all in `port`
+            hostname, port = port, ''
+        # Strip IPv6 brackets: [::1] → ::1
+        hostname = hostname.strip('[]')
+        if hostname not in ('localhost', '127.0.0.1', '::1'):
+            return False
+        if port and port != str(self.server_port):
+            return False
+        return True
+
     def do_GET(self):
         """Handle GET requests."""
+        if not self._host_allowed():
+            self.error_response(403, "Forbidden: invalid Host header")
+            return
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
@@ -186,6 +218,9 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         """Handle POST requests."""
+        if not self._host_allowed():
+            self.error_response(403, "Forbidden: invalid Host header")
+            return
         parsed = urlparse(self.path)
         path = parsed.path
 
@@ -900,7 +935,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', len(content))
-        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(content)
 
@@ -953,6 +987,16 @@ def main():
     print(f"  Ollama: {OLLAMA_HOST}")
     print(f"  Model: {EMBEDDING_MODEL}")
     print(f"  Listening on http://localhost:{port}")
+
+    # Self-test: confirm semantic search will actually work. A silent
+    # embed failure (e.g. wrong response key, Ollama down) degrades
+    # 'both'/'semantic' modes to nothing, so fail loudly here instead.
+    probe = embed_text("docubrowse embedding self-test")
+    if probe and len(probe) > 0:
+        print(f"  Embeddings: OK (dim={len(probe)})")
+    else:
+        print("  Embeddings: ⚠ FAILED — semantic search will return nothing.")
+        print("              Check that Ollama is running and the model is pulled.")
     print()
     print("Endpoints:")
     print(f"  GET  http://localhost:{port}/               - UI (index.html)")
