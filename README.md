@@ -6,10 +6,18 @@
 > Functional and in daily use, but interfaces and commands may change between versions.
 > Check `status_docs/project_status.md` for current state before picking up dev work.
 
-A fast, local document search and browsing tool. DocuBrowse indexes your filesystem using
-SQLite FTS5 keyword search and AI-powered semantic similarity (Ollama + nomic-embed-text).
-Supports PDF, DOCX, EPUB, MOBI, AZW3, HTML, TXT, and Markdown. Runs entirely on your
-machine — no cloud, no API keys.
+**DocuBrowse turns a messy pile of documents into something you can actually search.**
+Point it at your files — PDFs, ebooks, Word docs, notes, whatever — and it builds a smart
+index that understands not just keywords, but meaning. Ask for "that contract about the
+lease renewal" and find it even if those exact words never appear. Click any result for
+an instant AI summary before you even open the file.
+
+DocuBrowse runs entirely on your own machine using local AI models — no internet
+connection required, no accounts, no API keys, and no per-query costs eating into a
+token budget. **Your data. Your AI.**
+
+Under the hood: SQLite FTS5 keyword search plus AI-powered semantic similarity (Ollama +
+nomic-embed-text). Supports PDF, DOCX, EPUB, MOBI, AZW3, HTML, TXT, and Markdown.
 
 ---
 
