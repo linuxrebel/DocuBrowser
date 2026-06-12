@@ -447,11 +447,31 @@ def _write_result(conn, result: dict, doc_dir: Path):
     """Insert or update one document record. Returns doc_id or None."""
     doc_id = None
     try:
-        cursor = conn.execute(
-            """INSERT OR REPLACE INTO documents
+        # Upsert on the UNIQUE path. INSERT OR REPLACE would delete+reinsert
+        # the row (new id), which under foreign_keys=ON CASCADE-deletes this
+        # document's tags and embeddings and discards its cached synopsis and
+        # created_at — forcing a needless re-embed/re-synopsis and orphaning
+        # the old FTS rowid. ON CONFLICT...DO UPDATE keeps the same id (so the
+        # FTS rowid and FK children stay valid) and leaves created_at and
+        # synopsis untouched.
+        conn.execute(
+            """INSERT INTO documents
                (name, path, size_bytes, file_ext, title, author, subject,
                 description, content_snippet, modified_at, indexed_at, doc_type, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(path) DO UPDATE SET
+                 name=excluded.name,
+                 size_bytes=excluded.size_bytes,
+                 file_ext=excluded.file_ext,
+                 title=excluded.title,
+                 author=excluded.author,
+                 subject=excluded.subject,
+                 description=excluded.description,
+                 content_snippet=excluded.content_snippet,
+                 modified_at=excluded.modified_at,
+                 indexed_at=excluded.indexed_at,
+                 doc_type=excluded.doc_type,
+                 updated_at=excluded.updated_at""",
             (
                 result["name"],
                 result["path"],
@@ -468,9 +488,14 @@ def _write_result(conn, result: dict, doc_dir: Path):
                 datetime.now().isoformat(),
             ),
         )
-        doc_id = cursor.lastrowid
+        # lastrowid is unreliable on the DO UPDATE path — look the id up by path.
+        doc_id = conn.execute(
+            "SELECT id FROM documents WHERE path = ?", (result["path"],)
+        ).fetchone()[0]
 
-        # Tags
+        # Tags are fully regenerated each scan; clear stale ones first so the
+        # persisted row doesn't accumulate tags that no longer apply.
+        conn.execute("DELETE FROM doc_tags WHERE doc_id = ?", (doc_id,))
         for tag in result.get("tags", []):
             conn.execute(
                 "INSERT OR IGNORE INTO doc_tags (doc_id, tag, source) VALUES (?, ?, 'auto')",
