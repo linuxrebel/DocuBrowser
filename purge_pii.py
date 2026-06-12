@@ -149,11 +149,18 @@ def run_purge(db_path: str, dry_run: bool = False) -> int:
     print(f"They will be added to: {pii_bl}")
     print("They will NEVER be re-ingested (pii_blacklist.txt is permanent).")
     print()
-    answer = input("Proceed? [y/N] ").strip().lower()
+    try:
+        answer = input("Proceed? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        # Non-interactive stdin (pipe/cron/systemd) or Ctrl-C: abort safely
+        # instead of crashing with an uncaught EOFError.
+        print("\nAborted — no interactive confirmation available, no changes made.")
+        conn.close()
+        return 0
     if answer not in ("y", "yes"):
         print("Aborted — no changes made.")
         conn.close()
-        return
+        return 0
 
     # Delete all matches in a single transaction — all-or-nothing.
     # Blacklist is written only AFTER a successful commit so it stays in sync.
@@ -209,8 +216,8 @@ def build_parser():
     )
     p.add_argument(
         "db_path", nargs="?",
-        default="/mnt/data/git/AI/DocuBrowse/du-docs.db",
-        help="Path to SQLite database (default: du-docs.db in repo)",
+        default=str(Path(__file__).resolve().parent / "du-docs.db"),
+        help="Path to SQLite database (default: du-docs.db next to this script)",
     )
     p.add_argument(
         "--dry-run", action="store_true",
