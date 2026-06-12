@@ -21,6 +21,60 @@ from datetime import datetime
 from pathlib import Path
 
 
+def check_missing_path(path):
+    """
+    Classify a document path that may no longer exist on disk.
+
+    Returns one of:
+      "present"   - the file exists.
+      "missing"   - the file is gone, but the underlying filesystem/device
+                     is reachable (safe to delete the DB row).
+      "unmounted" - the file's path lives under what looks like an
+                     unmounted device (an empty placeholder directory on
+                     the root filesystem with no mount). Do not modify the
+                     DB; the device may just need to be plugged in/mounted.
+
+    Logic: if the first existing ancestor directory lives on a different
+    filesystem than "/", its mere existence proves that filesystem is
+    currently mounted, so the file being gone means it's truly deleted.
+    If the ancestor is on the root filesystem, an empty non-mountpoint
+    directory is treated as a leftover mountpoint placeholder for an
+    unmounted device.
+    """
+    p = Path(path)
+    if p.exists():
+        return "present"
+
+    try:
+        root_dev = os.stat("/").st_dev
+    except OSError:
+        return "missing"
+
+    ancestor = p.parent
+    while not ancestor.exists():
+        parent = ancestor.parent
+        if parent == ancestor:
+            # Reached filesystem root without finding an existing dir.
+            return "missing"
+        ancestor = parent
+
+    try:
+        ancestor_dev = ancestor.stat().st_dev
+    except OSError:
+        return "missing"
+
+    if ancestor_dev != root_dev:
+        return "missing"
+
+    try:
+        if not os.path.ismount(ancestor) and not os.listdir(ancestor):
+            return "unmounted"
+    except OSError:
+        pass
+
+    return "missing"
+
+
 def init_db(conn):
     """Create all tables if they don't exist. Idempotent and migration-safe."""
     conn.executescript('''

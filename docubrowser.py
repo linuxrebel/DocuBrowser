@@ -1109,6 +1109,75 @@ def _db_count(db_path: str) -> int:
         return 0
 
 
+def cmd_scan_missing(config: dict, args):
+    """
+    Remove DB rows whose files no longer exist on disk.
+
+    For every indexed document, checks whether its path still exists.
+    - Missing, and the underlying filesystem is reachable -> delete the
+      row (and cascading tags/embeddings) — the file is genuinely gone.
+    - Missing, but the path looks like it's under an unmounted device
+      (empty placeholder directory on the root filesystem) -> skip, since
+      we can't verify; the device may just need to be mounted.
+
+    This is a separate, opt-in pass. The normal scan only walks disk -> DB
+    (new/changed files); it never checks whether existing DB rows still
+    have a file behind them.
+    """
+    from docubrowse_db import get_db, check_missing_path
+
+    db_path = args.db or config['db_path']
+    if not Path(db_path).exists():
+        print(f"ERROR: Database not found: {db_path}")
+        sys.exit(1)
+
+    conn = get_db(db_path)
+    rows = conn.execute('SELECT id, path FROM documents').fetchall()
+    total = len(rows)
+    print(f"Checking {total:,} indexed document(s) for missing files...")
+
+    deleted = []
+    skipped_unmounted = []
+
+    for doc_id, path in rows:
+        status = check_missing_path(path)
+        if status == "present":
+            continue
+        elif status == "unmounted":
+            skipped_unmounted.append(path)
+        else:  # "missing"
+            deleted.append((doc_id, path))
+
+    if args.dry_run:
+        print()
+        print(f"Would delete {len(deleted):,} row(s) for missing file(s):")
+        for _, path in deleted:
+            print(f"  - {path}")
+    else:
+        for doc_id, _ in deleted:
+            conn.execute('DELETE FROM documents WHERE id = ?', (doc_id,))
+        conn.commit()
+
+    conn.close()
+
+    if skipped_unmounted:
+        print()
+        print(f"Skipped {len(skipped_unmounted):,} path(s) that look like they're "
+              f"under an unmounted device (left untouched):")
+        for path in skipped_unmounted:
+            print(f"  - {path}")
+
+    print()
+    if args.dry_run:
+        print(f"Dry run: {len(deleted):,} row(s) would be removed, "
+              f"{len(skipped_unmounted):,} skipped (unmounted), "
+              f"{total - len(deleted) - len(skipped_unmounted):,} still present.")
+    else:
+        print(f"Done: {len(deleted):,} row(s) removed, "
+              f"{len(skipped_unmounted):,} skipped (unmounted), "
+              f"{total - len(deleted) - len(skipped_unmounted):,} still present.")
+
+
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
 def _kill_port(port: int, verbose: bool = False) -> bool:
@@ -1433,6 +1502,30 @@ def build_parser() -> argparse.ArgumentParser:
                             dest="threshold",
                             help="Cosine similarity threshold for near-dups (default: 0.97)")
 
+    # scan-missing
+    p_scan_missing = sub.add_parser(
+        "scan-missing",
+        help="Remove indexed documents whose files no longer exist on disk",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            Checks every indexed document to see if its file still exists.
+            Files that are genuinely gone are removed from the index
+            (cascading tags/embeddings). Paths that look like they're under
+            an unmounted device are left untouched and reported separately,
+            since they can't be verified until the device is mounted.
+
+            This is separate from the normal scan, which only looks for
+            new/changed files on disk and never checks existing DB rows.
+
+            Examples:
+              scan-missing                  remove rows for deleted files
+              scan-missing --dry-run        preview what would be removed
+        """),
+    )
+    p_scan_missing.add_argument("--db", metavar="PATH", help="Database path")
+    p_scan_missing.add_argument("--dry-run", action="store_true", dest="dry_run",
+                                 help="Show what would be removed without changing the DB")
+
     return parser
 
 
@@ -1452,6 +1545,7 @@ COMMANDS = {
     "report":    cmd_report,
     "duplist":   cmd_duplist,
     "dupclean":  cmd_dupclean,
+    "scan-missing": cmd_scan_missing,
 }
 
 
