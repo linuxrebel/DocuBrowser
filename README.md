@@ -1,4 +1,4 @@
-# DocuBrowse v0.7.2
+# DocuBrowse v0.7.2.1
 
 <a name="top"></a>
 
@@ -20,8 +20,8 @@ machine — no cloud, no API keys.
 | [Features](#features) | [Screenshots](#screenshots) | [Quick Start](#quick-start) |
 | [CLI Reference](#cli-reference) | [Configuration](#configuration) | [Architecture](#architecture) |
 | [API Endpoints](#api-endpoints) | [Search Algorithm](#search-algorithm) | [File Structure](#file-structure) |
-| [Troubleshooting](#troubleshooting) | [Known Limitations](#known-limitations) | [Roadmap](#roadmap) |
-| [AI-Assisted Dev](#ai-assisted-development) | [License](#license) | |
+| [Troubleshooting](#troubleshooting) | [Known Limitations](#known-limitations) | [Recent Changes](#recent-changes) |
+| [Roadmap](#roadmap) | [AI-Assisted Dev](#ai-assisted-development) | [License](#license) |
 
 ---
 
@@ -534,6 +534,19 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 ---
 
+## Recent Changes
+
+[↑ Top](#top)
+
+### v0.7.2.1 — Bugfix
+- Fixed "Open file" (`/api/open`) silently doing nothing — the server's
+  environment was missing `DBUS_SESSION_BUS_ADDRESS`/`DISPLAY`/`XAUTHORITY`/
+  `XDG_RUNTIME_DIR`, so `xdg-open` exited successfully without launching the
+  default app. `handle_open` now reconstructs the desktop session
+  environment and prefers `gio open` for reliable launches.
+
+---
+
 ## Roadmap
 
 [↑ Top](#top)
@@ -595,4 +608,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.7.2** — Fast, local, AI-powered document search.
+**DocuBrowse v0.7.2.1** — Fast, local, AI-powered document search.
