@@ -17,8 +17,14 @@ Tables:
 
 import os
 import sqlite3
+import threading
 from datetime import datetime
 from pathlib import Path
+
+# Track which (process, db_path) pairs have had their schema initialized so the
+# expensive init_db() runs once per process instead of on every connection.
+_initialized_paths = set()
+_init_lock = threading.Lock()
 
 
 def check_missing_path(path):
@@ -210,8 +216,18 @@ def get_db(db_path):
     conn.execute('PRAGMA journal_mode=WAL')
     conn.execute('PRAGMA foreign_keys=ON')
 
-    # Initialize schema if needed (idempotent)
-    init_db(conn)
+    # Schema init/migration is one-time work: a full executescript, PRAGMA
+    # table_info probes, up to 10 ALTERs, an FTS5 probe and possibly a
+    # DROP/CREATE/repopulate of doc_fts, plus commits. Running it on EVERY
+    # connection made each server request a writer (WAL lock contention) and
+    # risked a server/scanner race both recreating doc_fts concurrently. Do it
+    # once per (process, db_path); subsequent connections just set pragmas.
+    key = str(db_path)
+    if key not in _initialized_paths:
+        with _init_lock:
+            if key not in _initialized_paths:
+                init_db(conn)
+                _initialized_paths.add(key)
 
     return conn
 

@@ -650,12 +650,13 @@ def scan_directory(
         conn.close()
         return
 
-    start_time = time.time()
-    extracted  = 0
-    scanned    = 0
-    failed     = 0
-    completed  = 0
-    total      = len(to_process)
+    start_time  = time.time()
+    last_commit = time.time()
+    extracted   = 0
+    scanned     = 0
+    failed      = 0
+    completed   = 0
+    total       = len(to_process)
 
     work_items = [(str(f), str(doc_dir)) for f in to_process]
 
@@ -679,6 +680,17 @@ def scan_directory(
         if _IS_TTY:
             print(_progress_bar(completed, total, start_time, failed),
                   end="", flush=True)
+
+    def _maybe_commit(force=False):
+        """Commit on a ~2s time budget instead of every N documents. The old
+        every-50 cadence held the single WAL writer slot for minutes during
+        large-PDF stretches, blocking the server's synopsis/delete writes until
+        they timed out. A short time budget bounds how long the writer is held
+        while still batching enough to keep throughput up."""
+        nonlocal last_commit
+        if force or (time.time() - last_commit) >= 2.0:
+            conn.commit()
+            last_commit = time.time()
 
     def _index_result(result):
         """Write one finished extraction result dict to the DB and update
@@ -736,8 +748,7 @@ def scan_directory(
             completed += 1
             _index_result(result)
             _progress()
-            if completed % 50 == 0:
-                conn.commit()
+            _maybe_commit()
 
     suspects_extra = []   # files whose future raised BrokenProcessPool this round
     try:
@@ -770,8 +781,7 @@ def scan_directory(
                         completed += 1
                         _index_result(result)
                         _progress()
-                        if completed % 50 == 0:
-                            conn.commit()
+                        _maybe_commit()
                     if broke:
                         break   # leave the `with`, tearing down the broken pool
                     _fill_queue(executor)
