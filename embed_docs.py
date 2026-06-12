@@ -154,6 +154,7 @@ def embed_docs(db_path: str, limit: int = None, workers: int = DEFAULT_WORKERS):
     print()
 
     start_time  = time.time()
+    last_commit = time.time()
     embedded    = 0
     failed      = 0
     completed   = 0
@@ -161,6 +162,7 @@ def embed_docs(db_path: str, limit: int = None, workers: int = DEFAULT_WORKERS):
 
     def _write(doc_id, embedding, completed_idx):
         """Serialise DB write; called from main thread via lock."""
+        nonlocal last_commit
         blob = vector_to_blob(embedding)
         conn.execute(
             """INSERT OR REPLACE INTO doc_embeddings
@@ -168,8 +170,12 @@ def embed_docs(db_path: str, limit: int = None, workers: int = DEFAULT_WORKERS):
                VALUES (?, ?, ?, ?)""",
             (doc_id, blob, EMBEDDING_MODEL, datetime.now().isoformat()),
         )
-        if completed_idx % BATCH_SIZE == 0:
+        # Commit on a ~2s time budget rather than every BATCH_SIZE docs, so the
+        # single WAL writer slot isn't held long enough to block the server's
+        # synopsis/delete writes.
+        if (time.time() - last_commit) >= 2.0:
             conn.commit()
+            last_commit = time.time()
 
     # Sliding-window: keep workers*3 requests in-flight (HTTP I/O, low memory
     # per item) with memory checks between fills.
