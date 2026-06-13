@@ -113,7 +113,44 @@ Click any thumbnail to view full size.
 
 See [INSTALL.md](INSTALL.md) for a full step-by-step guide.
 
-### First Run
+### Install (recommended)
+
+The bundled `install.sh` is the easiest way to get a working install. Download
+and extract a release tarball (or `git clone` the repo), then run one of:
+
+```bash
+# USER install — no root, no systemd
+./install.sh
+#  → installs to ~/.docubrowse (its own venv)
+#  → CLI wrapper at ~/.local/bin/docubrowser
+#  → start it yourself with:  docubrowser start
+
+# SYSTEM install — dedicated user + systemd unit
+sudo ./install.sh
+#  → installs to /opt/docubrowse as the 'docubrowse' system user
+#  → installs systemd unit docubrowser.service (NOT auto-enabled)
+#  → CLI wrapper at /usr/local/bin/docubrowser
+#  → manage with:  systemctl start docubrowser   (plus the docubrowser CLI)
+```
+
+`install.sh` runs comprehensive pre-flight checks before touching anything —
+python3 ≥ 3.9 (with venv/ensurepip), rsync, curl, tar, plus calibre and ollama,
+and in system mode getent/useradd/groupadd/systemctl — and reports everything
+missing at once. Python dependencies are declared in `requirements.txt`
+(pdfplumber, pypdf, python-docx, python-pptx, openpyxl, ebooklib,
+beautifulsoup4, mobi, numpy) and installed automatically via
+`pip install -r requirements.txt`.
+
+Once installed, the CLI is the `docubrowser` command — drop the `./` and `.py`
+from every example below. For example, `docubrowser start` and
+`docubrowser rescan`. The `./docubrowser.py <cmd>` form shown throughout the
+rest of this README is the dev / cloned-repo path (running directly out of a
+checkout).
+
+To uninstall, run `./uninstall.sh` (or `sudo ./uninstall.sh` for a system
+install).
+
+### First Run (dev / cloned repo)
 
 ```bash
 cd /path/to/DocuBrowse
@@ -127,6 +164,9 @@ cd /path/to/DocuBrowse
 # Open the UI
 ./docubrowser.py open
 ```
+
+> On an installed system, use the `docubrowser` command instead, e.g.
+> `docubrowser rescan` / `docubrowser start` / `docubrowser open`.
 
 `docubrowser.py start` automatically verifies Ollama is installed, running, and has
 both required models — `nomic-embed-text:latest` (embeddings) and
@@ -261,11 +301,16 @@ how to set it.
 
 ```ini
 # docubrowse.config
-doc_dir  = /mnt/data/Documents
-db_path  = /home/user/DocuBrowse/du-docs.db
-port     = 8643
-work_dir = /home/user/DocuBrowse
+doc_dir      = /mnt/data/Documents
+db_path      = /home/user/DocuBrowse/du-docs.db
+port         = 8643
+work_dir     = /home/user/DocuBrowse
+allow_remote = false
 ```
+
+`allow_remote` (boolean, default `false`) controls whether the server binds
+localhost-only (`127.0.0.1`) or all interfaces (`0.0.0.0`) for LAN access.
+See [Security](#security) before enabling it.
 
 ### Defaults
 
@@ -275,6 +320,7 @@ work_dir = /home/user/DocuBrowse
 | `db_path` | `<script dir>/du-docs.db` |
 | `port` | `8643` |
 | `work_dir` | `<script dir>` |
+| `allow_remote` | `false` (localhost-only bind) |
 
 ---
 
@@ -497,6 +543,32 @@ is hardened so a malicious web page you happen to visit can't reach it:
 Authentication is still not provided; this is for trusted local use, not a
 network-exposed deployment.
 
+### Remote (LAN) access
+
+By default the server binds `127.0.0.1` (localhost only) and the firewall is
+left untouched. Remote/LAN access is strictly **opt-in**:
+
+- During install, `install.sh` asks **"Allow remote (LAN) access?"** (default
+  **No**). Non-interactively, set `DOCUBROWSE_ALLOW_REMOTE=1` to enable it.
+- When enabled, the installer binds `0.0.0.0`, opens the firewall for the
+  configured port (firewalld `--add-port=8643/tcp`, or ufw), and sets
+  `allow_remote=true` in `docubrowse.config`.
+
+Security implications of enabling remote access:
+
+- **No authentication yet** — remote access exposes read *and delete* to anyone
+  on the network. This is opt-in and the installer warns about it.
+- **DNS-rebinding is still blocked** — the Host allow-list always permits
+  loopback names, and additionally permits this host's own names + IP-literal
+  Host values when remote access is on.
+- **Mutating requests still require the CSRF token AND a same-origin
+  `Origin`/`Referer`** — this works for both local and LAN clients.
+
+> **Switching local ↔ remote after install is currently manual:** edit
+> `allow_remote` in `docubrowse.config`, open/close the firewall yourself, then
+> `docubrowser restart`. A `docubrowser remote on|off` command is planned but
+> **not yet available**.
+
 ---
 
 ## File Structure
@@ -619,7 +691,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Scanned PDFs not searchable | Listed in ocr_list_pdfs.txt; OCR deferred |
 | Multiple top-level doc directories | Additional scan directories supported (General panel / `scan_dirs.txt`), but each requires a manual rescan via the printed CLI command — not yet automatic |
 | Moved/renamed files | Not detected as moves — old path is removed (interactively or via `scan-missing`), new path is picked up on next rescan as a fresh entry; true duplicates are caught by `duplist`/`dupclean` |
-| No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure |
+| No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure. Remote (LAN) access is opt-in and warned at install time — enabling it exposes read/delete to the whole network |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 
 ---
@@ -643,6 +715,26 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
   stops/disables/removes the systemd unit, removes the CLI wrapper and install
   directory, cleans up pid/log files, and (system mode, separate confirmation)
   can remove the dedicated `docubrowse` user/group.
+
+### v0.7.3 — Installer & remote access (2026-06-13)
+- **Installer:** rewritten `install.sh`/`uninstall.sh` with a clean user vs.
+  system split — user mode installs to `~/.docubrowse` (own venv, wrapper at
+  `~/.local/bin/docubrowser`, no root, no systemd); system mode installs to
+  `/opt/docubrowse` as a dedicated `docubrowse` user with a (not auto-enabled)
+  `docubrowser.service` systemd unit and `/usr/local/bin/docubrowser` wrapper.
+- **Pre-flight checks:** the installer validates all prerequisites up front
+  (python3 ≥ 3.9 + venv/ensurepip, rsync, curl, tar, calibre, ollama, plus
+  getent/useradd/groupadd/systemctl in system mode) and reports everything
+  missing at once before making any changes.
+- **CLI:** the launcher is now installed as the `docubrowser` command (no `.py`).
+- **requirements.txt** added and installed via `pip install -r requirements.txt`
+  — now includes previously-missing deps (numpy, python-pptx, openpyxl)
+  alongside pdfplumber, pypdf, python-docx, ebooklib, beautifulsoup4, mobi.
+- **Opt-in LAN access:** localhost-only by default; when enabled the installer
+  binds `0.0.0.0`, opens the firewall, sets `allow_remote=true`, and keeps the
+  Host allow-list + CSRF/same-origin protections (see [Security](#security)).
+- **Fresh installs start empty:** `du-docs.db.example` now ships empty, so new
+  installs begin with no documents indexed.
 
 ### v0.7.3 — Security & reliability hardening
 Remediation of a full code-quality + security audit (details in
