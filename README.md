@@ -250,7 +250,12 @@ DocuBrowse reads the first config file it finds:
 1. `/etc/docubrowse.config` (system-wide)
 2. `./docubrowse.config` (next to `docubrowser.py`)
 
-If neither exists, built-in defaults apply.
+If neither exists, built-in defaults apply — except `doc_dir`, which has no
+default. Until a document directory is configured (via the Settings gear icon
+in the web UI, or by setting `doc_dir` in `docubrowse.config`), the web UI
+shows a banner prompting you to configure one, and CLI commands that need a
+document directory (`rescan`, `report`, `scan`) exit with an error explaining
+how to set it.
 
 ### Config File Format
 
@@ -266,7 +271,7 @@ work_dir = /home/user/DocuBrowse
 
 | Key | Default |
 |-----|---------|
-| `doc_dir` | `/mnt/data/Documents` |
+| `doc_dir` | _(none — must be configured via Settings or docubrowse.config)_ |
 | `db_path` | `<script dir>/du-docs.db` |
 | `port` | `8643` |
 | `work_dir` | `<script dir>` |

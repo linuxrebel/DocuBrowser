@@ -150,8 +150,12 @@ work_dir = /path/to/DocuBrowse
 EOF
 ```
 
-If no config file exists, built-in defaults are used (`doc_dir = /mnt/data/Documents`,
-`port = 8643`, database next to `docubrowser.py`).
+If no config file exists, built-in defaults are used (`port = 8643`, database
+next to `docubrowser.py`) — except `doc_dir`, which has no default. Until you
+configure one (via the Settings gear icon in the web UI, or by setting
+`doc_dir` above), the web UI shows a banner prompting you to configure it, and
+CLI commands that need a document directory (`rescan`, `report`, `scan`) exit
+with an error explaining how to set it.
 
 ---
 
@@ -261,6 +265,22 @@ git pull origin main
 ---
 
 ## Uninstalling
+
+If you installed via `install.sh`, use `uninstall.sh` instead — it mirrors
+install.sh's mode detection (user vs. system) and removes the install
+directory, systemd unit, CLI wrapper, pid/log files, and (optionally, with a
+separate confirmation) the dedicated `docubrowse` system user/group:
+
+```bash
+cd DocuBrowse
+./uninstall.sh
+```
+
+It asks for confirmation before removing anything, and is safe to run from
+either a user-mode (`$HOME/.docubrowse`) or root/system-mode (`/opt/docubrowse`)
+install.
+
+### Manual / dev-checkout uninstall
 
 ```bash
 # Stop everything

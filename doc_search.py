@@ -967,7 +967,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             Path(__file__).parent / "docubrowse.config",
         ]
         config = {
-            "docPath":      "/mnt/data/Documents",
+            "docPath":      "",
             "workDir":      str(Path(__file__).parent),
             "port":         DEFAULT_PORT,
             "installed":    False,
