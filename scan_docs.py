@@ -114,7 +114,7 @@ def _load_scan_dirs(db_path: Path) -> set:
     Format: one absolute directory path per line; '#' = comment.
     Lives next to the database (scan_dirs.txt). These are extra top-level
     directories (outside docPath) the user has earmarked for scanning via
-    `docubrowser.py scan --doc-dir <DIR>`. Purely informational/bookkeeping
+    `docubrowser scan --doc-dir <DIR>`. Purely informational/bookkeeping
     for the settings UI — does not affect the default scan of docPath.
     """
     sd_path = db_path.parent / SCAN_DIRS_FILENAME

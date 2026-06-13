@@ -185,7 +185,7 @@
     <div class="config-status" id="configStatus"></div>
     <label>docPath — root directory containing documents</label>
     <div class="field-row">
-      <input type="text" id="cfgDocPath" placeholder="/mnt/data/Documents">
+      <input type="text" id="cfgDocPath" placeholder="/folder/to/be/scanned">
       <button class="browse-btn" onclick="openBrowser('docPath')">Browse…</button>
     </div>
     <div class="dir-browser" id="browser-docPath"></div>
@@ -531,7 +531,7 @@ function renderScanDirs() {
 
 function scanCommandFor(path) {
   const workDir = (document.getElementById('cfgWorkDir').value || '.').trim();
-  return `cd "${workDir}" && python3 docubrowser.py scan --doc-dir "${path}" --limit 100`;
+  return `cd "${workDir}" && docubrowser scan --doc-dir "${path}" --limit 100`;
 }
 
 async function addScanDir() {

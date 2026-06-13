@@ -2,81 +2,86 @@
 #
 # uninstall.sh — DocuBrowse uninstaller
 #
-# Usage:
-#   ./uninstall.sh             # uninstall
-#
 # Behavior mirrors install.sh:
-#   - Run as a normal user  -> removes $HOME/.docubrowse install
-#   - Run as root (sudo)    -> removes /opt/docubrowse system-wide install
+#   - Run as a normal user  -> removes the USER install at $HOME/.docubrowse
+#                              (CLI wrapper in ~/.local/bin, no systemd).
+#   - Run as root (sudo)    -> removes the SYSTEM install at /opt/docubrowse
+#                              (systemd unit, /usr/local/bin wrapper, optional
+#                              dedicated service user/group).
 #
-# This stops and removes the systemd unit, removes the install directory
-# (including the venv), removes the CLI wrapper, and (user mode) removes
-# pid/log files under $HOME/.local. In system mode it will optionally
-# remove the dedicated 'docubrowse' system user/group (asks first).
+# It also cleans up *legacy* artifacts from earlier broken installs (e.g. a
+# user install that wrongly created a systemd unit and a /usr/local/bin
+# wrapper), so upgrading from a half-finished install works.
 #
 set -euo pipefail
 
-# ─── Detect mode (mirrors install.sh) ───────────────────────────────────────
+UNIT_PATH="/etc/systemd/system/docubrowser.service"
+LOCAL_RUN_DIR="$HOME/.local/run"
+LOCAL_LOG_DIR="$HOME/.local/var/log"
+
 if [[ "$EUID" -eq 0 ]]; then
     MODE="system"
     INSTALL_DIR="/opt/docubrowse"
     SERVICE_USER="docubrowse"
     SERVICE_GROUP="docubrowse"
-    BIN_LINK="/usr/local/bin/docubrowse"
-    UNIT_PATH="/etc/systemd/system/docubrowser.service"
     SUDO=""
 else
     MODE="user"
     INSTALL_DIR="$HOME/.docubrowse"
-    SERVICE_USER="$(id -un)"
-    SERVICE_GROUP="$(id -gn)"
-    BIN_LINK="/usr/local/bin/docubrowse"
-    UNIT_PATH="/etc/systemd/system/docubrowser.service"
     SUDO="sudo"
 fi
 
-LOCAL_RUN_DIR="$HOME/.local/run"
-LOCAL_LOG_DIR="$HOME/.local/var/log"
+# Candidate CLI wrappers to remove (new + legacy names/locations).
+WRAPPERS=(
+    "$HOME/.local/bin/docubrowser"
+    "/usr/local/bin/docubrowser"
+    "/usr/local/bin/docubrowse"     # legacy
+)
 
 echo "==> DocuBrowse uninstaller"
 echo "    Mode:        $MODE"
 echo "    Install dir: $INSTALL_DIR"
 echo
 
-if [[ ! -e "$INSTALL_DIR" ]] && [[ ! -e "$UNIT_PATH" ]] && [[ ! -e "$BIN_LINK" ]]; then
-    echo "Nothing to do — no DocuBrowse install found at $INSTALL_DIR,"
-    echo "no $UNIT_PATH, and no $BIN_LINK."
+# Figure out whether there is anything to do.
+FOUND=0
+[[ -e "$INSTALL_DIR" ]] && FOUND=1
+[[ -e "$UNIT_PATH" ]] && FOUND=1
+for w in "${WRAPPERS[@]}"; do [[ -e "$w" ]] && FOUND=1; done
+if [[ "$FOUND" -eq 0 ]]; then
+    echo "Nothing to do — no DocuBrowse install, systemd unit, or CLI wrapper found."
     exit 0
 fi
 
-read -rp "This will remove the DocuBrowse install at $INSTALL_DIR, its systemd"$'\n'"unit, and CLI wrapper. Continue? [y/N] " CONFIRM
+read -rp "Remove DocuBrowse ($INSTALL_DIR, systemd unit, CLI wrapper)? [y/N] " CONFIRM
 case "$CONFIRM" in
     [yY]|[yY][eE][sS]) ;;
     *) echo "Aborted."; exit 1 ;;
 esac
 
-# ─── Stop and disable the service ───────────────────────────────────────────
+# ─── Stop and remove the systemd unit (if any) ──────────────────────────────
 if [[ -e "$UNIT_PATH" ]]; then
-    echo "==> Stopping docubrowser service (if running)"
+    echo "==> Stopping/disabling docubrowser service"
     $SUDO systemctl stop docubrowser 2>/dev/null || true
     $SUDO systemctl disable docubrowser 2>/dev/null || true
-
     echo "==> Removing systemd unit $UNIT_PATH"
     $SUDO rm -f "$UNIT_PATH"
-
-    echo "==> Reloading systemd"
-    $SUDO systemctl daemon-reload
-else
-    echo "==> No systemd unit at $UNIT_PATH — skipping service removal"
+    $SUDO systemctl daemon-reload 2>/dev/null || true
 fi
 
-# ─── Remove CLI wrapper ──────────────────────────────────────────────────────
-if [[ -e "$BIN_LINK" ]]; then
-    echo "==> Removing CLI wrapper $BIN_LINK"
-    $SUDO rm -f "$BIN_LINK"
-fi
+# ─── Remove CLI wrapper(s) ──────────────────────────────────────────────────
+for w in "${WRAPPERS[@]}"; do
+    if [[ -e "$w" ]]; then
+        echo "==> Removing CLI wrapper $w"
+        if [[ -w "$(dirname "$w")" ]]; then
+            rm -f "$w"
+        else
+            $SUDO rm -f "$w"
+        fi
+    fi
+done
 
-# ─── Remove install directory (includes venv, db, config) ──────────────────
+# ─── Remove install directory (includes venv, db, config) ───────────────────
 if [[ -e "$INSTALL_DIR" ]]; then
     echo "==> Removing $INSTALL_DIR"
     if [[ "$MODE" == "system" ]]; then
@@ -87,45 +92,25 @@ if [[ -e "$INSTALL_DIR" ]]; then
 fi
 
 # ─── Remove user-mode pid/log files ─────────────────────────────────────────
-if [[ "$MODE" == "user" ]]; then
-    for f in "$LOCAL_RUN_DIR/docubrowser.pid" "$LOCAL_RUN_DIR/docubrowser-scan.pid" \
-             "$LOCAL_LOG_DIR/docubrowser.log"; do
-        if [[ -e "$f" ]]; then
-            echo "==> Removing $f"
-            rm -f "$f"
-        fi
-    done
-fi
+for f in "$LOCAL_RUN_DIR/docubrowser.pid" "$LOCAL_RUN_DIR/docubrowser-scan.pid" \
+         "$LOCAL_LOG_DIR/docubrowser.log"; do
+    [[ -e "$f" ]] && { echo "==> Removing $f"; rm -f "$f"; }
+done
 
-# ─── Remove system-mode runtime/log directories ─────────────────────────────
+# ─── Remove system-mode runtime/log dirs ────────────────────────────────────
 if [[ "$MODE" == "system" ]]; then
     for d in "/run/docubrowser" "/var/log/docubrowser"; do
-        if [[ -e "$d" ]]; then
-            echo "==> Removing $d"
-            $SUDO rm -rf "$d"
-        fi
+        [[ -e "$d" ]] && { echo "==> Removing $d"; $SUDO rm -rf "$d"; }
     done
-fi
-
-# ─── Optionally remove dedicated service user/group (system mode only) ─────
-if [[ "$MODE" == "system" ]]; then
     if getent passwd "$SERVICE_USER" >/dev/null 2>&1 || getent group "$SERVICE_GROUP" >/dev/null 2>&1; then
         echo
         read -rp "Also remove the dedicated '$SERVICE_USER' system user/group? [y/N] " RM_USER
         case "$RM_USER" in
             [yY]|[yY][eE][sS])
-                if getent passwd "$SERVICE_USER" >/dev/null 2>&1; then
-                    echo "==> Removing user '$SERVICE_USER'"
-                    userdel "$SERVICE_USER" 2>/dev/null || true
-                fi
-                if getent group "$SERVICE_GROUP" >/dev/null 2>&1; then
-                    echo "==> Removing group '$SERVICE_GROUP'"
-                    groupdel "$SERVICE_GROUP" 2>/dev/null || true
-                fi
+                getent passwd "$SERVICE_USER" >/dev/null 2>&1 && { echo "==> Removing user '$SERVICE_USER'"; userdel "$SERVICE_USER" 2>/dev/null || true; }
+                getent group "$SERVICE_GROUP" >/dev/null 2>&1 && { echo "==> Removing group '$SERVICE_GROUP'"; groupdel "$SERVICE_GROUP" 2>/dev/null || true; }
                 ;;
-            *)
-                echo "Leaving '$SERVICE_USER' user/group in place."
-                ;;
+            *) echo "Leaving '$SERVICE_USER' user/group in place." ;;
         esac
     fi
 fi
