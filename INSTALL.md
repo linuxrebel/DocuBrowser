@@ -13,6 +13,9 @@ DocuBrowse runs entirely locally — no cloud accounts or API keys required.
 | pdfplumber | any | PDF extraction (primary) |
 | pypdf | 3.x+ | PDF extraction (fallback for bloated-object PDFs) |
 | python-docx | any | Word document (.docx) extraction |
+| python-pptx | any | PowerPoint (.pptx) extraction |
+| openpyxl | any | Excel (.xlsx) extraction |
+| numpy | any | semantic search (vector math) |
 | ebooklib | any | EPUB extraction |
 | beautifulsoup4 | any | HTML stripping for EPUB/MOBI |
 | mobi | any | MOBI / AZW3 extraction |
@@ -23,6 +26,43 @@ DocuBrowse runs entirely locally — no cloud accounts or API keys required.
 
 Hardware minimum: 8 GB RAM, 4 CPU cores. Recommended: 16 GB RAM, 8+ cores.
 GPU (NVIDIA/AMD) accelerates embedding generation but is not required.
+
+---
+
+## Recommended install — `install.sh`
+
+The easiest way to install DocuBrowse is the bundled `install.sh`, which runs a
+full set of pre-flight checks, reports **everything** that's missing at once, and
+changes nothing on your system until all checks pass.
+
+Pre-flight checks cover: `python3` >= 3.9 (with working `venv`/`ensurepip`),
+`rsync`, `curl`, `tar`, Calibre, and Ollama — plus `getent`, `useradd`,
+`groupadd`, and `systemctl` for system-mode installs.
+
+It has two modes:
+
+**User install** (run as a normal user):
+```bash
+./install.sh
+```
+- Installs to `~/.docubrowse` with its own virtualenv.
+- CLI wrapper at `~/.local/bin/docubrowser` (ensure `~/.local/bin` is on your `PATH`).
+- No systemd integration.
+- Start it with: `docubrowser start`
+
+**System install** (run with sudo):
+```bash
+sudo ./install.sh
+```
+- Installs to `/opt/docubrowse`, running as a dedicated `docubrowse` system user.
+- Installs a systemd unit `docubrowser.service` (installed but **not** auto-enabled).
+- CLI wrapper at `/usr/local/bin/docubrowser`.
+- Manage it with: `systemctl start docubrowser`
+
+An installed system is driven by the `docubrowser` command (not `./docubrowser.py`).
+
+The manual, step-by-step instructions below remain valid as a **manual /
+dev-checkout** alternative.
 
 ---
 
@@ -44,36 +84,37 @@ cd docubrowse-v0.7.3
 
 ## Step 2 — Install Python dependencies
 
-**Core (PDF indexing):**
+**Simplest path — install everything from `requirements.txt`:**
 ```bash
-pip install pdfplumber pypdf
+pip install -r requirements.txt
 ```
 
-**Word documents (.docx):**
+If you prefer to install packages explicitly, the full set is:
 ```bash
-pip install python-docx
+pip install pdfplumber pypdf python-docx python-pptx openpyxl \
+            ebooklib beautifulsoup4 mobi numpy
 ```
 
-**E-books (.epub, .mobi, .azw3):**
-```bash
-pip install ebooklib beautifulsoup4 mobi
-```
-
-**Install everything at once:**
-```bash
-pip install pdfplumber pypdf python-docx ebooklib beautifulsoup4 mobi
-```
+- `numpy` is required by semantic search.
+- `python-pptx` / `openpyxl` are required by the `.pptx` / `.xlsx` extractors.
 
 Verify:
 
 ```bash
-python3 -c "import pdfplumber, pypdf, docx, ebooklib, mobi; print('OK')"
+python3 -c "import pdfplumber, pypdf, docx, pptx, openpyxl, ebooklib, mobi, numpy; print('OK')"
 ```
 
 **Calibre** (system package — provides `ebook-meta` and `ebook-convert`):
 ```bash
 sudo dnf install calibre          # Fedora / RHEL
 sudo apt install calibre          # Debian / Ubuntu
+```
+
+If your distro doesn't package Calibre (e.g. CentOS Stream), use the official
+Linux installer:
+```bash
+# https://calibre-ebook.com/download_linux
+sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
 ```
 
 Calibre is used for ebook metadata extraction and as a text-extraction fallback.
@@ -143,12 +184,17 @@ Copy the example config and edit it:
 cp docubrowse.config.example docubrowse.config   # if present
 # or create from scratch:
 cat > docubrowse.config << 'EOF'
-doc_dir  = /mnt/data/Documents      # directory to index
-db_path  = /path/to/DocuBrowse/du-docs.db
-port     = 8643
-work_dir = /path/to/DocuBrowse
+doc_dir      = /mnt/data/Documents      # directory to index
+db_path      = /path/to/DocuBrowse/du-docs.db
+port         = 8643
+work_dir     = /path/to/DocuBrowse
+allow_remote = false                    # bind 127.0.0.1 only (see below)
 EOF
 ```
+
+`allow_remote` (bool) controls whether the server binds to all interfaces for
+LAN access. With `false` (the default) it binds `127.0.0.1` only. See
+**Remote (LAN) access** below before enabling it.
 
 If no config file exists, built-in defaults are used (`port = 8643`, database
 next to `docubrowser.py`) — except `doc_dir`, which has no default. Until you
@@ -156,6 +202,36 @@ configure one (via the Settings gear icon in the web UI, or by setting
 `doc_dir` above), the web UI shows a banner prompting you to configure it, and
 CLI commands that need a document directory (`rescan`, `report`, `scan`) exit
 with an error explaining how to set it.
+
+---
+
+## Remote (LAN) access
+
+During an `install.sh` run the installer asks whether to allow remote (LAN)
+access. The default is **No**:
+
+- **No** (default) — the server binds `127.0.0.1` only and the firewall is left
+  untouched. Reachable only from the local machine.
+- **Yes** — the server binds `0.0.0.0`, the firewall is opened for the port
+  (firewalld `8643/tcp`, or `ufw` if that's what you run), and `allow_remote =
+  true` is written to `docubrowse.config`.
+
+To answer non-interactively, set the override before running the installer:
+```bash
+DOCUBROWSE_ALLOW_REMOTE=1 ./install.sh
+```
+
+> **WARNING:** DocuBrowse has **no authentication yet**. Only enable remote
+> access on trusted networks.
+
+To change this after install (current procedure):
+
+1. Edit `allow_remote` in `docubrowse.config`.
+2. Open or close the firewall for the port accordingly.
+3. `docubrowser restart`
+
+(A `docubrowser remote on|off` convenience command is planned but not yet
+available.)
 
 ---
 
@@ -167,6 +243,9 @@ schema before scanning:
 ```bash
 python3 docubrowse_db.py
 ```
+
+The shipped `du-docs.db.example` is now empty, so a fresh install starts with
+zero indexed documents — run a scan (Step 6) to populate it.
 
 ---
 
@@ -207,6 +286,11 @@ tail -f ~/.local/share/docubrowser/docubrowser.log
 ---
 
 ## Making docubrowser.py globally accessible
+
+> If you installed via `install.sh`, this is already done for you — the
+> `docubrowser` wrapper is installed at `~/.local/bin/docubrowser` (user mode)
+> or `/usr/local/bin/docubrowser` (system mode). The steps below are for manual
+> / dev checkouts only.
 
 ```bash
 # Option A: symlink into your PATH

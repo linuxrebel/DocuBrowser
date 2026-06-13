@@ -724,3 +724,37 @@ writes. Verified: init_db runs once across 5 same-path get_db calls; a real
   on logical failure — a deliberate "request handled, payload reports outcome"
   design the whole frontend relies on (`if(!res.ok) throw` then inspect
   data.ok); changing to 4xx would rewrite every error path for no real gain.
+
+---
+
+## Installer & remote access (2026-06-13)
+
+**Installer user/system split.** Field-testing the install on a CentOS Stream VM
+exposed a half-way install (user mode wrongly created a root systemd unit that
+203/EXEC'd from $HOME under SELinux; wrapper in /usr/local/bin with wrong
+perms). install.sh was rewritten into two clean modes — USER ($HOME/.docubrowse,
+~/.local/bin/docubrowser wrapper, no systemd, `docubrowser start`) and SYSTEM
+(/opt/docubrowse, dedicated user, systemd unit, /usr/local/bin wrapper) — with
+full up-front pre-flight checks (python>=3.9+venv, rsync/curl/tar, calibre,
+ollama, +user/group/systemctl in system mode) that report everything missing
+before changing anything. CLI is installed as `docubrowser` (not docubrowser.py).
+requirements.txt added (it was referenced but missing; also added numpy /
+python-pptx / openpyxl which the code needs). Calibre fallback link documented
+for distros without a package (CentOS Stream).
+
+**Opt-in remote (LAN) access.** Default remains localhost-only (bind 127.0.0.1,
+firewall untouched). Opt-in via the installer prompt or DOCUBROWSE_ALLOW_REMOTE=1
+sets allow_remote=true, binds 0.0.0.0, and opens the firewall (firewalld/ufw);
+uninstall closes it. Decisions: Host allow-list still blocks DNS-rebinding in
+remote mode (loopback always; this host's own names + IP-literal Hosts only —
+attacker domains rejected); the mutation guard was changed from loopback-only to
+a same-origin check (Origin/Referer host must equal the addressed Host, or
+loopback) so the UI works over the LAN while CSRF protection holds. No
+authentication yet — remote access is warned as exposing read/delete to the
+network; auth is deferred. A `docubrowser remote on|off|status` command to
+toggle this (config+firewall+restart) is planned, not yet built.
+
+**Empty example DB.** du-docs.db.example was shipping with ~100 seeded test rows,
+so fresh installs opened pre-populated. Emptied to schema-only (rows deleted,
+contentless FTS cleared via 'delete-all', AUTOINCREMENT reset, VACUUMed); first
+run is now genuinely empty.
