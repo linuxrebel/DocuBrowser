@@ -39,9 +39,8 @@ from urllib.error import URLError
 
 DEFAULT_PORT    = 8643
 DEFAULT_DB      = Path(__file__).parent / "du-docs.db"
-DEFAULT_DOC_DIR = "/mnt/data/Documents"
+DEFAULT_DOC_DIR = ""  # no default — user must configure via Settings (gear icon) or docubrowse.config
 CONFIG_PATHS    = [
-    Path("/etc/docubrowse.config"),
     Path(__file__).parent / "docubrowse.config",
 ]
 
@@ -54,7 +53,7 @@ def _pick_runtime_path(preferred: Path, fallback: Path) -> Path:
     Used so PID/log files land in standard system locations
     (/var/run, /var/log) when the process has permission to create
     them there, while still working for unprivileged/local installs by
-    falling back to ~/.local/share/docubrowser/.
+    falling back to a per-user directory under ~/.local/.
     """
     try:
         preferred.parent.mkdir(parents=True, exist_ok=True)
@@ -66,19 +65,25 @@ def _pick_runtime_path(preferred: Path, fallback: Path) -> Path:
     return fallback
 
 
-_LOCAL_STATE_DIR = Path.home() / ".local/share/docubrowser"
+# Fallback locations for unprivileged/local (user-mode) installs.
+# Split per XDG-ish convention: runtime/pid files under ~/.local/run,
+# logs under ~/.local/var/log. NOTE: unlike /var/log (handled by system
+# logrotate), nothing currently rotates ~/.local/var/log/docubrowser.log —
+# this is a known gap to revisit (TODO: user-level log rotation).
+_LOCAL_RUN_DIR = Path.home() / ".local/run"
+_LOCAL_LOG_DIR = Path.home() / ".local/var/log"
 
 PID_FILE        = _pick_runtime_path(
     Path("/var/run/docubrowser/docubrowser.pid"),
-    _LOCAL_STATE_DIR / "docubrowser.pid",
+    _LOCAL_RUN_DIR / "docubrowser.pid",
 )
 SCAN_PID_FILE   = _pick_runtime_path(
     Path("/var/run/docubrowser/docubrowse_scan.pid"),
-    _LOCAL_STATE_DIR / "docubrowse_scan.pid",
+    _LOCAL_RUN_DIR / "docubrowse_scan.pid",
 )   # PGID of running scan
 LOG_FILE        = _pick_runtime_path(
     Path("/var/log/docubrowser/docubrowser.log"),
-    _LOCAL_STATE_DIR / "docubrowser.log",
+    _LOCAL_LOG_DIR / "docubrowser.log",
 )
 
 # ─── Config loader ────────────────────────────────────────────────────────────
@@ -114,6 +119,17 @@ def load_config() -> dict:
         config["_config_source"] = "(built-in defaults)"
 
     return config
+
+
+def require_doc_dir(doc_dir: str) -> str:
+    """Exit with a helpful message if no doc_dir has been configured yet."""
+    if not doc_dir:
+        print("ERROR: No document directory configured.")
+        print("Set one via the Settings (gear icon) in the web UI, or by adding")
+        print("  doc_dir = /path/to/your/documents")
+        print("to docubrowse.config, or pass --doc-dir on the command line.")
+        sys.exit(1)
+    return doc_dir
 
 
 # ─── PID helpers ─────────────────────────────────────────────────────────────
@@ -529,7 +545,7 @@ def cmd_rescan(config: dict, args):
     # Kill any scan already in progress (including orphaned workers) before starting.
     _stop_running_scans(verbose=True)
 
-    doc_dir = args.doc_dir or config["doc_dir"]
+    doc_dir = require_doc_dir(args.doc_dir or config["doc_dir"])
     db_path = args.db      or config["db_path"]
     workers = args.workers
 
@@ -829,7 +845,7 @@ def cmd_ignore(config: dict, args):
 def cmd_report(config: dict, args):
     """report — walk doc_dir and print a file-type breakdown, no DB changes."""
     from collections import Counter
-    doc_dir = args.doc_dir or config["doc_dir"]
+    doc_dir = require_doc_dir(args.doc_dir or config["doc_dir"])
     p = Path(doc_dir)
     if not p.exists() or not p.is_dir():
         print(f"ERROR: Directory not found: {doc_dir}")
@@ -897,7 +913,7 @@ def cmd_scan_file(config: dict, args):
     """scan-file — extract and index a single file, then embed it."""
     file_path = Path(" ".join(args.file)).resolve()
     db_path   = args.db      or config["db_path"]
-    doc_dir   = args.doc_dir or config["doc_dir"]
+    doc_dir   = require_doc_dir(args.doc_dir or config["doc_dir"])
 
     if not file_path.exists():
         print(f"ERROR: File not found: {file_path}")

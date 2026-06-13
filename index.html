@@ -51,6 +51,8 @@
   .stats { font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-dim); white-space:nowrap; }
   .stats b { color:var(--accent); font-weight:500; }
   .content { padding:1.5rem 2rem; }
+  .config-banner { background:var(--accent2); color:var(--bg); padding:0.85rem 1.25rem; border-radius:8px; margin-bottom:1rem; font-size:0.95rem; }
+  .config-banner strong { text-decoration:underline; }
   .results-meta { font-size:0.85rem; color:var(--text-dim); margin-bottom:1rem; font-family:'JetBrains Mono',monospace; }
   .results-meta b { color:var(--accent2); }
   .doc-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:1rem; }
@@ -282,6 +284,9 @@
 </div>
 
 <div class="content">
+  <div class="config-banner" id="configBanner" style="display:none">
+    No document directory configured yet. Click the <strong>Settings</strong> (gear) icon above and set a document directory to get started.
+  </div>
   <button class="tag-cloud-toggle" id="tagToggle">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
     tags
@@ -410,8 +415,19 @@ function loadTags() {
     });
 }
 
+function checkConfig() {
+  fetch('/api/config')
+    .then(r => r.json())
+    .then(d => {
+      const banner = document.getElementById('configBanner');
+      if (banner) banner.style.display = d.docPath ? 'none' : 'block';
+    })
+    .catch(e => console.error('Config fetch error:', e));
+}
+
 loadStats();
 loadTags();
+checkConfig();
 
 function searchTag(tag) { input.value = tag; doSearch(); }
 // Delegated click for tag-cloud chips (data-tag instead of inline onclick).

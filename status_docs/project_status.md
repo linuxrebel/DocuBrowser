@@ -414,6 +414,37 @@ See `status_docs/DECISIONS.md` for full details. Key open items:
 
 ---
 
+### 2026-06-12 — No-default doc_dir + configure banner + uninstall.sh
+- Removed the hardcoded `/mnt/data/Documents` default doc_dir/docPath across the
+  stack — "unconfigured" (empty string) is now a valid, supported state.
+- `docubrowser.py`: `DEFAULT_DOC_DIR = ""`; added `require_doc_dir()` helper
+  used by `cmd_rescan`, `cmd_report`, and `cmd_scan_file` — exits with a
+  message pointing to the Settings gear, `docubrowse.config`, or `--doc-dir`.
+- `doc_search.py`: `/api/config` now returns `"docPath": ""` when unset
+  (instead of the old hardcoded default).
+- `index.html`: added a `.config-banner` element + `checkConfig()` that fetches
+  `/api/config` and shows "No document directory configured yet. Click the
+  Settings (gear) icon..." when `docPath` is empty.
+- `install.sh`: generated `docubrowse.config` no longer sets `doc_dir`
+  (commented-out placeholder + comment pointing to Settings UI); final summary
+  now notes that doc_dir must be configured before scanning; added
+  `--exclude 'uninstall.sh'` to the rsync exclude list.
+- Added `uninstall.sh` — mirrors install.sh's user/system mode detection,
+  stops/disables/removes the systemd unit, removes the CLI wrapper and install
+  directory, cleans up user-mode pid/log files (or system-mode
+  `/run`+`/var/log` dirs), and optionally (separate confirmation) removes the
+  dedicated `docubrowse` system user/group in system mode.
+- Updated README.md and INSTALL.md: removed references to the old default
+  doc_dir, documented the unconfigured state and configure banner, and added
+  an "Uninstalling" subsection for `uninstall.sh` (keeping the old manual
+  steps as "Manual / dev-checkout uninstall").
+- Verified end-to-end: rsync'd a clean repo copy (no docubrowse.config) to a
+  sandbox, ran the real `doc_search.py` against the real DB — `/api/config`
+  returned `docPath: ""`, the index.html banner rendered correctly via
+  Playwright, and `docubrowser.py rescan` exited 1 with the new
+  "No document directory configured" message. Both `install.sh` and
+  `uninstall.sh` pass `bash -n`; both Python files pass `ast.parse`.
+
 ### 2026-06-11 (continued) — v0.7.2 release prep
 - Captured a fresh `/settings` screenshot (light mode, 1440x900) showing the consolidated General panel (docPath + additional scan directories + workDir) and Ignored Directories panel; saved as `screenshots/screenshot-settings-page.png`.
 - Updated README.md: bumped version to v0.7.2 (title + footer), replaced the stale settings screenshot with the new one and removed the "stale" note, added a "Settings (`/settings`)" feature section, noted index-bar persistence + Home button under User Interface, and reworded the "Multiple top-level doc directories" Known Limitation to reflect the now-available (manual-rescan) Additional Scan Directories feature.
