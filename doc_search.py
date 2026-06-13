@@ -6,6 +6,7 @@ DocuBrowse search server.
 HTTP server on port 8643 with merged keyword + semantic search.
 """
 
+import ipaddress
 import json
 import os
 import secrets
@@ -277,6 +278,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
     db_path     = None          # Will be set by server
     server_port = DEFAULT_PORT  # Will be set by server
     csrf_token  = None          # Per-process secret, set by server at startup
+    allow_remote = False        # True when bound for LAN access (opt-in)
+    allowed_hostnames = frozenset(('localhost', '127.0.0.1', '::1'))
 
     def log_message(self, format, *args):
         """Suppress default logging."""
@@ -292,19 +295,31 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         """
         host = self.headers.get('Host', '')
         if not host:
-            # HTTP/1.0 clients may omit Host; the only thing that can reach a
-            # localhost-bound socket without a Host header is a local client.
+            # HTTP/1.0 clients may omit Host; only a local client can reach a
+            # loopback-bound socket without one.
             return True
         hostname, _, port = host.rpartition(':')
         if not hostname:           # no colon → rpartition put it all in `port`
             hostname, port = port, ''
-        # Strip IPv6 brackets: [::1] → ::1
-        hostname = hostname.strip('[]')
-        if hostname not in ('localhost', '127.0.0.1', '::1'):
-            return False
+        hostname = hostname.strip('[]').lower()   # [::1] → ::1
         if port and port != str(self.server_port):
             return False
-        return True
+        # Loopback is always allowed.
+        if hostname in ('localhost', '127.0.0.1', '::1'):
+            return True
+        # Remote (LAN) access is opt-in. When enabled, allow this machine's own
+        # hostnames and any IP-literal Host. Requiring a known name or a literal
+        # IP still blocks DNS-rebinding, which depends on an attacker-controlled
+        # *domain name* resolving to us.
+        if self.allow_remote:
+            if hostname in self.allowed_hostnames:
+                return True
+            try:
+                ipaddress.ip_address(hostname)
+                return True
+            except ValueError:
+                return False
+        return False
 
     def _guard_mutation(self) -> bool:
         """Gate state-changing / sensitive endpoints against CSRF.
@@ -313,16 +328,20 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         into the served HTML pages. A cross-origin attacker page cannot read
         that token (the HTML is same-origin protected, and the JSON API no
         longer returns Access-Control-Allow-Origin), so it cannot forge the
-        X-CSRF-Token header this requires. As defense in depth, any request
-        carrying a non-loopback Origin or Referer is rejected outright.
+        X-CSRF-Token header this requires. As defense in depth, any Origin/
+        Referer that isn't same-origin with the addressed Host (or loopback)
+        is rejected — this works whether bound to localhost or the LAN.
 
         Sends a 403 and returns False on failure; returns True if allowed.
         """
+        host_hdr = self.headers.get('Host', '')
+        host_host = host_hdr.rsplit(':', 1)[0].strip('[]').lower() if host_hdr else ''
         for hdr in ('Origin', 'Referer'):
             val = self.headers.get(hdr)
             if val:
-                host = urlparse(val).hostname
-                if host not in ('localhost', '127.0.0.1', '::1'):
+                o = urlparse(val).hostname
+                o = o.lower() if o else o
+                if o not in (host_host, 'localhost', '127.0.0.1', '::1'):
                     self.error_response(403, "Forbidden: cross-origin request rejected")
                     return False
         token = self.headers.get('X-CSRF-Token', '')
@@ -1096,15 +1115,20 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
 def main():
     """Start the document search server."""
-    if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <database_path> [port]")
+    # Args: <database_path> [port] [--allow-remote]
+    argv = sys.argv[1:]
+    allow_remote = '--allow-remote' in argv
+    argv = [a for a in argv if a != '--allow-remote']
+    if not argv:
+        print(f"Usage: {sys.argv[0]} <database_path> [port] [--allow-remote]")
         print(f"\nExample:")
-        print(f"  {sys.argv[0]} /mnt/data/git/AI/DocuBrowse/du-docs.db")
-        print(f"  {sys.argv[0]} /mnt/data/git/AI/DocuBrowse/du-docs.db 8643")
+        print(f"  {sys.argv[0]} /path/to/du-docs.db")
+        print(f"  {sys.argv[0]} /path/to/du-docs.db 8643")
+        print(f"  {sys.argv[0]} /path/to/du-docs.db 8643 --allow-remote   # bind 0.0.0.0 (LAN)")
         sys.exit(1)
 
-    db_path = sys.argv[1]
-    port = int(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_PORT
+    db_path = argv[0]
+    port = int(argv[1]) if len(argv) > 1 else DEFAULT_PORT
 
     db_path = Path(db_path)
     if not db_path.exists():
@@ -1112,11 +1136,23 @@ def main():
         sys.exit(1)
 
     # Set database path and port for handler
-    DocSearchHandler.db_path     = str(db_path)
-    DocSearchHandler.server_port = port
-    DocSearchHandler.csrf_token  = secrets.token_urlsafe(32)
+    DocSearchHandler.db_path      = str(db_path)
+    DocSearchHandler.server_port  = port
+    DocSearchHandler.csrf_token   = secrets.token_urlsafe(32)
+    DocSearchHandler.allow_remote = allow_remote
+    if allow_remote:
+        names = {'localhost', '127.0.0.1', '::1'}
+        try:
+            names.add(socket.gethostname().lower())
+            names.add(socket.getfqdn().lower())
+        except Exception:
+            pass
+        DocSearchHandler.allowed_hostnames = frozenset(n for n in names if n)
 
-    server_address = ('localhost', port)
+    # Local-only (default) binds the IPv4 loopback explicitly; remote binds all
+    # interfaces. The firewall is only ever opened when remote is chosen.
+    bind_addr = '0.0.0.0' if allow_remote else '127.0.0.1'
+    server_address = (bind_addr, port)
     try:
         httpd = ThreadingHTTPServer(server_address, DocSearchHandler)
     except OSError as e:
@@ -1133,7 +1169,12 @@ def main():
     print(f"  Database: {db_path}")
     print(f"  Ollama: {OLLAMA_HOST}")
     print(f"  Model: {EMBEDDING_MODEL}")
-    print(f"  Listening on http://localhost:{port}")
+    if allow_remote:
+        print(f"  Listening on http://0.0.0.0:{port}  (LAN/remote access ENABLED)")
+        print(f"  ⚠ Remote access is on and there is NO authentication yet — anyone who")
+        print(f"    can reach this host on port {port} can read and delete indexed documents.")
+    else:
+        print(f"  Listening on http://localhost:{port}  (local only)")
 
     # Self-test: confirm semantic search will actually work. A silent
     # embed failure (e.g. wrong response key, Ollama down) degrades

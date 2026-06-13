@@ -133,6 +133,25 @@ fi
 echo "==> Pre-flight checks passed."
 echo
 
+# ─── Remote (LAN) access option ─────────────────────────────────────────────
+# Default: localhost-only. Optionally bind to all interfaces and open the
+# firewall so other machines can reach the UI. Set DOCUBROWSE_ALLOW_REMOTE=1
+# (or 0) to answer non-interactively.
+PORT=8643
+ALLOW_REMOTE=false
+if [[ -n "${DOCUBROWSE_ALLOW_REMOTE:-}" ]]; then
+    case "${DOCUBROWSE_ALLOW_REMOTE,,}" in 1|true|yes|on) ALLOW_REMOTE=true ;; esac
+    echo "==> Remote access: $ALLOW_REMOTE (from DOCUBROWSE_ALLOW_REMOTE)"
+else
+    echo "By default the web UI is reachable only from this machine (localhost)."
+    echo "You can optionally allow access from other machines on your network."
+    echo "WARNING: there is NO authentication yet — anyone who can reach this host"
+    echo "         on port ${PORT} could read and DELETE your indexed documents."
+    read -rp "Allow remote (LAN) access on port ${PORT}? [y/N] " _ans || _ans=""
+    case "${_ans,,}" in y|yes) ALLOW_REMOTE=true ;; esac
+fi
+echo
+
 # ─── Refuse to clobber an existing install ──────────────────────────────────
 if [[ -e "$INSTALL_DIR" ]]; then
     echo "ERROR: $INSTALL_DIR already exists." >&2
@@ -198,7 +217,11 @@ cat > "$INSTALL_DIR/docubrowse.config" <<EOF
 # or configure it later via the web UI (Settings / gear icon).
 # doc_dir  = /folder/to/be/scanned
 work_dir = $INSTALL_DIR
-port     = 8643
+port     = $PORT
+# allow_remote: true binds the server to all interfaces (LAN) instead of
+# localhost-only. There is no authentication yet — leave false unless you
+# understand the exposure. Changing this takes effect on the next start.
+allow_remote = $ALLOW_REMOTE
 EOF
 
 # ─── Create venv + install Python dependencies ──────────────────────────────
@@ -233,6 +256,8 @@ fi
 # ─── systemd unit (SYSTEM mode only) ────────────────────────────────────────
 if [[ "$MODE" == "system" ]]; then
     echo "==> Installing systemd unit at $UNIT_PATH"
+    REMOTE_FLAG=""
+    [[ "$ALLOW_REMOTE" == "true" ]] && REMOTE_FLAG=" --allow-remote"
     cat > "$UNIT_PATH" <<EOF
 [Unit]
 Description=DocuBrowse search server
@@ -244,7 +269,7 @@ Type=simple
 User=$SERVICE_USER
 Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$VENV_DIR/bin/python3 $INSTALL_DIR/doc_search.py $INSTALL_DIR/du-docs.db 8643
+ExecStart=$VENV_DIR/bin/python3 $INSTALL_DIR/doc_search.py $INSTALL_DIR/du-docs.db $PORT$REMOTE_FLAG
 
 # Runtime + log dirs managed by systemd (rooted at /run and /var/log).
 RuntimeDirectory=docubrowser
@@ -268,6 +293,21 @@ fi
 if [[ "$MODE" == "user" ]]; then
     echo "==> Creating $LOCAL_RUN_DIR and $LOCAL_LOG_DIR"
     mkdir -p "$LOCAL_RUN_DIR" "$LOCAL_LOG_DIR"
+fi
+
+# ─── Open the firewall for remote access (optional) ─────────────────────────
+if [[ "$ALLOW_REMOTE" == "true" ]]; then
+    if [[ "$EUID" -eq 0 ]]; then SUDO_FW=""; else SUDO_FW="sudo"; fi
+    if command -v firewall-cmd >/dev/null 2>&1; then
+        echo "==> Opening firewalld port ${PORT}/tcp"
+        $SUDO_FW firewall-cmd --permanent --add-port="${PORT}/tcp" && $SUDO_FW firewall-cmd --reload
+    elif command -v ufw >/dev/null 2>&1; then
+        echo "==> Opening ufw port ${PORT}/tcp"
+        $SUDO_FW ufw allow "${PORT}/tcp"
+    else
+        echo "NOTE: No supported firewall manager (firewalld/ufw) found. If a firewall"
+        echo "      is active, open ${PORT}/tcp manually to allow remote access."
+    fi
 fi
 
 # ─── Done ───────────────────────────────────────────────────────────────────
