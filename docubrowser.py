@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 James Sparenberg
 """
-docubrowser.py — DocuBrowse CLI launcher
+docubrowser — DocuBrowse CLI launcher
 
 The main user interaction point for DocuBrowse.
 
 Usage:
-  docubrowser.py <command> [options]
+  docubrowser <command> [options]
 
 Commands:
   start       Start the DocuBrowse server
@@ -276,7 +276,7 @@ def cmd_start(config: dict, args):
     # Verify database exists
     if not Path(db_path).exists():
         print(f"ERROR: Database not found: {db_path}")
-        print("Run 'docubrowser.py rescan' to create and populate the database.")
+        print("Run 'docubrowser rescan' to create and populate the database.")
         sys.exit(1)
 
     # If a systemd unit is installed, prefer it — it owns the process,
@@ -526,7 +526,7 @@ def cmd_status(config: dict, args):
     else:
         print()
         print(f"  Server:   \033[91m● STOPPED\033[0m")
-        print("  Run 'docubrowser.py start' to start the server.")
+        print("  Run 'docubrowser start' to start the server.")
 
 
 # Known file types — maps user-friendly names to extensions
@@ -686,7 +686,7 @@ def cmd_embed(config: dict, args):
 
     if not Path(db_path).exists():
         print(f"ERROR: Database not found: {db_path}")
-        print("Run 'docubrowser.py rescan' first.")
+        print("Run 'docubrowser rescan' first.")
         sys.exit(1)
 
     _run_embed(db_path, embed_workers=args.workers)
@@ -698,7 +698,7 @@ def cmd_open(config: dict, args):
 
     if not is_server_running(port):
         print(f"Server is not running on port {port}.")
-        print("Start it first with:  docubrowser.py start")
+        print("Start it first with:  docubrowser start")
         sys.exit(1)
 
     import webbrowser
@@ -761,7 +761,7 @@ def cmd_purge(config: dict, args):
 
     if not Path(db_path).exists():
         print(f"ERROR: Database not found: {db_path}")
-        print("Run 'docubrowser.py rescan' first.")
+        print("Run 'docubrowser rescan' first.")
         sys.exit(1)
 
     try:
@@ -905,8 +905,8 @@ def cmd_report(config: dict, args):
     print()
     print(f"  Scannable: {supported_count:,}   Unscannable: {unscan_count:,}")
     print()
-    print(f"  Tip: run 'docubrowser.py scan pdf' to index PDFs only,")
-    print(f"       or   'docubrowser.py scan' to index all supported types.")
+    print(f"  Tip: run 'docubrowser scan pdf' to index PDFs only,")
+    print(f"       or   'docubrowser scan' to index all supported types.")
 
 
 def cmd_scan_file(config: dict, args):
@@ -949,7 +949,7 @@ def cmd_scan_file(config: dict, args):
         _run_embed(db_path, embed_workers=args.embed_workers)
     else:
         print("Skipping embedding (--no-embed).")
-        print("Run 'docubrowser.py embed' to generate embeddings later.")
+        print("Run 'docubrowser embed' to generate embeddings later.")
 
 
 # ─── duplist / dupclean ───────────────────────────────────────────────────────
@@ -1009,7 +1009,7 @@ def cmd_duplist(config: dict, args):
             print()
 
     if exact_groups or getattr(args, 'near_dups', False):
-        print("Run 'docubrowser.py dupclean' to interactively remove duplicates.")
+        print("Run 'docubrowser dupclean' to interactively remove duplicates.")
 
 
 def cmd_dupclean(config: dict, args):
@@ -1278,29 +1278,30 @@ def _run_embed(db_path: str, embed_workers: int = 6):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="docubrowser.py",
+        prog="docubrowser",
         description="DocuBrowse — document search and browsing tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""            Examples:
-              docubrowser.py start
-              docubrowser.py status
-              docubrowser.py scan                           scan all types, no embed
-              docubrowser.py scan pdf                       PDFs only, no embed
-              docubrowser.py rescan                         scan + embed all types
-              docubrowser.py rescan pdf                     scan + embed PDFs only
-              docubrowser.py rescan pdf txt                 scan + embed PDFs and text
-              docubrowser.py rescan --doc-dir /mnt/data/Documents
-              docubrowser.py rescan --workers 4 --embed-workers 8
-              docubrowser.py stop
-              docubrowser.py stopall                           stop scans, embeds, and server
-              docubrowser.py report                            show file-type breakdown (no DB changes)
-              docubrowser.py report --doc-dir /mnt/data/Docs
-              docubrowser.py purge --dry-run                  preview PII matches
-              docubrowser.py purge                             remove PII documents interactively
-              docubrowser.py scan-file --file /path/to/file.pdf       index one file + embed
-              docubrowser.py scan-file --file /path/to/file.pdf --no-embed
+              docubrowser start
+              docubrowser status
+              docubrowser scan                           scan all types, no embed
+              docubrowser scan --doc-dir /folder/to/be/scanned   scan a specific folder
+              docubrowser scan pdf                       PDFs only, no embed
+              docubrowser rescan                         scan + embed all types
+              docubrowser rescan pdf                     scan + embed PDFs only
+              docubrowser rescan pdf txt                 scan + embed PDFs and text
+              docubrowser rescan --doc-dir /folder/to/be/scanned
+              docubrowser rescan --workers 4 --embed-workers 8
+              docubrowser stop
+              docubrowser stopall                           stop scans, embeds, and server
+              docubrowser report                            show file-type breakdown (no DB changes)
+              docubrowser report --doc-dir /folder/to/be/scanned
+              docubrowser purge --dry-run                  preview PII matches
+              docubrowser purge                             remove PII documents interactively
+              docubrowser scan-file --file /path/to/file.pdf       index one file + embed
+              docubrowser scan-file --file /path/to/file.pdf --no-embed
 
-            Tip: run 'docubrowser.py <command> --help' for per-command options.
+            Tip: run 'docubrowser <command> --help' for per-command options.
             """),
     )
 
@@ -1452,8 +1453,8 @@ def build_parser() -> argparse.ArgumentParser:
             up again on the next rescan.
 
             Examples:
-              ignore add /mnt/data/Documents/myWorkDocs
-              ignore remove /mnt/data/Documents/myWorkDocs
+              ignore add /folder/to/be/scanned/myWorkDocs
+              ignore remove /folder/to/be/scanned/myWorkDocs
               ignore list
         """),
     )
@@ -1475,7 +1476,7 @@ def build_parser() -> argparse.ArgumentParser:
 
             Example:
               report
-              report --doc-dir /mnt/data/Documents
+              report --doc-dir /folder/to/be/scanned
         """),
     )
     p_report.add_argument("--doc-dir", metavar="DIR", dest="doc_dir",
@@ -1494,9 +1495,9 @@ def build_parser() -> argparse.ArgumentParser:
             PII-blacklisted files are refused.
 
             Examples:
-              scan-file --file /mnt/data/Documents/report.pdf
-              scan-file --file /mnt/data/Documents/report.pdf --no-embed
-              scan-file --file "/path/with spaces/doc.html" --doc-dir /mnt/data/Documents
+              scan-file --file /folder/to/be/scanned/report.pdf
+              scan-file --file /folder/to/be/scanned/report.pdf --no-embed
+              scan-file --file "/path/with spaces/doc.html" --doc-dir /folder/to/be/scanned
         """),
     )
     p_scan_file.add_argument("--file", nargs='+', metavar="PATH", required=True,

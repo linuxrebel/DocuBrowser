@@ -914,7 +914,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         """POST /api/scan-dirs - {action: 'add'|'remove', path: str}.
 
         Purely a bookkeeping list of extra top-level directories the user
-        intends to scan with `docubrowser.py scan --doc-dir <DIR>`. No
+        intends to scan with `docubrowser scan --doc-dir <DIR>`. No
         purging or DB changes — scanning itself is run manually via CLI.
         """
         content_length = int(self.headers.get('Content-Length', 0))
