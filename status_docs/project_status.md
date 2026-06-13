@@ -80,6 +80,33 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 
 ## Session History
 
+### Next session (TODO)
+- Build `docubrowser remote on|off|status` CLI command: flips allow_remote in
+  docubrowse.config, opens/closes the firewall (firewalld/ufw, sudo if needed),
+  and restarts the server — so switching between local-only and LAN access is a
+  one-liner instead of manual config+firewall+restart. Test both directions on
+  testCent, then fold into the tarball.
+- Still un-verified on the VM: system-mode (sudo) install, and a real scan of
+  ~/Documents + web-UI click-through.
+- Installer field-test fixes (user/system split, pre-flight, docubrowser CLI
+  rename, remote-access opt-in) are committed (…5ac639c, c1b26ed) but NOT yet
+  pushed — push once James confirms the manual UI drive looks good.
+
+### 2026-06-13 — Installer field-test fixes + opt-in remote access (CentOS Stream VM)
+- Reworked install.sh/uninstall.sh into a clean user vs system split, added
+  full pre-flight dependency checks, renamed the CLI to `docubrowser`, fixed
+  wrapper perms/location, and added requirements.txt (numpy/pptx/openpyxl).
+  Verified end-to-end on testCent: user-mode installs, starts as the user (no
+  systemd), serves on 8643.
+- Added opt-in LAN access (#13): install prompt / DOCUBROWSE_ALLOW_REMOTE env;
+  doc_search --allow-remote binds 0.0.0.0 (default 127.0.0.1), Host allow-list
+  permits the box's own names + IP-literals (still blocks DNS-rebinding),
+  mutation guard is now same-origin so the UI works over LAN with CSRF intact;
+  installer opens firewalld/ufw, uninstaller closes it. Verified both ways
+  cross-network from another host (remote: 200 + evil-Host 403; local-only:
+  binds 127.0.0.1, firewall closed, connection refused off-box). Auth still
+  deferred by design.
+
 ### 2026-06-12 — Audit remediation, batch 3 (PII, frontend, delete-helper) + doc sync
 - **SEC-L1/L2** PII detector now validates instead of shape-matching: SSN via
   SSA allocation rules (dashed/spaced/labeled-contiguous forms), credit card
