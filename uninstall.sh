@@ -115,5 +115,17 @@ if [[ "$MODE" == "system" ]]; then
     fi
 fi
 
+# ─── Close the firewall port if we opened it ────────────────────────────────
+PORT=8643
+if [[ "$EUID" -eq 0 ]]; then SUDO_FW=""; else SUDO_FW="sudo"; fi
+if command -v firewall-cmd >/dev/null 2>&1; then
+    if $SUDO_FW firewall-cmd --permanent --query-port="${PORT}/tcp" >/dev/null 2>&1; then
+        echo "==> Closing firewalld port ${PORT}/tcp"
+        $SUDO_FW firewall-cmd --permanent --remove-port="${PORT}/tcp" && $SUDO_FW firewall-cmd --reload
+    fi
+elif command -v ufw >/dev/null 2>&1; then
+    $SUDO_FW ufw delete allow "${PORT}/tcp" 2>/dev/null || true
+fi
+
 echo
 echo "==> Uninstall complete."

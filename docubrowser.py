@@ -99,6 +99,7 @@ def load_config() -> dict:
         "db_path": str(DEFAULT_DB),
         "port":    DEFAULT_PORT,
         "work_dir": str(Path(__file__).parent),
+        "allow_remote": False,
     }
 
     for cfg_path in CONFIG_PATHS:
@@ -117,6 +118,11 @@ def load_config() -> dict:
             break
     else:
         config["_config_source"] = "(built-in defaults)"
+
+    # Normalize allow_remote to a bool (config-file values arrive as strings).
+    ar = config.get("allow_remote", False)
+    if isinstance(ar, str):
+        config["allow_remote"] = ar.strip().lower() in ("1", "true", "yes", "on")
 
     return config
 
@@ -307,9 +313,12 @@ def cmd_start(config: dict, args):
         print(f"ERROR: Server script not found: {server_script}")
         sys.exit(1)
 
+    server_cmd = [sys.executable, str(server_script), db_path, str(port)]
+    if config.get("allow_remote"):
+        server_cmd.append("--allow-remote")
     log_fh = open(LOG_FILE, "a")   # noqa: SIM115 — kept open for proc lifetime
     proc = subprocess.Popen(
-        [sys.executable, str(server_script), db_path, str(port)],
+        server_cmd,
         stdout=log_fh,
         stderr=log_fh,
         start_new_session=True,
