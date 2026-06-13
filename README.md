@@ -628,6 +628,22 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+### Unreleased — No-default doc_dir, configure banner, uninstall.sh
+- `doc_dir`/`docPath` no longer default to `/mnt/data/Documents` — an
+  unconfigured document directory is now a valid state across the CLI
+  (`docubrowser.py`), API (`doc_search.py` `/api/config`), and `install.sh`'s
+  generated config.
+- CLI commands that need a document directory (`rescan`, `report`, `scan`)
+  now exit with a clear error pointing to the Settings gear,
+  `docubrowse.config`, or `--doc-dir` if none is configured.
+- `index.html` shows a banner — "No document directory configured yet. Click
+  the Settings (gear) icon..." — whenever `/api/config` reports an empty
+  `docPath`.
+- Added `uninstall.sh`, mirroring `install.sh`'s user/system mode detection:
+  stops/disables/removes the systemd unit, removes the CLI wrapper and install
+  directory, cleans up pid/log files, and (system mode, separate confirmation)
+  can remove the dedicated `docubrowse` user/group.
+
 ### v0.7.3 — Security & reliability hardening
 Remediation of a full code-quality + security audit (details in
 `status_docs/DECISIONS.md`). Highlights:
