@@ -1,8 +1,8 @@
 # DocuBrowse Project Status
 
-**Version**: v0.7.2  
+**Version**: v0.7.3  
 **Status**: 🟢 **STABLE — daily use, active development**  
-**Last Updated**: 2026-06-11  
+**Last Updated**: 2026-06-12  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
@@ -79,6 +79,28 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 ---
 
 ## Session History
+
+### 2026-06-12 — Audit remediation, batch 3 (PII, frontend, delete-helper) + doc sync
+- **SEC-L1/L2** PII detector now validates instead of shape-matching: SSN via
+  SSA allocation rules (dashed/spaced/labeled-contiguous forms), credit card
+  via length + IIN prefix + Luhn. Verified 1.0 precision/recall on a 26-string
+  corpus (old missed 9 TPs, false-flagged 6 TNs) — commit 053ee7f.
+- **SEC-L3** frontend: Back/Next guard uses pageSize (was hardcoded 50, broke
+  at 25/100); a renderSeq token makes a newer search supersede an in-flight
+  page load (no stale grid); loadMore errors use a toast. Verified via
+  Playwright — commit 235963e.
+- **CQ-M4** consolidated 5 copies of document-deletion into one
+  `delete_documents`/`delete_document` helper in docubrowse_db (enables FK,
+  cascades, chunks, documents the contentless-FTS orphan policy once); all
+  callers routed through it. Verified on a temp DB — commit 31baea8.
+- **Docs:** README updated to current status (security model, FTS5 BM25 +
+  cached-matrix search algorithm, POST/CSRF API table, Recent Changes);
+  version kept at v0.7.3 per James. DECISIONS.md and this file updated.
+- **Audit is effectively complete.** Remaining tail is low-stakes only:
+  CQ-L7 (wait_for_memory max-wait + lazy nvidia-smi), CQ-L3/L5 (cosmetic/perf).
+- **Follow-up for next session:** the CQ-M4 helper was unit-tested directly but
+  the 5 callsites (UI delete, dupclean, purge, ignore-dir purge, scan-missing)
+  weren't each re-run end-to-end through it — worth a quick verification pass.
 
 ### 2026-06-12 — Audit remediation, batch 2 (SEC-M1, CQ-H3, CQ-H4/M1, M/L sweep)
 - Completed the remaining audit tracker items. All tested + committed:

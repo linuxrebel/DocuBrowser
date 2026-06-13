@@ -673,12 +673,18 @@ writes. Verified: init_db runs once across 5 same-path get_db calls; a real
   script instead of a hardcoded personal path.
 
 ### Deferred (audit items intentionally NOT done this pass — reasons logged)
-- **CQ-M4 — single shared delete-document helper.** Deletion logic is
-  reimplemented in ~5 places (handle_delete, dupclean, purge_pii,
-  purge_path_prefix, scan_missing). Consolidating is a worthwhile refactor but
-  touches 5 callsites; deferred to its own focused change so each can be
-  re-tested. Lower urgency now that CQ-C2 fixed the one actively-corrupting
-  copy and search no longer depends on FTS orphans.
+- ~~**CQ-M4 — single shared delete-document helper.**~~ **DONE (2026-06-12,
+  commit 31baea8).** Added `delete_documents(conn, ids, commit=True)` and
+  `delete_document(conn, id, commit=True)` to docubrowse_db — one place that
+  enables foreign_keys, CASCADEs to doc_tags/doc_embeddings, chunks large id
+  lists under the bound-variable limit, and documents the contentless-FTS
+  orphan policy once. All five callers (handle_delete, dupclean, run_purge,
+  purge_path_prefix, scan_missing) route through it; purge_pii passes
+  commit=False to keep its all-or-nothing transaction. Verified on a temp DB:
+  single delete cascades, bulk delete returns the real removed count,
+  commit=False + rollback preserves rows. **Follow-up:** the helper was
+  unit-tested directly; the 5 callsites haven't each been re-run end-to-end
+  through it — quick verification pass owed next session.
 - **SEC-M2 — realpath/symlink check before delete/open.** Largely mooted by
   SEC-C1 (mutations are now POST + CSRF-gated, single-user localhost). Low real
   risk; revisit if multi-user/network exposure is ever added.

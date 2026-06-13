@@ -27,8 +27,9 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 |---|---|---|
 | [Features](#features) | [Screenshots](#screenshots) | [Quick Start](#quick-start) |
 | [CLI Reference](#cli-reference) | [Configuration](#configuration) | [Architecture](#architecture) |
-| [API Endpoints](#api-endpoints) | [Search Algorithm](#search-algorithm) | [File Structure](#file-structure) |
-| [Troubleshooting](#troubleshooting) | [Known Limitations](#known-limitations) | [Recent Changes](#recent-changes) |
+| [API Endpoints](#api-endpoints) | [Search Algorithm](#search-algorithm) | [Security](#security) |
+| [File Structure](#file-structure) | [Troubleshooting](#troubleshooting) | [Known Limitations](#known-limitations) |
+| [Recent Changes](#recent-changes) | | |
 | [Roadmap](#roadmap) | [AI-Assisted Dev](#ai-assisted-development) | [License](#license) |
 
 ---
@@ -335,14 +336,28 @@ Base URL: `http://localhost:8643`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/` | Serve `index.html` |
+| `GET` | `/` | Serve `index.html` (injects a per-process CSRF token) |
+| `GET` | `/settings` | Serve `settings.html` |
 | `GET` | `/api/stats` | Total docs, embedded count, unique tag count |
 | `GET` | `/api/tags` | Tag list with counts (≥3 occurrences) |
 | `GET` | `/api/search` | Search with pagination |
-| `GET` | `/api/open` | Open a file with xdg-open/gio (validates against DB) |
+| `GET` | `/api/letters` | First-letter index for the alphabetic bar |
+| `GET` | `/api/synopsis` | Generate/return an AI synopsis for a document |
 | `GET` | `/api/config` | Current server configuration |
-| `GET` | `/api/scan-dirs` | List/add/remove additional scan directories |
-| `GET` | `/api/delete` | Delete a file from disk and remove from index (path must be indexed) |
+| `GET` | `/api/ignore-dirs` | List excluded directories |
+| `GET` | `/api/scan-dirs` | List additional scan directories |
+| 🔒 `GET` | `/api/browse` | Directory browser for Settings (token-gated) |
+| 🔒 `POST` | `/api/open` | Open a file with xdg-open/gio (validates against DB) |
+| 🔒 `POST` | `/api/delete` | Delete a file from disk and remove from index (path must be indexed) |
+| 🔒 `POST` | `/api/config` | Save server configuration |
+| 🔒 `POST` | `/api/ignore-dirs` | Add/remove an excluded directory |
+| 🔒 `POST` | `/api/scan-dirs` | Add/remove an additional scan directory |
+
+🔒 = state-changing or filesystem-exposing; requires the per-process
+`X-CSRF-Token` header and a loopback `Origin`/`Referer`. The token is injected
+into the served HTML, so only the first-party UI can call these. See
+[Security](#security). All requests are also rejected unless the `Host` header
+is `localhost`/`127.0.0.1`/`[::1]` (DNS-rebinding protection).
 
 ### /api/open — missing and unmounted files
 
@@ -403,11 +418,17 @@ GET /api/search?q=QUERY&offset=0&mode=both
 ### Quick API Test
 
 ```bash
+# Read endpoints are plain GETs:
 curl "http://localhost:8643/api/stats"
 curl "http://localhost:8643/api/search?q=kubernetes&mode=both"
 curl "http://localhost:8643/api/search?q=&offset=50"
-curl "http://localhost:8643/api/delete?path=/mnt/data/Documents/unwanted.pdf"
 ```
+
+Mutating endpoints (`/api/delete`, `/api/open`, the `POST` config/dir routes)
+and `/api/browse` require the per-process CSRF token and a loopback origin, so
+they aren't easily exercised with a bare `curl` — drive them from the UI, or
+pass `-X POST -H "X-CSRF-Token: <token>" -H "Origin: http://localhost:8643"`
+where `<token>` is read from the `<meta name="csrf-token">` tag in `/`.
 
 ---
 
@@ -415,31 +436,61 @@ curl "http://localhost:8643/api/delete?path=/mnt/data/Documents/unwanted.pdf"
 
 [↑ Top](#top)
 
+A non-empty query is scored two ways and merged; metadata is then fetched only
+for the requested page (the whole corpus is no longer loaded per request).
+
 ```
-final_score = 0.3 × keyword_score + 0.7 × semantic_score
+final_score = 0.3 × keyword_score + 0.7 × semantic_score   (mode=both)
 ```
 
-### Keyword Scoring
+### Keyword Scoring (FTS5 BM25)
 
-| Match | Boost |
-|-------|-------|
-| Full phrase in title | +0.8 |
-| Full phrase in filename | +0.6 |
-| Full phrase in author | +0.7 |
-| Full phrase in subject | +0.5 |
-| Full phrase in tags | +0.4 |
-| Full phrase in description | +0.3 |
-| Per token in title | +0.1 |
-| Per token in author | +0.1 |
-| Per token in subject | +0.05 |
-| Per token in description | +0.05 |
+- Backed by the SQLite **FTS5** index via `MATCH` + `bm25()` — not a Python
+  substring scan.
+- Query tokens are quoted and prefix-matched (`"tok"*`), OR-combined, so
+  arbitrary input (operators, quotes, `C++`, `&`) can't break the query.
+- Per-column BM25 weights echo the old field priorities
+  (name 6, title 8, author 7, subject 5, description 3, content_snippet 3,
+  tags 4); the result is normalized to 0–1.
+- Orphan `doc_fts` rowids (contentless FTS has no FK cascade) are pruned
+  against the live document set so they can't inflate totals.
 
 ### Semantic Scoring
 
-- Cosine similarity between query embedding and document embedding
-- Range: 0.0–1.0
-- Minimum threshold (semantic-only mode): **0.30**
-- Embeddings: 768-dimensional float32 vectors (nomic-embed-text:latest)
+- Cosine similarity between the query embedding and each document embedding.
+- Computed against an **in-process, L2-normalized embedding matrix** (one
+  vectorized NumPy matrix-vector product), cached and invalidated when the
+  embeddings table changes — instead of reloading every BLOB per request.
+- Range 0.0–1.0; minimum threshold (semantic-only mode): **0.30**.
+- Embeddings: 768-dimensional float32 vectors (nomic-embed-text:latest).
+
+---
+
+## Security
+
+[↑ Top](#top)
+
+DocuBrowse binds to localhost and is intended for single-user local use, but it
+is hardened so a malicious web page you happen to visit can't reach it:
+
+- **Host-header allow-list** — every request is rejected unless `Host` is
+  `localhost`/`127.0.0.1`/`[::1]` (optionally with the serving port). Defeats
+  DNS-rebinding against the localhost-bound server.
+- **No wildcard CORS** — `Access-Control-Allow-Origin: *` is gone, so other
+  origins can't read the index/config cross-origin.
+- **CSRF tokens on mutations** — `/api/delete` and `/api/open` are POST-only;
+  they plus the POST config/dir routes and the filesystem-exposing
+  `/api/browse` require a per-process `X-CSRF-Token` (injected into the served
+  HTML, so only the first-party UI has it) and a loopback `Origin`/`Referer`.
+- **No stored-data injection** — document fields are escaped for HTML and
+  card actions use `data-*` attributes + delegated listeners (no inline
+  `onclick` built from document data), closing a stored-XSS vector.
+- **PII purge** validates structurally before deleting: SSNs against SSA
+  allocation rules, credit cards by length + issuer prefix + Luhn — so it both
+  catches more real PII and avoids deleting docs over incidental number groups.
+
+Authentication is still not provided; this is for trusted local use, not a
+network-exposed deployment.
 
 ---
 
@@ -563,7 +614,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Scanned PDFs not searchable | Listed in ocr_list_pdfs.txt; OCR deferred |
 | Multiple top-level doc directories | Additional scan directories supported (General panel / `scan_dirs.txt`), but each requires a manual rescan via the printed CLI command — not yet automatic |
 | Moved/renamed files | Not detected as moves — old path is removed (interactively or via `scan-missing`), new path is picked up on next rescan as a fresh entry; true duplicates are caught by `duplist`/`dupclean` |
-| No authentication | Local use only |
+| No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 
 ---
@@ -571,6 +622,27 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 ## Recent Changes
 
 [↑ Top](#top)
+
+### v0.7.3 — Security & reliability hardening
+Remediation of a full code-quality + security audit (details in
+`status_docs/DECISIONS.md`). Highlights:
+- **Security:** Host-header allow-list (anti DNS-rebinding); removed wildcard
+  CORS; `/api/delete` and `/api/open` moved to POST and, with the POST config/
+  dir routes and `/api/browse`, gated by a per-process CSRF token + loopback
+  origin; stored-XSS vector closed (data-attribute + delegated listeners);
+  PII purge now validates with SSA rules + Luhn/IIN.
+- **Search:** keyword path now uses the FTS5 `bm25()` index and semantic scoring
+  uses a cached NumPy embedding matrix instead of loading the whole corpus per
+  request (keyword ~4ms, both ~55ms); server-side semantic search fixed (was
+  silently returning nothing).
+- **Reliability:** `INSERT … ON CONFLICT` upsert (re-indexing no longer wipes
+  tags/embeddings/synopsis); worker-death "suspect isolation" blacklists only
+  the real offender; schema init runs once per process; scan/embed commit on a
+  ~2s time budget so the server isn't blocked; `dupclean` no longer corrupts
+  the disk/DB on its main path; precise `/proc`-based worker termination;
+  single shared document-delete helper; assorted medium/low fixes.
+- **UI:** pagination Back/Next correct at all page sizes; a newer search now
+  supersedes an in-flight page load (no stale results).
 
 ### Unreleased — Handle moved/missing/deleted documents
 - `/api/open` now returns `{"ok": false, "error": "missing"|"unmounted", "message": ...}`
@@ -651,4 +723,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.7.2.1** — Fast, local, AI-powered document search.
+**DocuBrowse v0.7.3** — Fast, local, AI-powered document search.
