@@ -170,7 +170,13 @@ python3 -m venv "$VENV_DIR"
 
 echo "==> Installing Python dependencies"
 "$VENV_DIR/bin/pip" install --upgrade pip
-"$VENV_DIR/bin/pip" install pdfplumber pypdf python-docx ebooklib beautifulsoup4 mobi
+if [[ -f "$INSTALL_DIR/requirements.txt" ]]; then
+    "$VENV_DIR/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
+else
+    # Fallback if requirements.txt is somehow missing.
+    "$VENV_DIR/bin/pip" install pdfplumber pypdf python-docx python-pptx \
+        openpyxl ebooklib beautifulsoup4 mobi numpy
+fi
 
 # ─── Ownership (system mode) ────────────────────────────────────────────--
 if [[ "$MODE" == "system" ]]; then

@@ -1,0 +1,13 @@
+# DocuBrowse Python dependencies (install with: pip install -r requirements.txt)
+# External, non-pip prerequisites: Ollama (local AI models) and Calibre
+# (EPUB/MOBI/AZW3 fallback conversion) — see INSTALL.md.
+
+pdfplumber          # primary PDF text extraction
+pypdf               # PDF fallback + bloated-object pre-check
+python-docx         # .docx extraction (imported as `docx`)
+python-pptx         # .pptx extraction (imported as `pptx`)
+openpyxl            # .xlsx extraction
+ebooklib            # EPUB parsing
+beautifulsoup4      # HTML/EPUB text extraction (imported as `bs4`)
+mobi                # MOBI/AZW3 extraction (with Calibre fallback)
+numpy               # cached embedding matrix for semantic search + dup detection
