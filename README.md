@@ -68,7 +68,7 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
   toast (no index change) if the filesystem can't be verified (e.g. unmounted drive)
 
 ### ⚙️ Settings (`/settings`)
-- General panel: document directory (with live directory browser), any number of additional scan directories (added/removed under the same panel, each shown with the rescan command needed to index it), working directory, and port
+- General panel: document directory (with live directory browser), any number of additional scan directories (added/removed under the same panel — automatically included in `scan`/`rescan`, no extra command needed), working directory, and port
 - Ignored Directories panel: browse to add a directory to `ignore_dirs.txt`, with a confirmation prompt before purging already-indexed documents under it, and a confirmation before removing an entry
 
 ### ⚡ Performance
@@ -689,7 +689,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 |------------|--------|
 | DRM-encrypted AZW not fully searchable | Metadata indexed; DeDRM_tools required for body text |
 | Scanned PDFs not searchable | Listed in ocr_list_pdfs.txt; OCR deferred |
-| Multiple top-level doc directories | Additional scan directories supported (General panel / `scan_dirs.txt`), but each requires a manual rescan via the printed CLI command — not yet automatic |
+| Multiple top-level doc directories | Fully supported — configure any number of additional scan directories in the General panel (`scan_dirs.txt`); `scan`/`rescan` automatically scan all of them into the single shared database |
 | Moved/renamed files | Not detected as moves — old path is removed (interactively or via `scan-missing`), new path is picked up on next rescan as a fresh entry; true duplicates are caught by `duplist`/`dupclean` |
 | No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure. Remote (LAN) access is opt-in and warned at install time — enabling it exposes read/delete to the whole network |
 | ETA display drifts high | Uses simple average; sliding window deferred |
