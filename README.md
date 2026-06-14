@@ -700,7 +700,35 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
-### Unreleased — No-default doc_dir, configure banner, uninstall.sh
+## v0.8.0 (2026-06-13)
+
+### Settings page, alpha index bar, multi-root scanning
+- **Settings moved to a standalone page** (`/settings`, opened in a new tab via
+  the gear icon) — replaces the old modal. Full-width layout, a header "Done"
+  button that saves config and returns to the search tab, and a redesigned
+  Ignored Directories panel (description text, "Add a directory to exclude"
+  row, "Currently excluded directories" list with inline ✕ remove buttons,
+  confirm-before-purge on add and rescan-reminder on remove).
+- **Alpha index bar (0-9, A-Z) is now a true global filter** — clicking a
+  letter queries `/api/search?letter=X` for *all* matching documents (not just
+  the loaded page), paginated by the existing page-size preference; Next/Back
+  and page-size changes work while filtered, and clicking the active letter
+  again returns to All Documents. A "Home" button (left of "0-9") returns to
+  All Documents from anywhere, and the index bar now persists across every
+  view (All Documents, letter-filtered, search, paginated).
+- **Multiple document directories confirmed fully automatic**: `resolve_doc_dirs()`
+  unifies the configured docPath with `scan_dirs.txt` into one ordered list;
+  `scan`/`rescan` loop over every directory into the single shared database
+  and run embedding once at the end — no manual per-directory rescan needed.
+- Removed the "N embedded" count from the header stats bar (now "N docs · N tags").
+- `friendlyError()` helper in `index.html` gives a clear "Cannot reach the
+  DocuBrowse service" message (instead of a generic network error) if the
+  server is down while a page is loaded — applied to search, filter, pagination,
+  synopsis, open, and delete.
+- Synopsis modal's "Generating synopsis..." message now updates at 6s/25s with
+  reassuring text so a slow cold-start Ollama request (up to ~90s) doesn't look hung.
+
+### No-default doc_dir, configure banner, uninstall.sh
 - `doc_dir`/`docPath` no longer default to `/mnt/data/Documents` — an
   unconfigured document directory is now a valid state across the CLI
   (`docubrowser.py`), API (`doc_search.py` `/api/config`), and `install.sh`'s
@@ -716,7 +744,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
   directory, cleans up pid/log files, and (system mode, separate confirmation)
   can remove the dedicated `docubrowse` user/group.
 
-### v0.8.0 — Installer & remote access (2026-06-13)
+### Installer & remote access
 - **Installer:** rewritten `install.sh`/`uninstall.sh` with a clean user vs.
   system split — user mode installs to `~/.docubrowse` (own venv, wrapper at
   `~/.local/bin/docubrowser`, no root, no systemd); system mode installs to
@@ -740,7 +768,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
   are merged). `rescan`/`scan` index **every** listed directory; an explicit
   `--doc-dir` still targets just one. `doc_dir` is now optional.
 
-### v0.8.0 — Security & reliability hardening
+### Security & reliability hardening
 Remediation of a full code-quality + security audit (details in
 `status_docs/DECISIONS.md`). Highlights:
 - **Security:** Host-header allow-list (anti DNS-rebinding); removed wildcard
@@ -761,7 +789,7 @@ Remediation of a full code-quality + security audit (details in
 - **UI:** pagination Back/Next correct at all page sizes; a newer search now
   supersedes an in-flight page load (no stale results).
 
-### Unreleased — Handle moved/missing/deleted documents
+### Handle moved/missing/deleted documents
 - `/api/open` now returns `{"ok": false, "error": "missing"|"unmounted", "message": ...}`
   for files that no longer exist, instead of a generic error.
 - The UI shows a dismissable modal for `missing` files (and removes them from the index
