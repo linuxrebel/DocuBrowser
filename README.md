@@ -1,4 +1,4 @@
-# DocuBrowse v0.7.3
+# DocuBrowse v0.8.0
 
 <a name="top"></a>
 
@@ -716,7 +716,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
   directory, cleans up pid/log files, and (system mode, separate confirmation)
   can remove the dedicated `docubrowse` user/group.
 
-### v0.7.3 — Installer & remote access (2026-06-13)
+### v0.8.0 — Installer & remote access (2026-06-13)
 - **Installer:** rewritten `install.sh`/`uninstall.sh` with a clean user vs.
   system split — user mode installs to `~/.docubrowse` (own venv, wrapper at
   `~/.local/bin/docubrowser`, no root, no systemd); system mode installs to
@@ -735,8 +735,12 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
   Host allow-list + CSRF/same-origin protections (see [Security](#security)).
 - **Fresh installs start empty:** `du-docs.db.example` now ships empty, so new
   installs begin with no documents indexed.
+- **Multiple document directories:** Settings now shows a single "Document
+  directories" list (the old separate docPath + "additional directories" panels
+  are merged). `rescan`/`scan` index **every** listed directory; an explicit
+  `--doc-dir` still targets just one. `doc_dir` is now optional.
 
-### v0.7.3 — Security & reliability hardening
+### v0.8.0 — Security & reliability hardening
 Remediation of a full code-quality + security audit (details in
 `status_docs/DECISIONS.md`). Highlights:
 - **Security:** Host-header allow-list (anti DNS-rebinding); removed wildcard
@@ -836,4 +840,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.7.3** — Fast, local, AI-powered document search.
+**DocuBrowse v0.8.0** — Fast, local, AI-powered document search.

@@ -1,6 +1,6 @@
 # DocuBrowse Project Status
 
-**Version**: v0.7.3  
+**Version**: v0.8.0  
 **Status**: 🟢 **STABLE — daily use, active development**  
 **Last Updated**: 2026-06-12  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
@@ -91,6 +91,23 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 - Installer field-test fixes (user/system split, pre-flight, docubrowser CLI
   rename, remote-access opt-in) are committed (…5ac639c, c1b26ed) but NOT yet
   pushed — push once James confirms the manual UI drive looks good.
+
+### 2026-06-13 — Unified multi-directory document list + v0.8.0 release
+- Merged the Settings docPath field and the separate "additional directories"
+  panel into ONE "Document directories" list (all dirs equal: add/Browse/remove).
+  First entry maps to config doc_dir, the rest to scan_dirs; removing the primary
+  promotes the next. doc_dir is now optional (handle_config_post allows empty
+  docPath and preserves allow_remote).
+- rescan/scan now index EVERY configured directory (resolve_doc_dirs = doc_dir +
+  scan_dirs); an explicit --doc-dir overrides to one. This delivers the
+  long-deferred multi-root scanning.
+- Verified locally on Bairn: multi-dir scan indexed files from two dirs into one
+  DB (count 3 across dirA+dirB); Playwright drove the unified list end-to-end
+  (add→primary, add→scan-dir, remove-primary→promotion, remove-all→empty),
+  0 console errors. (The CentOS VM was offline during this, so install-path
+  retest on the VM is still owed.)
+- Cut **v0.8.0**: version bumped across README/INSTALL/User-Guide/project_status,
+  git tag v0.8.0, tarball rebuilt. Not pushed.
 
 ### 2026-06-13 — Installer field-test fixes + opt-in remote access (CentOS Stream VM)
 - Reworked install.sh/uninstall.sh into a clean user vs system split, added

@@ -381,11 +381,10 @@ function loadStats() {
   fetch('/api/stats')
     .then(r => r.json())
     .then(d => {
-      // API returns: {docs, embedded, tags}
+      // API returns: {docs, embedded, tags} — embedded count no longer displayed
       const docs = d.docs || d.total_docs || 0;
-      const embedded = d.embedded || 0;
       const tags = d.tags || d.unique_tags || 0;
-      statsEl.innerHTML = `<b>${docs}</b> docs · <b>${embedded}</b> embedded · <b>${tags}</b> tags`;
+      statsEl.innerHTML = `<b>${docs}</b> docs · <b>${tags}</b> tags`;
     })
     .catch(e => {
       console.error('Stats fetch error:', e);
