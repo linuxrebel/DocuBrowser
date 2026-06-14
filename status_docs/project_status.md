@@ -1,6 +1,6 @@
 # DocuBrowse Project Status
 
-**Version**: v0.8.0  
+**Version**: v0.8.1  
 **Status**: 🟢 **STABLE — daily use, active development**  
 **Last Updated**: 2026-06-12  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
@@ -91,6 +91,14 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 - Installer field-test fixes (user/system split, pre-flight, docubrowser CLI
   rename, remote-access opt-in) are committed (…5ac639c, c1b26ed) but NOT yet
   pushed — push once James confirms the manual UI drive looks good.
+
+### 2026-06-14 — v0.8.1 bugfix: stale example DB schema
+- Diagnosed HTTP 500 ("no such column: d.subject") on fresh installs: `du-docs.db.example`
+  was built against a pre-author/subject/synopsis schema, causing the lazy migration in
+  `init_db` to race against the first search request on a new install.
+- Regenerated `du-docs.db.example` using `init_db` directly — full current schema
+  (documents + FTS5 with author/subject/synopsis). Fresh installs no longer need migration
+  on first request. Bumped to v0.8.1, tagged, pushed, tarball rebuilt.
 
 ### 2026-06-13 — Unified multi-directory document list + v0.8.0 release
 - Merged the Settings docPath field and the separate "additional directories"

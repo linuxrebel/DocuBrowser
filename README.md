@@ -1,4 +1,4 @@
-# DocuBrowse v0.8.0
+# DocuBrowse v0.8.1
 
 <a name="top"></a>
 
@@ -700,6 +700,18 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+## v0.8.1 (2026-06-14)
+
+### Bug fix: stale example database schema
+
+- **`du-docs.db.example` regenerated** with current schema — fresh installs no
+  longer hit an HTTP 500 ("no such column: d.subject") on first page load.
+  The old example was built against an older schema (pre-author/subject/synopsis
+  columns and pre-full-FTS5 index), causing the lazy migration to race against
+  the first search request. New example has the correct schema from the start.
+
+---
+
 ## v0.8.0 (2026-06-13)
 
 ### Settings page, alpha index bar, multi-root scanning
@@ -868,4 +880,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.8.0** — Fast, local, AI-powered document search.
+**DocuBrowse v0.8.1** — Fast, local, AI-powered document search.
