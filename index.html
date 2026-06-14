@@ -416,13 +416,17 @@ function loadTags() {
 }
 
 function checkConfig() {
-  fetch('/api/config')
-    .then(r => r.json())
-    .then(d => {
-      const banner = document.getElementById('configBanner');
-      if (banner) banner.style.display = d.docPath ? 'none' : 'block';
-    })
-    .catch(e => console.error('Config fetch error:', e));
+  // Show the "configure a directory" banner only when NO document directory is
+  // set at all — i.e. neither the primary (config docPath) nor any additional
+  // scan directory. Both feed the unified Settings list.
+  Promise.all([
+    fetch('/api/config').then(r => r.json()).catch(() => ({})),
+    fetch('/api/scan-dirs').then(r => r.json()).catch(() => ({})),
+  ]).then(([cfg, sd]) => {
+    const hasDirs = !!(cfg && cfg.docPath) || ((sd && sd.dirs || []).length > 0);
+    const banner = document.getElementById('configBanner');
+    if (banner) banner.style.display = hasDirs ? 'none' : 'block';
+  }).catch(e => console.error('Config fetch error:', e));
 }
 
 loadStats();

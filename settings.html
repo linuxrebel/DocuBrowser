@@ -183,32 +183,21 @@
   <div class="panel">
     <h2>General</h2>
     <div class="config-status" id="configStatus"></div>
-    <label>docPath — root directory containing documents</label>
-    <div class="field-row">
-      <input type="text" id="cfgDocPath" placeholder="/folder/to/be/scanned">
-      <button class="browse-btn" onclick="openBrowser('docPath')">Browse…</button>
-    </div>
-    <div class="dir-browser" id="browser-docPath"></div>
 
-    <label style="margin-top:1rem;">Add an additional directory to scan</label>
+    <label>Document directories</label>
     <p class="panel-desc">
-      Extra top-level directories to index, in addition to docPath above. Adding a directory here
-      does not scan it automatically — run the reminder command shown from the command line to
-      index it.
+      Top-level directories that are indexed. The first directory is the primary docPath;
+      any others are additional scan directories. Add a directory below, or click the ✕ to
+      the right of a directory to remove it.
     </p>
     <div class="field-row">
-      <input type="text" id="cfgScanDir" placeholder="/path/to/scan">
-      <button class="browse-btn" onclick="openBrowser('scanDir')">Browse…</button>
-      <button class="browse-btn add-btn" onclick="addScanDir()">Add</button>
-      <button class="browse-btn" onclick="clearScanDirInput()">Clear</button>
+      <input type="text" id="cfgDocDir" placeholder="/folder/to/be/scanned">
+      <button class="browse-btn" onclick="openBrowser('docDir')">Browse…</button>
+      <button class="browse-btn add-btn" onclick="addDocDir()">Add</button>
+      <button class="browse-btn" onclick="clearDocDirInput()">Clear</button>
     </div>
-    <div class="dir-browser" id="browser-scanDir"></div>
-
-    <label style="margin-top:1rem;">Additional directories being scanned</label>
-    <p class="panel-desc">
-      Click the ✕ to the right of a directory to remove it from this list.
-    </p>
-    <div class="list-box" id="scanDirList"></div>
+    <div class="dir-browser" id="browser-docDir"></div>
+    <div class="list-box" id="docDirList"></div>
 
     <label style="margin-top:1rem;">workDir — where docubrowse files live</label>
     <div class="field-row">
@@ -296,14 +285,21 @@ applyTheme(localStorage.getItem('db-theme') || 'dark');
 const CSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
 // ── Settings ──────────────────────────────────────────────────
+// Loaded config kept in JS state so directory add/remove logic can
+// re-save the config without losing workDir/port.
+let cfgState = { docPath: '', workDir: '', port: 8643 };
+
 async function loadConfig() {
   loadIgnoreDirs();
-  loadScanDirs();
   try {
     const res = await fetch('/api/config');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const cfg = await res.json();
-    document.getElementById('cfgDocPath').value = cfg.docPath || '';
+    cfgState = {
+      docPath: cfg.docPath || '',
+      workDir: cfg.workDir || '',
+      port: cfg.port || 8643
+    };
     document.getElementById('cfgWorkDir').value = cfg.workDir || '';
     document.getElementById('cfgPort').value = cfg.port || 8643;
     const status = document.getElementById('configStatus');
@@ -323,10 +319,12 @@ async function loadConfig() {
 }
 
 async function saveConfig() {
-  const docPath = document.getElementById('cfgDocPath').value.trim();
   const workDir = document.getElementById('cfgWorkDir').value.trim();
   const port = parseInt(document.getElementById('cfgPort').value) || 8643;
-  if (!docPath || !workDir) { alert('Both fields are required'); return false; }
+  // docPath may be empty (managed via the Document directories list); it is
+  // carried through from loaded state so it isn't lost when saving workDir/port.
+  const docPath = cfgState.docPath || '';
+  if (!workDir) { alert('workDir is required'); return false; }
   try {
     const res = await fetch('/api/config', {
       method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
@@ -361,10 +359,9 @@ async function doneAndClose() {
 
 // ── Directory Browser ─────────────────────────────────────────
 function fieldInputId(field) {
-  if (field === 'docPath') return 'cfgDocPath';
+  if (field === 'docDir') return 'cfgDocDir';
   if (field === 'workDir') return 'cfgWorkDir';
   if (field === 'ignoreDir') return 'cfgIgnoreDir';
-  if (field === 'scanDir') return 'cfgScanDir';
   return null;
 }
 
@@ -383,7 +380,7 @@ async function loadDir(field, path) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     let html;
-    if (field === 'ignoreDir' || field === 'scanDir' || field === 'docPath' || field === 'workDir') {
+    if (field === 'ignoreDir' || field === 'docDir' || field === 'workDir') {
       // Keep the path input in sync with the directory being browsed.
       document.getElementById(fieldInputId(field)).value = data.path;
       html = `<div class="dir-path">${esc(data.path)}</div>`;
@@ -416,8 +413,8 @@ function clearIgnoreDirInput() {
   document.getElementById('cfgIgnoreDir').value = '';
 }
 
-function clearScanDirInput() {
-  document.getElementById('cfgScanDir').value = '';
+function clearDocDirInput() {
+  document.getElementById('cfgDocDir').value = '';
 }
 
 // ── Ignored directories ─────────────────────────────────────────
@@ -439,7 +436,7 @@ async function loadIgnoreDirs() {
 function renderIgnoreDirs() {
   const box = document.getElementById('ignoreDirList');
   if (!ignoreDirs.length) {
-    box.innerHTML = `<div class="list-empty">No directories excluded — the entire docPath is scanned</div>`;
+    box.innerHTML = `<div class="list-empty">No directories excluded — all document directories are scanned</div>`;
   } else {
     box.innerHTML = ignoreDirs.map(d =>
       `<div class="list-item">
@@ -499,90 +496,117 @@ async function removeIgnoreDir(path) {
   }
 }
 
-// ── Additional scan directories ─────────────────────────────────
-let scanDirs = [];
+// ── Document directories (unified list) ─────────────────────────
+// The displayed list is: [docPath] (if non-empty) followed by the
+// /api/scan-dirs entries (excluding any equal to docPath). The first
+// directory is the config docPath; the rest are scan_dirs.
+let docDirs = [];
 
-async function loadScanDirs() {
+// Fetch the scan-dirs list (the config docPath is held in cfgState).
+async function fetchScanDirs() {
   try {
     const res = await fetch('/api/scan-dirs');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    scanDirs = data.dirs || [];
+    return data.dirs || [];
   } catch (e) {
     console.error('Scan-dirs fetch error:', e);
-    scanDirs = [];
+    return [];
   }
-  renderScanDirs();
 }
 
-function renderScanDirs() {
-  const box = document.getElementById('scanDirList');
-  if (!scanDirs.length) {
-    box.innerHTML = `<div class="list-empty">No additional scan directories configured</div>`;
+async function loadDocDirs() {
+  const scan = await fetchScanDirs();
+  const primary = cfgState.docPath || '';
+  const list = [];
+  if (primary) list.push(primary);
+  for (const d of scan) {
+    if (d !== primary) list.push(d);
+  }
+  docDirs = list;
+  renderDocDirs();
+}
+
+function renderDocDirs() {
+  const box = document.getElementById('docDirList');
+  if (!docDirs.length) {
+    box.innerHTML = `<div class="list-empty">No document directories yet — add one to start indexing.</div>`;
   } else {
-    box.innerHTML = scanDirs.map(d =>
+    box.innerHTML = docDirs.map(d =>
       `<div class="list-item">
         <span class="list-item-path">${esc(d)}</span>
-        <button class="list-remove-btn" onclick="removeScanDir('${esc(d)}')" title="Remove from scan list">✕</button>
+        <button class="list-remove-btn" onclick="removeDocDir('${esc(d)}')" title="Remove from document directories">✕</button>
       </div>`
     ).join('');
   }
 }
 
-function scanCommandFor(path) {
-  const workDir = (document.getElementById('cfgWorkDir').value || '.').trim();
-  return `cd "${workDir}" && docubrowser scan --doc-dir "${path}" --limit 100`;
+// Save the config with a given docPath, preserving workDir/port from state.
+async function postConfig(docPath) {
+  const res = await fetch('/api/config', {
+    method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
+    body: JSON.stringify({docPath, workDir: cfgState.workDir, port: cfgState.port})
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  await res.json();
+  cfgState.docPath = docPath;
 }
 
-async function addScanDir() {
-  const input = document.getElementById('cfgScanDir');
+async function postScanDir(action, path) {
+  const res = await fetch('/api/scan-dirs', {
+    method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
+    body: JSON.stringify({action, path})
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  await res.json();
+}
+
+async function addDocDir() {
+  const input = document.getElementById('cfgDocDir');
   const path = input.value.trim();
   if (!path) return;
   try {
-    const res = await fetch('/api/scan-dirs', {
-      method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
-      body: JSON.stringify({action: 'add', path})
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    scanDirs = data.dirs || [];
+    if (!cfgState.docPath) {
+      // No primary yet — this directory becomes the config docPath.
+      await postConfig(path);
+    } else {
+      await postScanDir('add', path);
+    }
     input.value = '';
-    document.getElementById('browser-scanDir').classList.remove('open');
-    renderScanDirs();
-    alert(
-      `Added "${path}" to the scan list.\n\n` +
-      `Run this from a terminal to index the first 100 documents:\n\n` +
-      `  ${scanCommandFor(path)}\n\n` +
-      `If it reports more files remain, run the same command again — it ` +
-      `automatically resumes where the previous run left off, processing ` +
-      `the next 100 each time.`
-    );
+    document.getElementById('browser-docDir').classList.remove('open');
+    await loadDocDirs();
+    showToast('Document directory added');
   } catch (e) {
-    console.error('Add scan dir error:', e);
+    console.error('Add doc dir error:', e);
     alert('Error adding directory: ' + e.message);
   }
 }
 
-async function removeScanDir(path) {
-  const proceed = confirm(`Remove "${path}" from the additional scan directories list?`);
+async function removeDocDir(path) {
+  const proceed = confirm(`Remove "${path}" from the document directories?`);
   if (!proceed) return;
   try {
-    const res = await fetch('/api/scan-dirs', {
-      method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
-      body: JSON.stringify({action: 'remove', path})
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    scanDirs = data.dirs || [];
-    renderScanDirs();
+    if (path === cfgState.docPath) {
+      // Removing the primary: promote the first scan_dir (if any) to docPath.
+      const scan = await fetchScanDirs();
+      const newPrimary = scan.length ? scan[0] : '';
+      await postConfig(newPrimary);
+      // Avoid duplication: the promoted dir must leave the scan_dirs list.
+      if (newPrimary) await postScanDir('remove', newPrimary);
+    } else {
+      await postScanDir('remove', path);
+    }
+    await loadDocDirs();
+    showToast('Document directory removed');
   } catch (e) {
-    console.error('Remove scan dir error:', e);
+    console.error('Remove doc dir error:', e);
     alert('Error removing directory: ' + e.message);
   }
 }
 
 // ── Initialize ────────────────────────────────────────────────
-loadConfig();
+// loadDocDirs() depends on cfgState being populated by loadConfig().
+loadConfig().then(loadDocDirs);
 </script>
 </body>
 </html>

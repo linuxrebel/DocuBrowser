@@ -1033,17 +1033,28 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             port = int(data.get("port", self.server_port))
         except (ValueError, TypeError):
             port = self.server_port
-        if not doc_path or not work_dir:
-            self.error_response(400, "docPath and workDir are required")
+        # doc_dir is optional now (it's just the first of the unified document
+        # directories list, and may be empty when only extra dirs are set, or
+        # none yet). workDir is still required.
+        if not work_dir:
+            self.error_response(400, "workDir is required")
             return
 
         cfg_path = Path(__file__).parent / "docubrowse.config"
+        # Preserve allow_remote (and avoid clobbering it on every settings save).
+        allow_remote = "false"
+        if cfg_path.exists():
+            for line in cfg_path.read_text(encoding="utf-8").splitlines():
+                s = line.strip()
+                if s.lower().startswith("allow_remote") and "=" in s:
+                    allow_remote = s.split("=", 1)[1].strip()
         try:
             lines = [
                 "# docubrowse.config — written by the Settings UI\n",
                 f"doc_dir  = {doc_path}\n",
                 f"work_dir = {work_dir}\n",
                 f"port     = {port}\n",
+                f"allow_remote = {allow_remote}\n",
             ]
             cfg_path.write_text("".join(lines), encoding="utf-8")
             self.json_response({
