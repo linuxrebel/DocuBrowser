@@ -76,8 +76,8 @@ cd DocuBrowser
 Or unpack the release tarball:
 
 ```bash
-tar xzf docubrowse-v0.7.3.tar.gz
-cd docubrowse-v0.7.3
+tar xzf docubrowse-v0.8.0.tar.gz
+cd docubrowse-v0.8.0
 ```
 
 ---
