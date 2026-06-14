@@ -138,6 +138,32 @@ def require_doc_dir(doc_dir: str) -> str:
     return doc_dir
 
 
+def resolve_doc_dirs(args, config) -> list:
+    """Return the ordered list of document directories to scan.
+
+    An explicit --doc-dir overrides everything (scan just that). Otherwise the
+    list is the unified set the Settings UI manages: the configured primary
+    (config['doc_dir']) first, followed by the extra directories in
+    scan_dirs.txt — deduplicated, empties dropped. This is what makes the
+    single 'Document directories' list actually get scanned by rescan/scan.
+    """
+    if getattr(args, "doc_dir", None):
+        return [args.doc_dir]
+    dirs = []
+    primary = (config.get("doc_dir") or "").strip()
+    if primary:
+        dirs.append(primary)
+    try:
+        from scan_docs import _load_scan_dirs
+        for d in sorted(_load_scan_dirs(Path(config.get("db_path") or DEFAULT_DB))):
+            d = (d or "").strip()
+            if d and d not in dirs:
+                dirs.append(d)
+    except Exception:
+        pass
+    return dirs
+
+
 # ─── PID helpers ─────────────────────────────────────────────────────────────
 
 def read_pid() -> int | None:
@@ -554,7 +580,9 @@ def cmd_rescan(config: dict, args):
     # Kill any scan already in progress (including orphaned workers) before starting.
     _stop_running_scans(verbose=True)
 
-    doc_dir = require_doc_dir(args.doc_dir or config["doc_dir"])
+    doc_dirs = resolve_doc_dirs(args, config)
+    if not doc_dirs:
+        require_doc_dir("")   # prints the configure-a-directory help and exits
     db_path = args.db      or config["db_path"]
     workers = args.workers
 
@@ -597,14 +625,18 @@ def cmd_rescan(config: dict, args):
     # mixed ones give the user a chance to add a type filter instead.
     if not scan_extensions:
         from collections import Counter as _Counter
-        print(f"No type filter specified — counting files in {doc_dir} ...")
+        print(f"No type filter specified — counting files in {len(doc_dirs)} "
+              f"director{'y' if len(doc_dirs)==1 else 'ies'} ...")
+        for _d in doc_dirs:
+            print(f"  • {_d}")
         from scan_docs import DEFAULT_EXTENSIONS as _DEFAULT_EXTENSIONS
         _SUPPORTED = set(_DEFAULT_EXTENSIONS)
         _counts: dict = _Counter()
         try:
-            for _f in Path(doc_dir).rglob("*"):
-                if _f.is_file():
-                    _counts[_f.suffix.lower() or "(no ext)"] += 1
+            for _d in doc_dirs:
+                for _f in Path(_d).rglob("*"):
+                    if _f.is_file():
+                        _counts[_f.suffix.lower() or "(no ext)"] += 1
         except KeyboardInterrupt:
             print("\nCancelled.")
             sys.exit(0)
@@ -634,42 +666,45 @@ def cmd_rescan(config: dict, args):
         print()
 
     type_str = ", ".join(scan_extensions) if scan_extensions else "all (pdf txt md html)"
-    print(f"Scanning: {doc_dir}")
     print(f"Database: {db_path}")
     print(f"Types:    {type_str}")
     print()
 
-    cmd = [sys.executable, str(scanner), doc_dir, db_path, "--workers", str(workers)]
-    if scan_extensions:
-        cmd += ["--ext"] + scan_extensions
-    if getattr(args, "limit", None):
-        cmd += ["--limit", str(args.limit)]
+    # Scan each configured directory in turn (single shared DB), embedding once
+    # after all are done.
+    for _idx, _dir in enumerate(doc_dirs, 1):
+        prefix = f"[{_idx}/{len(doc_dirs)}] " if len(doc_dirs) > 1 else ""
+        print(f"{prefix}Scanning: {_dir}")
 
-    # start_new_session=True gives scan_docs.py its own process group (PGID = PID),
-    # so we can kill the entire group (main process + all workers) cleanly.
-    # stderr is redirected to the log file so that Python's resource_tracker
-    # "leaked semaphore" warnings (printed when workers are hard-killed) never
-    # appear on the terminal.
-    try:
-        _scan_stderr = open(LOG_FILE, "a")   # noqa: SIM115 — kept open for proc lifetime
-    except (PermissionError, OSError):
-        _scan_stderr = subprocess.DEVNULL
-    proc = subprocess.Popen(cmd, start_new_session=True, stderr=_scan_stderr)
-    SCAN_PID_FILE.write_text(str(proc.pid))
-    try:
-        proc.wait()
-    except KeyboardInterrupt:
-        _stop_running_scans(verbose=False)
-        print("\nScan interrupted.")
-        sys.exit(0)
-    finally:
-        SCAN_PID_FILE.unlink(missing_ok=True)
-        if hasattr(_scan_stderr, "close"):
-            _scan_stderr.close()
+        cmd = [sys.executable, str(scanner), _dir, db_path, "--workers", str(workers)]
+        if scan_extensions:
+            cmd += ["--ext"] + scan_extensions
+        if getattr(args, "limit", None):
+            cmd += ["--limit", str(args.limit)]
 
-    if proc.returncode != 0:
-        print("\nScan failed.")
-        sys.exit(proc.returncode)
+        # start_new_session=True gives scan_docs.py its own process group
+        # (PGID = PID) so we can kill the whole group cleanly. stderr → log file
+        # so resource_tracker "leaked semaphore" warnings never hit the terminal.
+        try:
+            _scan_stderr = open(LOG_FILE, "a")   # noqa: SIM115 — kept open for proc lifetime
+        except (PermissionError, OSError):
+            _scan_stderr = subprocess.DEVNULL
+        proc = subprocess.Popen(cmd, start_new_session=True, stderr=_scan_stderr)
+        SCAN_PID_FILE.write_text(str(proc.pid))
+        try:
+            proc.wait()
+        except KeyboardInterrupt:
+            _stop_running_scans(verbose=False)
+            print("\nScan interrupted.")
+            sys.exit(0)
+        finally:
+            SCAN_PID_FILE.unlink(missing_ok=True)
+            if hasattr(_scan_stderr, "close"):
+                _scan_stderr.close()
+
+        if proc.returncode != 0:
+            print(f"\nScan failed for {_dir}.")
+            sys.exit(proc.returncode)
 
     if not args.no_embed:
         print()
