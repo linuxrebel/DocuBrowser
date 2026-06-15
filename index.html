@@ -213,6 +213,7 @@
   .index-btn:hover:not(.disabled) { border-color:var(--accent2); color:var(--accent2); }
   .index-btn.disabled { opacity:0.3; cursor:not-allowed; }
   .index-btn.active { background:var(--accent2); color:var(--bg); border-color:var(--accent2); }
+  .index-btn.home-highlight { border-color:var(--accent2); color:var(--accent2); box-shadow:0 0 0 2px var(--accent2); }
 
   /* ── Toast notification ── */
   .toast {
@@ -257,9 +258,7 @@
     <button class="mode-btn" data-mode="semantic">Semantic</button>
     <button class="mode-btn active" data-mode="both">Both</button>
   </div>
-  <div id="phraseNotice" style="display:none;font-size:0.72rem;color:var(--text-dim);margin-top:4px;">
-    Click <b>Home</b> in the index bar below to clear the search and return to all documents.
-  </div>
+
   <div class="stats" id="stats"></div>
   <!-- Theme toggle -->
   <button class="theme-btn" id="themeBtn" title="Toggle light/dark theme">
@@ -445,8 +444,8 @@ input.addEventListener('input', () => { clearTimeout(debounceTimer); debounceTim
 
 async function doSearch() {
   const q = input.value.trim();
-  if (!q) { meta.innerHTML = ''; document.getElementById('phraseNotice').style.display = 'none'; return renderAll(); }
-  document.getElementById('phraseNotice').style.display = '';
+  if (!q) { meta.innerHTML = ''; return renderAll(); }
+  document.querySelector('[data-letter="Home"]')?.classList.add('home-highlight');
 
   // Quoted phrases: require fts_score > 0 (phrase must be present in the document)
   // but rank within that set using the user's chosen mode.
@@ -509,7 +508,7 @@ async function doSearch() {
 }
 
 async function renderAll() {
-  document.getElementById('phraseNotice').style.display = 'none';
+  document.querySelector('[data-letter="Home"]')?.classList.remove('home-highlight');
   try {
     console.log('renderAll() starting');
     // Reset for fresh "all documents" view
