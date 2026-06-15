@@ -258,7 +258,7 @@
     <button class="mode-btn active" data-mode="both">Both</button>
   </div>
   <div id="phraseNotice" style="display:none;font-size:0.72rem;color:var(--accent2);margin-top:4px;">
-    ⓘ Quoted phrase detected — using Keyword mode for exact match
+    ⓘ Phrase filter active — only showing documents that contain the quoted string, ranked by selected mode
   </div>
   <div class="stats" id="stats"></div>
   <!-- Theme toggle -->
@@ -447,10 +447,12 @@ async function doSearch() {
   const q = input.value.trim();
   if (!q) { meta.innerHTML = ''; document.getElementById('phraseNotice').style.display = 'none'; return renderAll(); }
 
-  // Quoted phrases only work with FTS5 keyword matching — auto-switch mode.
+  // Quoted phrases: require fts_score > 0 (phrase must be present in the document)
+  // but rank within that set using the user's chosen mode.
+  // This lets semantic/hybrid modes surface phrase-containing docs by relevance,
+  // rather than returning semantically-similar docs that don't contain the phrase.
   const hasPhrase = /"[^"]+"/.test(q);
-  const effectiveMode = hasPhrase ? 'keyword' : searchMode;
-  document.getElementById('phraseNotice').style.display = hasPhrase && searchMode !== 'keyword' ? '' : 'none';
+  document.getElementById('phraseNotice').style.display = hasPhrase ? '' : 'none';
 
   // Reset pagination for new search
   const seq = ++renderSeq;
@@ -473,10 +475,22 @@ async function doSearch() {
     const rawOffset = data.offset || 0;
     currentOffset = rawOffset + docs.length;
 
-    // Apply search mode filtering (effectiveMode auto-switches to keyword for phrase queries)
-    if (effectiveMode === 'keyword') docs = docs.filter(d => d.fts_score > 0).sort((a,b) => b.fts_score - a.fts_score);
-    else if (effectiveMode === 'semantic') docs = docs.filter(d => d.sem_score > 0).sort((a,b) => b.sem_score - a.sem_score);
-    else docs.sort((a,b) => (b.score || 0) - (a.score || 0));
+    // Apply search mode filtering.
+    // For phrase queries: phrase acts as a mandatory presence filter (fts_score > 0),
+    // then rank within matching docs by the user's chosen mode.
+    // For plain queries: mode controls both filtering and ranking as usual.
+    if (hasPhrase) {
+      docs = docs.filter(d => d.fts_score > 0);  // must contain the phrase
+      if (searchMode === 'semantic') docs.sort((a,b) => b.sem_score - a.sem_score);
+      else if (searchMode === 'keyword') docs.sort((a,b) => b.fts_score - a.fts_score);
+      else docs.sort((a,b) => (b.score || 0) - (a.score || 0));
+    } else if (searchMode === 'keyword') {
+      docs = docs.filter(d => d.fts_score > 0).sort((a,b) => b.fts_score - a.fts_score);
+    } else if (searchMode === 'semantic') {
+      docs = docs.filter(d => d.sem_score > 0).sort((a,b) => b.sem_score - a.sem_score);
+    } else {
+      docs.sort((a,b) => (b.score || 0) - (a.score || 0));
+    }
 
     const startIdx = rawOffset + 1;
     const endIdx = rawOffset + docs.length;
