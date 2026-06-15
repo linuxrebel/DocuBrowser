@@ -39,6 +39,9 @@ DEFAULT_PORT = 8643
 OLLAMA_HOST = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
+SERVER_VERSION = "0.8.1"
+
+_SERVER_START_TIME = time.time()  # set at import; used by /api/status
 # Cold Ollama starts (e.g. right after a reboot) need to load the model into
 # memory before the first generation can begin, which can take well over 30s
 # on top of the generation time itself. Use a generous timeout so the first
@@ -279,6 +282,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
     server_port = DEFAULT_PORT  # Will be set by server
     csrf_token  = None          # Per-process secret, set by server at startup
     allow_remote = False        # True when bound for LAN access (opt-in)
+    enterprise_mode = False     # True when enterprise access layer is active;
+                                # enables extended /api/status response
     allowed_hostnames = frozenset(('localhost', '127.0.0.1', '::1'))
 
     def log_message(self, format, *args):
@@ -382,6 +387,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_scan_dirs()
             elif path == '/api/browse':
                 self.handle_browse(query)
+            elif path == '/api/status':
+                self.handle_status()
             else:
                 self.error_response(404, "Not found")
         except Exception as e:
@@ -439,6 +446,107 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             "unique_tags": unique_tags,
             "timestamp": datetime.now().isoformat()
         })
+
+    def handle_status(self):
+        """GET /api/status - Health and readiness check for monitoring systems.
+
+        No CSRF required — monitoring agents must be able to probe this endpoint
+        without first-party HTML.
+
+        Response depth is tiered by deployment mode:
+          FOSS (enterprise_mode=False): minimal — ok, version, uptime, db.ok,
+            ollama.ok. Enough for a load-balancer or simple watchdog.
+          Enterprise (enterprise_mode=True): full — adds doc/embedded counts,
+            model presence, and config details for richer dashboards and alerts.
+
+        The 'ok' field is True only when both DB and Ollama are reachable. Model
+        presence does not affect 'ok' — keyword search works without embeddings.
+        """
+        uptime = time.time() - _SERVER_START_TIME
+
+        # DB connectivity — use try/finally to guarantee close on any path
+        db_ok = False
+        db_error = None
+        doc_count = 0
+        embedded_count = 0
+        try:
+            conn = get_db(self.db_path)
+            try:
+                doc_count = conn.execute(
+                    "SELECT COUNT(*) FROM documents"
+                ).fetchone()[0]
+                embedded_count = conn.execute(
+                    "SELECT COUNT(*) FROM doc_embeddings"
+                ).fetchone()[0]
+                db_ok = True
+            finally:
+                conn.close()
+        except Exception as e:
+            db_error = str(e)
+
+        # Ollama connectivity — lightweight /api/tags hit, 5 s socket timeout
+        ollama_ok = False
+        ollama_error = None
+        ollama_models = []
+        try:
+            req = Request(f"{OLLAMA_HOST}/api/tags", method="GET")
+            with urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                ollama_models = [m.get("name", "") for m in data.get("models", [])]
+                ollama_ok = True
+        except Exception as e:
+            ollama_error = str(e)
+
+        # Normalize model names for comparison: strip tag suffix from both sides
+        # so "nomic-embed-text:latest" and "nomic-embed-text" both match.
+        def _model_present(configured_name):
+            base = configured_name.split(":")[0]
+            return any(base == m.split(":")[0] for m in ollama_models)
+
+        overall_ok = db_ok and ollama_ok
+
+        # ── FOSS tier: minimal response ───────────────────────────────────
+        status = {
+            "ok": overall_ok,
+            "version": SERVER_VERSION,
+            "uptime_seconds": round(uptime, 1),
+            "timestamp": datetime.now().isoformat(),
+            "components": {
+                "db": {
+                    "ok": db_ok,
+                    **({"error": db_error} if db_error else {}),
+                },
+                "ollama": {
+                    "ok": ollama_ok,
+                    **({"error": ollama_error} if ollama_error else {}),
+                },
+            },
+        }
+
+        # ── Enterprise tier: extended response ────────────────────────────
+        # enterprise_mode is set True by the enterprise access layer when it
+        # starts doc_search.py; defaults False in the FOSS distribution.
+        if self.enterprise_mode:
+            status["components"]["db"].update({
+                "doc_count": doc_count,
+                "embedded_count": embedded_count,
+            })
+            status["components"]["ollama"].update({
+                "embedding_model": {
+                    "name": EMBEDDING_MODEL,
+                    "present": _model_present(EMBEDDING_MODEL),
+                },
+                "synopsis_model": {
+                    "name": SYNOPSIS_MODEL,
+                    "present": _model_present(SYNOPSIS_MODEL),
+                },
+            })
+            status["config"] = {
+                "allow_remote": self.allow_remote,
+                "port": self.server_port,
+            }
+
+        self.json_response(status)
 
     def handle_tags(self):
         """GET /api/tags - Return all tags with counts."""
