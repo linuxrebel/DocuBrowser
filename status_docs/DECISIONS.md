@@ -74,6 +74,50 @@ Then decide: index as plaintext, route to appropriate extractor, or skip.
 
 ---
 
+## Known Platform Issue: xdg-mime false-negative on KDE (2026-06-15)
+
+**Symptom**: Clicking "Open" in DocuBrowse shows *"No default application for this
+file type (text/x-python)"* (or similar) even though an app is configured for that
+type in KDE System Settings → File Associations.
+
+**Affected**: KDE Plasma (Fedora confirmed).  Affects both:
+- **Flatpak apps** (e.g. Notepad Next) — the Flatpak-exported `.desktop` file lists
+  only broad MIME types (e.g. `text/plain`) and omits specific subtypes like
+  `text/x-python`, so `xdg-mime query default text/x-python` returns empty.
+- **Native apps** (e.g. GVim) — same symptom via a different path; the `.desktop`
+  MimeType list or `mimeapps.list` entry is missing.
+
+**Root cause**: The old `handle_open()` called `xdg-mime query default <mime>` and
+**returned early** if the result was empty — treating the empty result as "no handler."
+On KDE this is a false negative: KDE's own launcher (`kde-open5`) can open the file
+even when `xdg-mime` says there is no handler.
+
+**Fix applied (2026-06-15)**: Rewrote `handle_open()` with an opener chain:
+`gio open` → `kde-open5` → `kde-open` → `xdg-open`.  Each is tried in turn;
+the first that doesn't exit non-zero within 1 s is treated as a successful launch.
+`xdg-mime query default` is still called for MIME detection (used in error messages
+and the hint), but is **no longer a gate** that blocks opening.
+
+**User-side fix** (if the chain also fails — all openers return non-zero):
+```bash
+# Find the desktop file name for your app
+ls /usr/share/applications/ ~/.local/share/applications/ \
+   ~/.local/share/flatpak/exports/share/applications/ 2>/dev/null | grep -i <appname>
+
+# Register it as the default for the MIME type
+xdg-mime default <appname>.desktop text/x-python
+
+# Verify
+xdg-mime query default text/x-python
+```
+Or edit `~/.config/mimeapps.list` directly:
+```ini
+[Default Applications]
+text/x-python=gvim.desktop
+```
+
+---
+
 ## Observed Bugs / UX Issues (2026-06-08 live scan)
 
 ### ✅ FEATURE: PII filtering — IMPLEMENTED (2026-06-08)
