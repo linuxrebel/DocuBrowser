@@ -257,8 +257,8 @@
     <button class="mode-btn" data-mode="semantic">Semantic</button>
     <button class="mode-btn active" data-mode="both">Both</button>
   </div>
-  <div id="phraseNotice" style="display:none;font-size:0.72rem;color:var(--accent2);margin-top:4px;">
-    ⓘ Phrase filter active — only showing documents that contain the quoted string, ranked by selected mode
+  <div id="phraseNotice" style="display:none;font-size:0.72rem;color:var(--text-dim);margin-top:4px;">
+    Click <b>Home</b> in the index bar below to clear the search and return to all documents.
   </div>
   <div class="stats" id="stats"></div>
   <!-- Theme toggle -->
@@ -446,13 +446,13 @@ input.addEventListener('input', () => { clearTimeout(debounceTimer); debounceTim
 async function doSearch() {
   const q = input.value.trim();
   if (!q) { meta.innerHTML = ''; document.getElementById('phraseNotice').style.display = 'none'; return renderAll(); }
+  document.getElementById('phraseNotice').style.display = '';
 
   // Quoted phrases: require fts_score > 0 (phrase must be present in the document)
   // but rank within that set using the user's chosen mode.
   // This lets semantic/hybrid modes surface phrase-containing docs by relevance,
   // rather than returning semantically-similar docs that don't contain the phrase.
   const hasPhrase = /"[^"]+"/.test(q);
-  document.getElementById('phraseNotice').style.display = hasPhrase ? '' : 'none';
 
   // Reset pagination for new search
   const seq = ++renderSeq;
