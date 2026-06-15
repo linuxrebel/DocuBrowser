@@ -257,6 +257,9 @@
     <button class="mode-btn" data-mode="semantic">Semantic</button>
     <button class="mode-btn active" data-mode="both">Both</button>
   </div>
+  <div id="phraseNotice" style="display:none;font-size:0.72rem;color:var(--accent2);margin-top:4px;">
+    ⓘ Quoted phrase detected — using Keyword mode for exact match
+  </div>
   <div class="stats" id="stats"></div>
   <!-- Theme toggle -->
   <button class="theme-btn" id="themeBtn" title="Toggle light/dark theme">
@@ -442,7 +445,12 @@ input.addEventListener('input', () => { clearTimeout(debounceTimer); debounceTim
 
 async function doSearch() {
   const q = input.value.trim();
-  if (!q) { meta.innerHTML = ''; return renderAll(); }
+  if (!q) { meta.innerHTML = ''; document.getElementById('phraseNotice').style.display = 'none'; return renderAll(); }
+
+  // Quoted phrases only work with FTS5 keyword matching — auto-switch mode.
+  const hasPhrase = /"[^"]+"/.test(q);
+  const effectiveMode = hasPhrase ? 'keyword' : searchMode;
+  document.getElementById('phraseNotice').style.display = hasPhrase && searchMode !== 'keyword' ? '' : 'none';
 
   // Reset pagination for new search
   const seq = ++renderSeq;
@@ -465,9 +473,9 @@ async function doSearch() {
     const rawOffset = data.offset || 0;
     currentOffset = rawOffset + docs.length;
 
-    // Apply search mode filtering
-    if (searchMode === 'keyword') docs = docs.filter(d => d.fts_score > 0).sort((a,b) => b.fts_score - a.fts_score);
-    else if (searchMode === 'semantic') docs = docs.filter(d => d.sem_score > 0).sort((a,b) => b.sem_score - a.sem_score);
+    // Apply search mode filtering (effectiveMode auto-switches to keyword for phrase queries)
+    if (effectiveMode === 'keyword') docs = docs.filter(d => d.fts_score > 0).sort((a,b) => b.fts_score - a.fts_score);
+    else if (effectiveMode === 'semantic') docs = docs.filter(d => d.sem_score > 0).sort((a,b) => b.sem_score - a.sem_score);
     else docs.sort((a,b) => (b.score || 0) - (a.score || 0));
 
     const startIdx = rawOffset + 1;
@@ -487,6 +495,7 @@ async function doSearch() {
 }
 
 async function renderAll() {
+  document.getElementById('phraseNotice').style.display = 'none';
   try {
     console.log('renderAll() starting');
     // Reset for fresh "all documents" view
