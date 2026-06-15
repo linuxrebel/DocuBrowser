@@ -138,21 +138,23 @@ inside the customer's network already. No tunnel code needed for this tier.
 
 ## Suggested Execution Plan
 
-1. **Phase 0** (carryover from transport-layer notes): formalize
-   `doc_search.py`'s HTTP API as the stable internal boundary — write down
-   the endpoint contract before building on top of it.
-2. **Phase 1 — Branding** (cheapest, demoable fast): `branding.json` +
+1. **Phase 1 — API contract** (carryover from transport-layer notes): write
+   down the formal spec for `doc_search.py`'s HTTP endpoints — routes,
+   request params, response JSON shapes. One page, probably inline as
+   structured comments/docstrings in `doc_search.py` plus a status doc. This
+   is the foundation everything else builds on top of.
+2. **Phase 2 — Branding** (cheapest, demoable fast): `branding.json` +
    template hooks in `index.html`/`doc_search.py`. Ship as
    `access_enterprise/branding/`, gated behind a simple config flag for now
    (no license enforcement yet — prove the feature first).
-3. **Phase 2 — SSO middleware**: OIDC support in front of doc_search.py,
+3. **Phase 3 — SSO middleware**: OIDC support in front of doc_search.py,
    group->role mapping, admin config UI or config file. This is the
    procurement-checklist item — prioritize Okta + Azure AD + Google
    Workspace.
-4. **Phase 3 — Enterprise packaging**: install/deploy guide for "run this
-   inside our VPN," license-key gating for Phases 1-2, basic audit log.
-5. **Phase 4 (separate track, prosumer)** — relay/tunnel layer from the
-   original transport-layer notes. Independent of Phases 1-3; can happen in
+4. **Phase 4 — Enterprise packaging**: install/deploy guide for "run this
+   inside our VPN," license-key gating for Phases 2-3, basic audit log.
+5. **Phase 5 (separate track, prosumer)** — relay/tunnel layer from the
+   original transport-layer notes. Independent of Phases 1-4; can happen in
    parallel or be deferred entirely.
 
 ## Open Questions (not decisions)
