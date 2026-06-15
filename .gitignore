@@ -86,3 +86,6 @@ ignore_dirs.txt
 scan_dirs.txt
 .playwright-mcp/
 *.png
+
+# Business-sensitive planning docs (not for public repo)
+bus_docs/
