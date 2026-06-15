@@ -8,6 +8,7 @@ HTTP server on port 8643 with merged keyword + semantic search.
 
 import ipaddress
 import json
+import logging
 import os
 import secrets
 import shutil
@@ -771,7 +772,16 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         return env
 
     def handle_open(self, query: dict):
-        """GET /api/open?path=<encoded-path> - Open a file with xdg-open."""
+        """POST /api/open?path=<encoded-path> — Open a file with the desktop default app.
+
+        Uses an opener chain (gio open → kde-open5 → kde-open → xdg-open) so
+        that GNOME, KDE, and hybrid setups all work.  The xdg-mime pre-check is
+        intentionally NOT used as a gate: on KDE, `xdg-mime query default` returns
+        empty for many MIME types (e.g. text/x-python, text/x-csrc) even when a
+        working handler exists.  This affects both Flatpak apps (whose .desktop
+        MimeType list may omit specific subtypes) and native apps like GVim.
+        See status_docs/DECISIONS.md — "xdg-mime false-negative on KDE".
+        """
         path = query.get('path', [''])[0].strip()
         if not path:
             self.json_response({"ok": False, "error": "Missing path parameter"})
@@ -796,50 +806,84 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                                      "message": f"File not found on disk: {path}"})
             return
 
-        # Check if a default app is registered before firing xdg-open.
-        # xdg-mime query default needs a MIME type; fall back to Python's
-        # mimetypes module, then to a raw xdg-mime filetype query.
         env = self._desktop_env()
+
+        # Detect MIME type for diagnostic messages only — NOT a gate for opening.
+        mime = None
         try:
-            import mimetypes
-            mime, _ = mimetypes.guess_type(str(p))
-            if not mime:
-                # Ask xdg-mime directly (handles freedesktop magic bytes)
+            import mimetypes as _mt
+            mime, _ = _mt.guess_type(str(p))
+            if not mime and shutil.which('xdg-mime'):
                 r = subprocess.run(
                     ['xdg-mime', 'query', 'filetype', str(p)],
                     capture_output=True, text=True, timeout=5, env=env,
                 )
                 mime = r.stdout.strip() or None
+        except Exception:
+            pass
 
-            if mime:
-                r2 = subprocess.run(
-                    ['xdg-mime', 'query', 'default', mime],
-                    capture_output=True, text=True, timeout=5, env=env,
+        # Opener chain: try each available launcher in preference order.
+        # We wait up to 1 s; if the process is still running at that point it
+        # has successfully handed off to the GUI app and we call it a win.
+        # If it exits within 1 s with a non-zero code we capture stderr and
+        # move on to the next candidate.
+        candidates = [
+            ['gio', 'open', str(p)],       # GNOME / Flatpak portals
+            ['kde-open5', str(p)],          # KDE Plasma 5
+            ['kde-open', str(p)],           # KDE Plasma 4 / fallback
+            ['xdg-open', str(p)],           # generic XDG fallback
+        ]
+        openers = [cmd for cmd in candidates if shutil.which(cmd[0])]
+
+        if not openers:
+            self.json_response({
+                "ok": False,
+                "error": "No file opener found on PATH (tried gio, kde-open5, kde-open, xdg-open)",
+            })
+            return
+
+        last_err = "all openers failed"
+        for opener in openers:
+            try:
+                proc = subprocess.Popen(
+                    opener,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    start_new_session=True,
+                    env=env,
                 )
-                handler = r2.stdout.strip()
-                if not handler:
-                    self.json_response({
-                        "ok": False,
-                        "error": f"No default application for this file type ({mime})"
-                    })
+                try:
+                    rc = proc.wait(timeout=1.0)
+                    stderr_txt = proc.stderr.read().decode(errors='replace').strip()
+                    proc.stderr.close()
+                    if rc != 0:
+                        last_err = stderr_txt or f"{opener[0]} exited {rc}"
+                        logging.warning("handle_open: %s rc=%d: %s", opener[0], rc, last_err)
+                        continue  # try next opener
+                    # Exited 0 quickly — success (some launchers do this)
+                    self.json_response({"ok": True, "path": path})
                     return
+                except subprocess.TimeoutExpired:
+                    # Still running after 1 s → GUI app is launching, we're done.
+                    proc.stderr.close()
+                    threading.Thread(target=proc.wait, daemon=True).start()
+                    self.json_response({"ok": True, "path": path})
+                    return
+            except FileNotFoundError:
+                continue  # binary disappeared between which() and Popen()
 
-            # Prefer `gio open` - it talks to the desktop session over D-Bus
-            # and reliably launches the default app under KDE/GNOME. Fall
-            # back to xdg-open if gio isn't available.
-            opener = ['gio', 'open', str(p)] if shutil.which('gio') else ['xdg-open', str(p)]
-            proc = subprocess.Popen(opener,
-                                    stdout=subprocess.DEVNULL,
-                                    stderr=subprocess.DEVNULL,
-                                    start_new_session=True,
-                                    env=env)
-            # The gio/xdg-open launcher spawns the real app and exits almost
-            # immediately; reap it in a detached thread so it doesn't linger as
-            # a zombie in this long-lived server.
-            threading.Thread(target=proc.wait, daemon=True).start()
-            self.json_response({"ok": True, "path": path})
-        except Exception as e:
-            self.json_response({"ok": False, "error": f"xdg-open failed: {e}"})
+        # Every opener failed.
+        hint = ""
+        if mime:
+            hint = (f" To fix: run  xdg-mime default <app>.desktop {mime}  "
+                    f"or edit ~/.config/mimeapps.list")
+        logging.error("handle_open: all openers failed for %s (%s): %s", path, mime, last_err)
+        self.json_response({
+            "ok": False,
+            "error": f"No default application for this file type ({mime or 'unknown'})",
+            "detail": last_err,
+            "hint": hint.strip(),
+        })
 
     def handle_delete(self, query: dict):
         """GET /api/delete?path=<encoded-path> - Delete a file from disk and DB."""
