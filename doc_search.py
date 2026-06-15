@@ -219,13 +219,33 @@ def _semantic_scores(conn, query_vec) -> dict:
 
 
 def _fts_match_expr(q: str):
-    """Build a safe FTS5 MATCH expression: prefix-OR over the query's word
-    tokens. Quoting each token neutralizes FTS operators (AND/OR/NOT/NEAR,
-    quotes, colons, etc.) so arbitrary user input can't break the query."""
-    tokens = re.findall(r'\w+', q.lower())
-    if not tokens:
-        return None
-    return ' OR '.join(f'"{t}"*' for t in tokens)
+    """Build a safe FTS5 MATCH expression.
+
+    Supports two input forms:
+    • Quoted phrase  "import fmt"  → passed to FTS5 as a phrase: "import fmt"
+      (exact consecutive-word match, case-insensitive).
+    • Bare words  import fmt  → prefix-OR over tokens: "import"* OR "fmt"*
+      Each token is FTS5-quoted to neutralise operators (AND/OR/NOT/NEAR,
+      colons, etc.) so arbitrary user input can't inject FTS5 syntax.
+
+    A query may mix both forms: golang "import fmt" → phrase OR bare tokens.
+    """
+    parts = []
+    # Extract double-quoted phrases first, then remaining bare words.
+    phrases = re.findall(r'"([^"]+)"', q)
+    remainder = re.sub(r'"[^"]*"', ' ', q)
+    bare_tokens = re.findall(r'\w+', remainder.lower())
+
+    for phrase in phrases:
+        # Re-quote inner content so FTS5 treats it as a phrase literal.
+        inner = phrase.strip().lower()
+        if inner:
+            parts.append(f'"{inner}"')
+
+    for t in bare_tokens:
+        parts.append(f'"{t}"*')
+
+    return ' OR '.join(parts) if parts else None
 
 
 def _keyword_scores(conn, q: str) -> dict:
