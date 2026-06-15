@@ -758,3 +758,51 @@ toggle this (config+firewall+restart) is planned, not yet built.
 so fresh installs opened pre-populated. Emptied to schema-only (rows deleted,
 contentless FTS cleared via 'delete-all', AUTOINCREMENT reset, VACUUMed); first
 run is now genuinely empty.
+
+---
+
+## Browser extension "Opener" abandoned in favor of native app (2026-06-14)
+
+**Context.** To let a remote browser (server runs DocuBrowse, client is a
+different machine) open a search result in its own OS default app, we built
+`/api/view` (inline file serving), restricted `/api/open` to localhost, and a
+Manifest V3 browser extension ("DocuBrowse Opener") for Chrome and Firefox that
+intercepts clicks on `/api/view` links, downloads the file, and opens it.
+
+**Chrome/Edge: works.** `chrome.downloads.open()` has no special restriction —
+download-then-open from a content-script message works end-to-end.
+
+**Firefox: blocked, not just buggy.** Firefox's `downloads.open()` requires a
+"user input handler" call context, and — confirmed by testing — this context
+does **not** survive *any* async boundary: not `downloads.onChanged`, and not
+even the immediate `downloads.download()` callback (already a promise
+continuation by the time it fires). A `notifications.onClicked`-based
+workaround technically satisfies the API restriction (notification clicks are
+fresh user input), but desktop notifications on Linux auto-dismiss in a few
+seconds, with reliability varying by desktop environment (GNOME/KDE/etc.) —
+not something to ship.
+
+**Decision: pivot to a dedicated companion app.** Browser extension APIs are
+the wrong layer for "open this file in my OS's default app" — every browser
+sandboxes this differently and Firefox's restriction is a hard wall, not a
+workaround-able quirk. Instead, DocuBrowse will get a small dedicated client
+application (the actual UI for browsing/searching, talking to the existing
+`doc_search.py` HTTP API) that can shell out to `xdg-open`/`open`/`start`
+directly — no browser involved for the open step. This also unlocks native
+Windows and Mac clients while the server (`doc_search.py`) stays Linux-only,
+which a browser-extension approach never could.
+
+**What happened to the work.** All of it (the extension code for both
+browsers, `/api/view`/`/api/open`/`/downloads/` server changes, and the
+index.html opener-banner UI) is preserved on the `browser-extension-attempt`
+branch for reference — e.g. if a future contributor wants to revisit the
+Chrome-only path, or if Firefox relaxes the restriction. `main` was reset to
+v0.8.1 (commit `d03ac5c`, before this effort began) and a new `app-dev` branch
+created from that point for the native-app work.
+
+**Native messaging considered for later.** A Firefox/Chrome native-messaging
+host (a local helper script registered with the browser, talking over stdio)
+was discussed as an alternative that avoids the `downloads.open()` restriction
+entirely — not subject to the user-input rule. Deferred: superseded by the
+native-app decision above, but noted here in case a "thin browser UI + native
+helper" hybrid ever becomes attractive again.

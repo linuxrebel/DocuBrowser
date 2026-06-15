@@ -517,3 +517,27 @@ See `status_docs/DECISIONS.md` for full details. Key open items:
 - Updated INSTALL.md: Uninstalling section now also removes `ignore_dirs.txt` and `scan_dirs.txt`.
 - Fully rewrote `info_docs/DocuBrowse_User_Guide.docx` (previously v0.5.0, 2 versions stale) to match the current v0.7.2.1 feature set: title page, What is DocuBrowse, Key Features, Requirements, Installation, full CLI Reference, Common Workflows, Using the Search UI, Settings, Moved/Missing/Deleted Documents, Troubleshooting, Files Reference, and API Quick Reference. Generated via docx-js (US Letter, branded headings, header/footer with page numbers).
 - Version intentionally kept at v0.7.2.1 for this doc-only pass (James: "No, keep v0.7.2.1") — no new tag/tarball.
+
+### 2026-06-14 — Browser opener extension attempt, then pivot to native app
+- Built `/api/view` (renamed from `/api/download`, inline-only), restricted
+  `/api/open` to localhost, added a `/downloads/` static route, and a
+  Manifest V3 "DocuBrowse Opener" extension for Chrome/Edge and Firefox that
+  intercepts result clicks and opens the file in the OS default app on the
+  client machine.
+- Tested end-to-end on a Debian 13 VM (testDebian, 192.168.87.29:8643) against
+  real Firefox 151.0.3: Chrome path works fully; Firefox's `downloads.open()`
+  user-input-handler restriction proved unworkable (doesn't survive any async
+  boundary, and a notifications.onClicked workaround is unreliable on Linux
+  desktops — see DECISIONS.md "Browser extension Opener abandoned").
+- **Decision:** pivot to a dedicated DocuBrowse client app (talks to the
+  existing `doc_search.py` HTTP API, shells out to the OS open-file command
+  directly) — also enables future Windows/Mac clients against the Linux
+  server.
+- **Branching:** all opener-extension work preserved on
+  `browser-extension-attempt` (commit `0b1013d`). `main` reset to v0.8.1
+  (`d03ac5c`). New `app-dev` branch created from `main` as the working branch
+  for the native-app effort going forward.
+- Next session: scope the companion app (target platform(s) first — Linux
+  desktop, then Windows/Mac; tech stack TBD) against `doc_search.py`'s
+  existing JSON API (`/api/search`, `/api/open`, `/api/view`, `/api/synopsis`,
+  etc.).
