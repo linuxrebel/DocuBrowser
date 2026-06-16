@@ -16,6 +16,7 @@ import math
 import re
 import socket
 import sqlite3
+import ssl
 import struct
 import threading
 import subprocess
@@ -42,6 +43,7 @@ except Exception:  # numpy is normally present (dup_detect uses it); degrade gra
 
 
 DEFAULT_PORT = 8643
+TLS_CONFIG_NAME = "tls.json"   # keep in sync with docubrowser.py
 OLLAMA_HOST = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
@@ -1327,6 +1329,37 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         self.wfile.write(content)
 
 
+def _load_tls_context(db_path: str):
+    """Load tls.json next to the database and return an SSLContext, or None.
+
+    Returns None (plain HTTP) if no tls.json exists. Exits on bad config so
+    the user gets a clear error rather than a silent fallback to HTTP.
+    """
+    tls_cfg_path = Path(db_path).parent / TLS_CONFIG_NAME
+    if not tls_cfg_path.exists():
+        return None
+
+    try:
+        cfg = json.loads(tls_cfg_path.read_text())
+        cert = cfg.get("cert")
+        key  = cfg.get("key")
+        if not cert or not key:
+            print(f"ERROR: tls.json missing 'cert' or 'key' field: {tls_cfg_path}")
+            sys.exit(1)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.load_cert_chain(cert, key)
+        return ctx
+    except ssl.SSLError as e:
+        print(f"ERROR: Failed to load TLS certificate: {e}")
+        print(f"  Config: {tls_cfg_path}")
+        print("  Run 'docubrowser setup-tls' to reconfigure.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Could not read {tls_cfg_path}: {e}")
+        sys.exit(1)
+
+
 def main():
     """Start the document search server."""
     # Args: <database_path> [port] [--allow-remote]
@@ -1363,6 +1396,10 @@ def main():
             pass
         DocSearchHandler.allowed_hostnames = frozenset(n for n in names if n)
 
+    # Load TLS config (tls.json next to the database), if present
+    tls_ctx = _load_tls_context(str(db_path))
+    scheme = "https" if tls_ctx else "http"
+
     # Local-only (default) binds the IPv4 loopback explicitly; remote binds all
     # interfaces. The firewall is only ever opened when remote is chosen.
     bind_addr = '0.0.0.0' if allow_remote else '127.0.0.1'
@@ -1379,16 +1416,21 @@ def main():
         else:
             raise
 
+    if tls_ctx:
+        httpd.socket = tls_ctx.wrap_socket(httpd.socket, server_side=True)
+
     print(f"DocuBrowse Search Server")
     print(f"  Database: {db_path}")
     print(f"  Ollama: {OLLAMA_HOST}")
     print(f"  Model: {EMBEDDING_MODEL}")
+    if tls_ctx:
+        print(f"  TLS: enabled")
     if allow_remote:
-        print(f"  Listening on http://0.0.0.0:{port}  (LAN/remote access ENABLED)")
+        print(f"  Listening on {scheme}://0.0.0.0:{port}  (LAN/remote access ENABLED)")
         print(f"  ⚠ Remote access is on and there is NO authentication yet — anyone who")
         print(f"    can reach this host on port {port} can read and delete indexed documents.")
     else:
-        print(f"  Listening on http://localhost:{port}  (local only)")
+        print(f"  Listening on {scheme}://localhost:{port}  (local only)")
 
     # Self-test: confirm semantic search will actually work. A silent
     # embed failure (e.g. wrong response key, Ollama down) degrades
