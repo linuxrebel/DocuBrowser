@@ -1037,7 +1037,7 @@ def _tls_self_signed(db_path: str):
         hostname = "localhost"
 
     subj = f"/CN={hostname}/O=DocuBrowse/OU=Self-Signed"
-    san  = f"subjectAltName=DNS:{hostname},DNS:localhost,IP:127.0.0.1,IP:127.0.1.1"
+    san  = f"subjectAltName=DNS:{hostname},DNS:localhost,IP:127.0.0.1,IP:127.0.1.1,IP:::1"
 
     cmd = [
         "openssl", "req", "-x509",
@@ -1072,7 +1072,9 @@ def _tls_self_signed(db_path: str):
 
 def _tls_existing_cert(db_path: str):
     """Accept paths to an existing cert and key."""
-    print("  Enter the full path to your certificate file (PEM format):")
+    print("  Enter the full path to your certificate file (PEM format).")
+    print("  Tip: ensure the cert's SAN includes IP:127.0.0.1, IP:127.0.1.1,")
+    print("       and IP:::1 if you want all loopback addresses to work.")
     cert_path = input("  Certificate: ").strip()
     print("  Enter the full path to your private key file (PEM format):")
     key_path = input("  Key:         ").strip()
