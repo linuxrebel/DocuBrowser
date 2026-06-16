@@ -430,6 +430,56 @@ function checkConfig() {
   }).catch(e => console.error('Config fetch error:', e));
 }
 
+// ── Branding ──────────────────────────────────────────────────
+function applyBranding() {
+  fetch('/api/branding')
+    .then(r => r.json())
+    .then(b => {
+      // CSS variable overrides (both light and dark share the same override)
+      const root = document.documentElement.style;
+      if (b.primary_color) root.setProperty('--accent', b.primary_color);
+      if (b.accent_color)  root.setProperty('--accent2', b.accent_color);
+
+      // Page title
+      if (b.app_title) document.title = b.app_title;
+
+      // Logo text or image
+      const logoEl = document.querySelector('.logo');
+      if (logoEl) {
+        if (b.logo_url) {
+          logoEl.innerHTML = `<img src="${b.logo_url}" alt="${b.app_title || 'Logo'}" style="max-height:2rem;vertical-align:middle;">`;
+        } else if (b.app_title) {
+          // Simple text replacement; preserve the span style by splitting on first space
+          const parts = b.app_title.split(/(?<=^\S+)\s/);
+          logoEl.textContent = '';
+          const first = document.createTextNode(parts[0]);
+          logoEl.appendChild(first);
+          if (parts[1]) {
+            const rest = document.createElement('span');
+            rest.textContent = ' ' + parts[1];
+            logoEl.appendChild(rest);
+          }
+        }
+        if (b.company_name) {
+          logoEl.title = b.company_name;
+        }
+      }
+
+      // Favicon
+      if (b.favicon_url) {
+        let link = document.querySelector("link[rel~='icon']");
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.head.appendChild(link);
+        }
+        link.href = b.favicon_url;
+      }
+    })
+    .catch(() => {});  // branding is cosmetic — never break on failure
+}
+
+applyBranding();
 loadStats();
 loadTags();
 checkConfig();
