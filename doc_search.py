@@ -44,6 +44,7 @@ except Exception:  # numpy is normally present (dup_detect uses it); degrade gra
 
 DEFAULT_PORT = 8643
 TLS_CONFIG_NAME = "tls.json"   # keep in sync with docubrowser.py
+_LOOPBACK_NET = ipaddress.ip_network("127.0.0.0/8")
 OLLAMA_HOST = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
@@ -302,6 +303,33 @@ def _valid_doc_ids(conn) -> set:
     ids = {r[0] for r in conn.execute("SELECT id FROM documents")}
     _DOCID_CACHE.update({"key": key, "ids": ids})
     return ids
+
+
+class DocuBrowseServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer that enforces loopback-only access in local mode.
+
+    Always binds to 0.0.0.0 so all 127.x.x.x addresses are reachable
+    (the entire 127.0.0.0/8 subnet is loopback per RFC 5735).  When
+    local_only=True (the default), verify_request() drops any connection
+    whose source IP is outside 127.0.0.0/8 at the TCP accept level —
+    before a single byte of HTTP is read.  When local_only=False
+    (--allow-remote), all source IPs are accepted.
+    """
+    local_only: bool = True
+
+    def verify_request(self, request, client_address):
+        if self.local_only:
+            try:
+                addr = ipaddress.ip_address(client_address[0])
+                # Accept IPv6 loopback (::1) — localhost often resolves to it
+                if addr == ipaddress.ip_address('::1'):
+                    return True
+                # Accept anything in 127.0.0.0/8; reject all other IPs
+                if addr not in _LOOPBACK_NET:
+                    return False
+            except (ValueError, TypeError):
+                return False
+        return True
 
 
 class DocSearchHandler(BaseHTTPRequestHandler):
@@ -1400,12 +1428,13 @@ def main():
     tls_ctx = _load_tls_context(str(db_path))
     scheme = "https" if tls_ctx else "http"
 
-    # Local-only (default) binds the IPv4 loopback explicitly; remote binds all
-    # interfaces. The firewall is only ever opened when remote is chosen.
-    bind_addr = '0.0.0.0' if allow_remote else '127.0.0.1'
-    server_address = (bind_addr, port)
+    # Always bind 0.0.0.0 so the entire 127.0.0.0/8 loopback subnet is
+    # reachable (127.0.0.1, 127.0.1.1, etc.).  DocuBrowseServer.verify_request
+    # drops connections from outside 127.0.0.0/8 when local_only=True.
+    server_address = ('0.0.0.0', port)
     try:
-        httpd = ThreadingHTTPServer(server_address, DocSearchHandler)
+        httpd = DocuBrowseServer(server_address, DocSearchHandler)
+        httpd.local_only = not allow_remote
     except OSError as e:
         if e.errno == 98:  # Address already in use
             print(f"ERROR: Port {port} is already in use.")
@@ -1430,7 +1459,8 @@ def main():
         print(f"  ⚠ Remote access is on and there is NO authentication yet — anyone who")
         print(f"    can reach this host on port {port} can read and delete indexed documents.")
     else:
-        print(f"  Listening on {scheme}://localhost:{port}  (local only)")
+        print(f"  Listening on {scheme}://127.0.0.0/8:{port}  (loopback subnet only)")
+        print(f"  Any 127.x.x.x address works; all external interfaces rejected.")
 
     # Self-test: confirm semantic search will actually work. A silent
     # embed failure (e.g. wrong response key, Ollama down) degrades
