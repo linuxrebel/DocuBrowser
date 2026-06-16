@@ -1037,7 +1037,7 @@ def _tls_self_signed(db_path: str):
         hostname = "localhost"
 
     subj = f"/CN={hostname}/O=DocuBrowse/OU=Self-Signed"
-    san  = f"subjectAltName=DNS:{hostname},DNS:localhost,IP:127.0.0.1"
+    san  = f"subjectAltName=DNS:{hostname},DNS:localhost,IP:127.0.0.1,IP:127.0.1.1"
 
     cmd = [
         "openssl", "req", "-x509",
@@ -1197,8 +1197,8 @@ def cmd_setup_tls(config: dict, args):
         print("  docubrowser restart")
         print()
         port = args.port or config.get("port", 8643)
-        hostname = socket.getfqdn()
-        print(f"  After restart, the UI will be at: https://{hostname}:{port}")
+        print(f"  After restart, the UI will be at: https://localhost:{port}")
+        print(f"  (In local mode the server binds to 127.0.0.1 — use localhost or 127.0.0.1)")
 
 
 # ─── duplist / dupclean ───────────────────────────────────────────────────────
