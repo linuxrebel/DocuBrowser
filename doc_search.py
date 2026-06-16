@@ -45,6 +45,18 @@ except Exception:  # numpy is normally present (dup_detect uses it); degrade gra
 DEFAULT_PORT = 8643
 TLS_CONFIG_NAME = "tls.json"   # keep in sync with docubrowser.py
 _LOOPBACK_NET = ipaddress.ip_network("127.0.0.0/8")
+_IPV6_LOOPBACK = ipaddress.ip_address("::1")
+
+
+def _is_loopback(hostname: str) -> bool:
+    """Return True if hostname is a loopback address (127.0.0.0/8 or ::1)."""
+    if hostname == 'localhost':
+        return True
+    try:
+        addr = ipaddress.ip_address(hostname)
+        return addr == _IPV6_LOOPBACK or addr in _LOOPBACK_NET
+    except ValueError:
+        return False
 OLLAMA_HOST = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
@@ -366,8 +378,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         hostname = hostname.strip('[]').lower()   # [::1] → ::1
         if port and port != str(self.server_port):
             return False
-        # Loopback is always allowed.
-        if hostname in ('localhost', '127.0.0.1', '::1'):
+        # Loopback is always allowed (entire 127.0.0.0/8 subnet + ::1).
+        if _is_loopback(hostname):
             return True
         # Remote (LAN) access is opt-in. When enabled, allow this machine's own
         # hostnames and any IP-literal Host. Requiring a known name or a literal
@@ -403,7 +415,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             if val:
                 o = urlparse(val).hostname
                 o = o.lower() if o else o
-                if o not in (host_host, 'localhost', '127.0.0.1', '::1'):
+                if o != host_host and not _is_loopback(o or ''):
                     self.error_response(403, "Forbidden: cross-origin request rejected")
                     return False
         token = self.headers.get('X-CSRF-Token', '')
