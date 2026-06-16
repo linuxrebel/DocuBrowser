@@ -106,7 +106,7 @@ def embed_text(text: str) -> list:
 
 
 def generate_synopsis(title: str, description: str, snippet: str) -> tuple:
-    """Ask Ollama for a one-paragraph, back-cover-style synopsis.
+    """Ask Ollama for a one-paragraph factual summary of the document.
 
     Returns (text, error_reason). On success, text is the generated
     synopsis and error_reason is None. On failure, text is None and
@@ -120,9 +120,10 @@ def generate_synopsis(title: str, description: str, snippet: str) -> tuple:
         return None, "empty"
 
     prompt = (
-        "Write a one-paragraph synopsis of the document below, in the style "
-        "of a book jacket / Kindle store description — engaging and "
-        "informative, written for someone deciding whether to open it. "
+        "Summarize the document excerpt below in one concise paragraph. "
+        "Describe only what the document actually contains — its subject matter, "
+        "purpose, and key topics. Base the summary entirely on the excerpt text; "
+        "do not invent content or draw on the document title alone. "
         "Do not use markdown, headings, or bullet points. Output only the "
         "paragraph itself, with no preamble.\n\n"
         f"Title: {title or '(untitled)'}\n\n"
