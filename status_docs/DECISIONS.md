@@ -805,6 +805,36 @@ run is now genuinely empty.
 
 ---
 
+## TLS/HTTPS — Phase 2.5, prerequisite for SSO (2026-06-15)
+
+**Decision**: Add TLS support as a discrete step before Phase 3 SSO. OIDC/SAML
+identity providers require HTTPS callback URLs — SSO cannot be done over plain HTTP.
+
+**Implementation**: New `docubrowser setup-tls` command with three paths:
+
+1. **Existing cert** — prompt for cert path + key path, write to a tls.json config
+   file alongside the database. Zero external dependencies.
+2. **Let's Encrypt** — shell out to `certbot certonly --standalone`. Requires a
+   public domain name and port 80 accessible from the internet. Automate renewal
+   via a systemd timer (`certbot renew`). Best fit for cloud/hosted deployments.
+3. **Self-signed** — `openssl req -x509 -newkey rsa:4096 -days 3650 ...`. No
+   external dependencies; works on air-gapped/private networks. Warn the user
+   that browsers will show a security warning unless the cert is added to the
+   OS trust store.
+
+**Server side**: Wrap `ThreadingHTTPServer` in `ssl.SSLContext.wrap_socket()`
+using cert+key from `tls.json`. FOSS installs default to HTTP (no tls.json =
+plain HTTP); TLS is opt-in for enterprise.
+
+**Setup flow UX** (interactive prompt during `setup-tls`):
+- Do you have an existing certificate? → path entry
+- Do you want a free Let's Encrypt certificate? → runs certbot
+- Use a self-signed certificate (for internal/air-gapped use)? → runs openssl
+
+**Deferred**: Actual implementation. Log entry added 2026-06-15.
+
+---
+
 ## Browser extension "Opener" abandoned in favor of native app (2026-06-14)
 
 **Context.** To let a remote browser (server runs DocuBrowse, client is a
