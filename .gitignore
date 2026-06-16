@@ -89,3 +89,6 @@ scan_dirs.txt
 
 # Business-sensitive planning docs (not for public repo)
 bus_docs/
+
+# Enterprise branding config (deployment-specific; commit branding.json.example instead)
+branding.json

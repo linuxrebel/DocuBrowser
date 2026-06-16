@@ -31,6 +31,11 @@ from urllib.error import URLError
 from docubrowse_db import get_db, check_missing_path, delete_document
 
 try:
+    from access_enterprise import branding as _branding
+except ImportError:
+    _branding = None
+
+try:
     import numpy as _np
 except Exception:  # numpy is normally present (dup_detect uses it); degrade gracefully
     _np = None
@@ -410,6 +415,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_browse(query)
             elif path == '/api/status':
                 self.handle_status()
+            elif path == '/api/branding':
+                self.handle_branding()
             else:
                 self.error_response(404, "Not found")
         except Exception as e:
@@ -568,6 +575,29 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             }
 
         self.json_response(status)
+
+    def handle_branding(self):
+        """GET /api/branding - Return active branding config.
+
+        When access_enterprise.branding is available AND a branding.json exists
+        next to the database, returns the configured values. Missing fields are
+        returned as null so the client can apply defaults selectively.
+
+        Always returns 200 — FOSS installs (no branding module) get all-null
+        config, which the client treats as "use built-in defaults".
+        """
+        if _branding is not None:
+            config = _branding.load(self.db_path)
+        else:
+            config = {
+                "app_title": None,
+                "company_name": None,
+                "logo_url": None,
+                "favicon_url": None,
+                "primary_color": None,
+                "accent_color": None,
+            }
+        self.json_response(config)
 
     def handle_tags(self):
         """GET /api/tags - Return all tags with counts."""
