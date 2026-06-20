@@ -1082,3 +1082,40 @@ Issues found during first integration test, to address in a follow-up session:
        search lens motif, rendered with gradients and rich color. This is a
        design task — likely needs a professional designer or high-quality
        AI image generation with manual refinement.
+
+
+12. **Packaging decisions needed — 5 deliverables (2026-06-19):**
+
+    **Desktop client (Enterprise, Tauri v2):**
+    a. **macOS** — `.dmg` (drag-to-Applications). Tauri builds this
+       natively. Needs Apple Developer cert for notarization or users
+       get Gatekeeper warnings. Universal binary (x86_64 + aarch64)?
+    b. **Windows** — `.msi` or `.exe` installer (NSIS/WiX). Tauri
+       supports both. Code signing cert needed to avoid SmartScreen
+       warnings. Consider winget/Chocolatey distribution later.
+    c. **Linux** — `.deb`, `.rpm`, AppImage, or Flatpak. Tauri builds
+       `.deb` and `.AppImage` natively. `.rpm` may need `cargo-rpm` or
+       `fpm`. Flatpak gives sandboxing but adds complexity. Decide
+       which distros to officially support (Ubuntu/Fedora/Arch minimum?).
+
+    **Server (Python + Ollama dependency):**
+    d. **Enterprise server** — Needs an installer that handles: Python
+       venv setup, pip dependencies, Ollama install/model pull,
+       systemd service file, config file generation, SSL cert setup,
+       OAuth provider config. Options: shell install script, `.deb`/
+       `.rpm` with postinst hooks, Docker container, or Ansible
+       playbook. Docker may be simplest for enterprise (single
+       `docker-compose.yml` with Ollama sidecar).
+    e. **FOSS server** — Similar to enterprise minus OAuth and access
+       layer. Options: pip-installable package (`pip install docubrowse`),
+       install script (`curl | bash` pattern), `.deb`/`.rpm`, Docker,
+       or just documented manual install. FOSS users tend to prefer
+       lightweight — install script or pip package likely best. Snap/
+       Flatpak less appropriate for a server process.
+
+    **Cross-cutting concerns:**
+    - Auto-update mechanism for desktop clients (Tauri has built-in
+      updater plugin, needs a signed update manifest endpoint).
+    - Version pinning between client and server (API compatibility).
+    - CI/CD pipeline for building all 5 artifacts (GitHub Actions can
+      build macOS/Windows/Linux Tauri apps in matrix).
