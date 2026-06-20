@@ -460,6 +460,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_status()
             elif path == '/api/branding':
                 self.handle_branding()
+            elif path == '/api/download':
+                self.handle_download(query)
             else:
                 self.error_response(404, "Not found")
         except Exception as e:
@@ -576,12 +578,21 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         overall_ok = db_ok and ollama_ok
 
+        # Semantic search is usable when embeddings exist AND Ollama is up
+        # (Ollama is needed at query time to embed the search query).
+        semantic_ready = (
+            db_ok and ollama_ok
+            and embedded_count > 0
+            and _model_present(EMBEDDING_MODEL)
+        )
+
         # ── FOSS tier: minimal response ───────────────────────────────────
         status = {
             "ok": overall_ok,
             "version": SERVER_VERSION,
             "uptime_seconds": round(uptime, 1),
             "timestamp": datetime.now().isoformat(),
+            "semantic_ready": semantic_ready,
             "components": {
                 "db": {
                     "ok": db_ok,
@@ -978,6 +989,81 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             "hint": hint.strip(),
         })
 
+    def handle_download(self, query: dict):
+        """GET /api/download?path=<encoded-path> — Stream file bytes to remote client.
+
+        CSRF-gated, index-validated.  Unlike /api/open this is NOT localhost-
+        restricted — it is the mechanism remote companion-app clients use to
+        retrieve documents.  The file must be present in the document index
+        (same guard as /api/open) to prevent arbitrary filesystem reads.
+
+        Streams in 64 KB chunks to avoid loading large files into memory.
+        """
+        if not self._guard_mutation():
+            return
+
+        path = query.get('path', [''])[0].strip()
+        if not path:
+            self.json_response({"ok": False, "error": "Missing path parameter"})
+            return
+
+        # Security: path must be in the index
+        conn = get_db(self.db_path)
+        row = conn.execute('SELECT id FROM documents WHERE path = ?', (path,)).fetchone()
+        conn.close()
+        if not row:
+            self.json_response({"ok": False, "error": "Path not in document index"})
+            return
+
+        p = Path(path)
+        if not p.exists():
+            status = check_missing_path(path)
+            if status == "unmounted":
+                self.send_error(404)
+                self.end_headers()
+                self.wfile.write(json.dumps(
+                    {"ok": False, "error": "unmounted",
+                     "message": f"Device not mounted: {path}"}).encode())
+            else:
+                self.send_error(404)
+                self.end_headers()
+                self.wfile.write(json.dumps(
+                    {"ok": False, "error": "missing",
+                     "message": f"File not found on disk: {path}"}).encode())
+            return
+
+        # Determine MIME type
+        import mimetypes as _mt
+        mime, _ = _mt.guess_type(str(p))
+        if not mime:
+            mime = "application/octet-stream"
+
+        file_size = p.stat().st_size
+        basename = p.name
+
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(file_size))
+        self.send_header("Content-Disposition",
+                         f'attachment; filename="{basename}"')
+        self.send_header("Cache-Control", "no-store")
+        self._cors_headers()
+        self.end_headers()
+
+        # Stream in 64 KB chunks
+        chunk_size = 65536
+        try:
+            with open(path, "rb") as fh:
+                while True:
+                    chunk = fh.read(chunk_size)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            logging.debug("handle_download: client disconnected during transfer: %s", path)
+        except OSError as e:
+            logging.error("handle_download: I/O error streaming %s: %s", path, e)
+
     def handle_delete(self, query: dict):
         """GET /api/delete?path=<encoded-path> - Delete a file from disk and DB."""
         path = query.get('path', [''])[0].strip()
@@ -1345,10 +1431,32 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.send_header('Content-Type', 'application/octet-stream')
 
             self.send_header('Content-Length', len(content))
+            self._cors_headers()
             self.end_headers()
             self.wfile.write(content)
         except Exception as e:
             self.error_response(500, str(e))
+
+    def _cors_headers(self):
+        """Add CORS headers when running in --allow-remote mode.
+
+        Required for the companion app (Tauri WebView origin: tauri://localhost)
+        to reach the server.  CSRF tokens still protect mutations; the document
+        index check still gates file access — CORS headers do not weaken either.
+        """
+        if self.allow_remote:
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Headers',
+                             'X-CSRF-Token, Content-Type')
+            self.send_header('Access-Control-Allow-Methods',
+                             'GET, POST, OPTIONS')
+
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests."""
+        self.send_response(204)
+        self._cors_headers()
+        self.send_header('Content-Length', '0')
+        self.end_headers()
 
     def json_response(self, data: dict):
         """Send a JSON response."""
@@ -1356,6 +1464,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', len(content))
+        self._cors_headers()
         self.end_headers()
         self.wfile.write(content)
 
@@ -1365,6 +1474,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header('Content-Type', 'text/plain; charset=utf-8')
         self.send_header('Content-Length', len(content))
+        self._cors_headers()
         self.end_headers()
         self.wfile.write(content)
 
