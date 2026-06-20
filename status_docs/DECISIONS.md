@@ -1120,6 +1120,32 @@ Issues found during first integration test, to address in a follow-up session:
     - CI/CD pipeline for building all 5 artifacts (GitHub Actions can
       build macOS/Windows/Linux Tauri apps in matrix).
 
+    **Mobile clients (Enterprise):**
+    g. **iOS** — App Store distribution. Options: Tauri v2 has iOS
+       support (WKWebView), or go native Swift/SwiftUI. Tauri mobile
+       is still maturing — evaluate stability. App Store review
+       requirements, Apple Enterprise Distribution Program for
+       internal-only deployments (bypasses App Store). MDM push for
+       managed devices.
+    h. **Android** — Play Store or enterprise sideload. Options: Tauri
+       v2 has Android support (WebView), or native Kotlin/Jetpack
+       Compose. Same Tauri maturity question as iOS. Enterprise:
+       Android Enterprise managed distribution via EMM/MDM. APK
+       sideload for internal use.
+
+    **Mobile considerations:**
+    - Shared codebase advantage if Tauri mobile is viable — one
+      frontend (HTML/JS/CSS) across desktop and mobile, Rust backend
+      for IPC. Reduces maintenance burden vs 4 native codebases.
+    - Offline mode? Mobile users may not always have connectivity to
+      the server. Cache last-viewed documents? Or strictly online?
+    - File opening behavior differs — no xdg-open, need OS-native
+      share sheet / document preview (Quick Look on iOS, Intent on
+      Android).
+    - Authentication: OAuth flows on mobile need PKCE, deep links for
+      redirect URIs, secure token storage (Keychain/Keystore).
+    - Push notifications for new documents or server alerts?
+
     **Decision: Native packages only, no Docker (2026-06-19).**
     Docker rejected for server packaging. Rationale: server needs GPU
     passthrough (Ollama), direct filesystem access (document directory),
