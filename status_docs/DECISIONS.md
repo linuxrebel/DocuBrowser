@@ -1061,3 +1061,14 @@ Issues found during first integration test, to address in a follow-up session:
        to be extended so the user can switch between connected servers
        without re-entering URLs. Consider a server switcher in the titlebar
        or sidebar.
+
+    e. **Server-defined instance name.** The server admin sets an instance
+       name (e.g. "NVIDIA Dev Docs", "Legal Team Library") in server
+       config. This name is served via an API endpoint (likely `/api/status`
+       or `/api/branding`) and auto-fills in the client's connection manager
+       when the user points at a server URL. The name is authoritative —
+       the user doesn't pick it, the server does. Users can optionally add
+       personal notes or tags to a saved connection for their own
+       organization, but the canonical name always comes from the server.
+       This gives shared vocabulary: "it's in the NVIDIA Dev DocuBrowser"
+       means the same thing to everyone.
