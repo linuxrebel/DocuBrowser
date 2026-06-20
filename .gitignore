@@ -99,3 +99,4 @@ certs/
 
 # Enterprise access layer (private)
 access_enterprise/
+docubrowse-client/
