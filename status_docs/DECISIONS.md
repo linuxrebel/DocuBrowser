@@ -1119,3 +1119,12 @@ Issues found during first integration test, to address in a follow-up session:
     - Version pinning between client and server (API compatibility).
     - CI/CD pipeline for building all 5 artifacts (GitHub Actions can
       build macOS/Windows/Linux Tauri apps in matrix).
+
+    **Decision: Native packages only, no Docker (2026-06-19).**
+    Docker rejected for server packaging. Rationale: server needs GPU
+    passthrough (Ollama), direct filesystem access (document directory),
+    and runs as a long-lived daemon — Docker adds resource overhead for
+    idle containers, and the host access requirements (GPU, filesystem,
+    network) negate the isolation benefits while creating security
+    surface area. Native install (systemd service, venv, OS packages)
+    is the right fit.
