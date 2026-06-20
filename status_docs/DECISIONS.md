@@ -1072,3 +1072,13 @@ Issues found during first integration test, to address in a follow-up session:
        organization, but the canonical name always comes from the server.
        This gives shared vocabulary: "it's in the NVIDIA Dev DocuBrowser"
        means the same thing to everyone.
+
+    f. **App icon / logo (2026-06-19).** Need a multi-color icon with visual
+       impact — not minimalist 2-color flat design. Must work at multiple
+       sizes (16px favicon through 512px app icon) and also serve as a
+       corporate letterhead logo. Requirements: vibrant palette, depth/
+       dimension, recognizable at small sizes, printable on white and dark
+       backgrounds. Consider a stylized open book with magnifying glass or
+       search lens motif, rendered with gradients and rich color. This is a
+       design task — likely needs a professional designer or high-quality
+       AI image generation with manual refinement.
