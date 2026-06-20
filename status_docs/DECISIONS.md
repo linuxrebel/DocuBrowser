@@ -1133,18 +1133,18 @@ Issues found during first integration test, to address in a follow-up session:
        Android Enterprise managed distribution via EMM/MDM. APK
        sideload for internal use.
 
-    **Mobile considerations:**
-    - Shared codebase advantage if Tauri mobile is viable — one
-      frontend (HTML/JS/CSS) across desktop and mobile, Rust backend
-      for IPC. Reduces maintenance burden vs 4 native codebases.
-    - Offline mode? Mobile users may not always have connectivity to
-      the server. Cache last-viewed documents? Or strictly online?
-    - File opening behavior differs — no xdg-open, need OS-native
-      share sheet / document preview (Quick Look on iOS, Intent on
-      Android).
-    - Authentication: OAuth flows on mobile need PKCE, deep links for
-      redirect URIs, secure token storage (Keychain/Keystore).
-    - Push notifications for new documents or server alerts?
+    **Mobile approach: Web app, not native (2026-06-19).**
+    - Likely a responsive web app / PWA rather than native iOS/Android
+      apps. The server already serves the full UI as HTML/JS/CSS — a
+      mobile-optimized version of the same frontend is the simplest
+      path. No App Store gatekeeping, instant updates, works on both
+      platforms.
+    - Enterprise: PWA can be pushed to managed devices via MDM (home
+      screen shortcut, managed browser config).
+    - Still need to address: responsive layout for the existing UI,
+      touch-friendly controls, file preview behavior on mobile (share
+      sheet vs inline viewer), OAuth PKCE flow for mobile browsers,
+      offline/caching strategy (service worker?).
 
     **Decision: Native packages only, no Docker (2026-06-19).**
     Docker rejected for server packaging. Rationale: server needs GPU
