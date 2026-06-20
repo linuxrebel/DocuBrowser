@@ -96,3 +96,6 @@ branding.json
 # TLS config and generated certificates (deployment-specific)
 tls.json
 certs/
+
+# Enterprise access layer (private)
+access_enterprise/
