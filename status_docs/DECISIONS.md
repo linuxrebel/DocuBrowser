@@ -1032,3 +1032,32 @@ Issues found during first integration test, to address in a follow-up session:
     - **Immediate action needed:** At minimum, add `access_enterprise/` to
       `.gitignore` and scrub it from git history before the next push to
       the public remote.
+    - **Done 2026-06-19:** Both `access_enterprise/` and `docubrowse-client/`
+      added to `.gitignore`, removed from tracking. Enterprise code now in
+      local repo `~/git/AI/DocuBrowse-Ent/`. History scrub still needed.
+
+
+11. **Enterprise desktop app — settings and multi-server (2026-06-19):**
+
+    a. **Server Settings button in desktop client.** The Settings gear in the
+       companion app should open the enterprise server's settings page and be
+       labeled "Server Settings". This is server admin functionality surfaced
+       through the client — not local client config.
+
+    b. **Server Settings visibility gated by auth.** Not every user should
+       see the Server Settings button. Access should be determined by the
+       user's role, likely derived from OAuth claims (e.g. an `admin` role
+       or scope). Non-admin users see no gear button at all.
+
+    c. **Desktop Settings (future).** A separate "Desktop Settings" screen
+       may be needed for client-local preferences (theme, default server,
+       download location, etc.). Deferred — no current requirements beyond
+       the connection manager.
+
+    d. **Multi-server support.** The desktop app must support multiple Doc
+       Repo server connections. A company may run a universal instance plus
+       team-specific ones (e.g. Dev, Legal, Ops). The connection manager
+       (`connect.html`) already stores multiple saved servers — this needs
+       to be extended so the user can switch between connected servers
+       without re-entering URLs. Consider a server switcher in the titlebar
+       or sidebar.
