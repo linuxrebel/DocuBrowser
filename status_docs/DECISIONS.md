@@ -880,3 +880,155 @@ was discussed as an alternative that avoids the `downloads.open()` restriction
 entirely — not subject to the user-input rule. Deferred: superseded by the
 native-app decision above, but noted here in case a "thin browser UI + native
 helper" hybrid ever becomes attractive again.
+
+
+---
+
+### DEC-2026-06-16: Companion App — Tauri v2 with Client-Side Decorations
+
+**Context:** Native app decision made (see browser-extension abandonment above).
+Need to choose framework and cross-platform strategy.
+
+**Options considered:**
+- Electron — universal but ~150 MB binary, high memory overhead.
+- Flutter — Dart VM, GTK-only on Linux (no native Qt/Sway appearance).
+- Tauri v2 — Rust backend + OS WebView, ~5 MB binary, low memory.
+
+**Decision: Tauri v2.**
+- Smallest binary and memory footprint.
+- OS WebView means no bundled browser engine.
+- Rust backend gives direct access to `xdg-open`/`open`/`start` for file open.
+- WebView layer reuses the existing DocuBrowse HTML/CSS/JS UI with minimal
+  modifications.
+
+**Client-side decorations (CSD):** `decorations: false` in Tauri config.
+Custom HTML titlebar replaces OS-native window chrome. This eliminates
+GTK3-on-KDE theming mismatch and ensures identical appearance on GNOME, KDE,
+Sway, i3, Hyprland, Windows, and macOS.
+
+**File access: streaming only.** New `/api/download` endpoint streams file
+bytes from the server. Client saves to temp dir, opens with OS default app.
+No VPN, NFS, SMB, or FUSE involved at any layer.
+
+**Full architecture:** `status_docs/ARCHITECTURE_NOTES_companion_app.md`.
+
+
+---
+
+### DEFERRED: Companion App — Open Items (2026-06-16)
+
+Issues found during first integration test, to address in a follow-up session:
+
+1. **Client-side settings screen.** The server Settings button was hidden (it
+   controls server-side config — doc dirs, scan dirs — not appropriate for a
+   remote client). The connect screen (`connect.html`) should become the basis
+   for a proper client settings page: server management (add/edit/delete/switch),
+   active connection info (disconnect, server version), and client preferences
+   (default theme, temp file TTL, etc.).
+
+2. **Click freeze after ~30s.** Observed on first test — UI stopped responding
+   to clicks after ~30 seconds. Root cause suspected: CSP was missing
+   `script-src 'unsafe-inline'`, which may have caused WebKitGTK to
+   asynchronously block inline script execution. Fix deployed (CSP updated) —
+   needs retest to confirm.
+
+3. **CORS headers added to server.** `_cors_headers()` method added to
+   `doc_search.py`, active only when `--allow-remote` is set. Sends
+   `Access-Control-Allow-Origin: *` plus allowed headers/methods. Also added
+   `do_OPTIONS` handler for preflight. This should be documented in the API
+   Reference and noted in the API contract as a non-breaking addition.
+
+4. **Download-and-open flow.** Not yet tested end-to-end from the UI (clicking
+   a document title). Needs verification that Tauri IPC → Rust download →
+   temp file → xdg-open works correctly.
+
+5. **Server-side Settings from remote client.** Future consideration: should
+   the remote client offer any read-only view of server config? Or is that
+   purely a localhost concern? Deferred.
+
+
+6. **"No document directory" config banner removed from companion app.**
+   The forked `index.html` had the server's "No document directory configured"
+   banner. This is a server admin concern — the remote client user cannot and
+   should not configure document directories on the server. The banner HTML was
+   removed entirely (not just hidden) and `checkConfig()` disabled. The Settings
+   gear button is also hidden (`display:none`). If a client-side settings
+   screen is added later, it should be purpose-built for client concerns
+   (server management, preferences), not a port of the server admin UI.
+
+
+7. **Integration test results (2026-06-16, post-CSP fix build):**
+   - **Synopsis: WORKS.** AI-generated synopsis loads correctly from remote
+     Ollama via the server.
+   - **Download-and-open: WORKS.** Clicking a document title downloads via
+     `/api/download`, saves to temp, opens with OS default app (xdg-open).
+     Full IPC chain verified: JS → Tauri invoke → Rust reqwest → temp file →
+     xdg-open.
+   - **UI freeze: STILL PRESENT.** App becomes unresponsive to clicks after
+     ~30 seconds. CSP fix (`script-src 'unsafe-inline'`) did NOT resolve it.
+     Root cause unknown — likely a WebKitGTK or Tauri event loop issue, not a
+     JS error (since all features work until the freeze).
+
+
+8. **UI freeze root cause identified and fixed (2026-06-19):**
+   - **Root cause:** WebKitGTK's DMABUF renderer fails GBM buffer allocation
+     on NVIDIA GPUs under Wayland. After ~30s the renderer stalls and the
+     entire WebView becomes unresponsive to input. This is a known upstream
+     bug affecting all Tauri/WebKitGTK apps on NVIDIA+Wayland.
+   - **References:**
+     - https://github.com/tauri-apps/tauri/issues/13498
+     - https://github.com/tauri-apps/tauri/issues/9394
+     - https://github.com/tauri-apps/tauri/issues/10566
+   - **Fix:** Set `WEBKIT_DISABLE_DMABUF_RENDERER=1` before WebKitGTK
+     initializes. Applied in `main.rs` with `#[cfg(target_os = "linux")]`
+     guard; only sets the var if the user hasn't already set it, so it
+     won't override explicit user configuration.
+   - **Trade-off:** Disabling DMABUF renderer may reduce GPU-accelerated
+     blur effects and animation performance. For a document browser this
+     is a non-issue. Users on Intel-only or AMD GPUs are unaffected (the
+     var is harmless when DMABUF works correctly).
+   - **Status:** Confirmed fixed 2026-06-19. No freeze after 60+ seconds.
+
+
+9. **Semantic search requires manual `embed_docs.py` run (2026-06-19):**
+   - On testDebian, `doc_embeddings` table had 0 rows — embeddings were
+     never generated. Keyword search worked; semantic returned empty.
+   - Fixed by running: `cd ~/.docubrowse && source venv/bin/activate && python3 embed_docs.py du-docs.db`
+   - **TODO: Verify fresh install flow.** Does `scan_docs.py` or the server
+     startup automatically invoke `embed_docs.py` after initial indexing?
+     If not, the install docs / first-run UX need to either auto-run it or
+     prompt the user. This needs testing on a clean install.
+   - **TODO: Add "Regenerate Embeddings" button to Settings page.** Both
+     FOSS and Enterprise. Should trigger `embed_docs.py` (or equivalent
+     logic) from the UI so users don't need CLI access to rebuild the
+     vector index after adding new documents or changing the embedding
+     model. The `semantic_ready` field in `/api/status` can drive a
+     visual indicator of current state.
+
+
+10. **URGENT: Repository structure for FOSS vs Enterprise (2026-06-19):**
+    - Current state: single repo (`linuxrebel/DocuBrowser`) on public GitHub.
+      `access_enterprise/` (branding, enterprise features) is NOT in
+      `.gitignore` and is currently tracked — enterprise code is exposed.
+      The companion app (`docubrowse-client/`) is also in the same repo.
+    - **This must be resolved before any public release.**
+    - Options to evaluate:
+      1. **Mono-repo with gitignore + private overlay.** Keep FOSS in
+         the public repo, add `access_enterprise/` to `.gitignore`,
+         remove it from git history (`git filter-repo`). Enterprise
+         code lives in a private repo that overlays / submodules in.
+      2. **Two repos.** `DocuBrowse` (public, FOSS server + client) and
+         `DocuBrowse-Enterprise` (private, imports FOSS as submodule or
+         dependency, adds enterprise layer).
+      3. **Mono-repo with build-time separation.** Single private repo,
+         CI strips enterprise code for the public FOSS release tarball.
+    - **Product split (decided 2026-06-19):**
+      - FOSS = server + browser UI (localhost access). Public repo.
+      - Enterprise = access layer (`access_enterprise/`) + companion
+        desktop app (`docubrowse-client/`, Tauri v2). Private repo.
+      - Interim: enterprise code tracked in local-only repo at
+        `~/git/AI/DocuBrowse-Ent/`. Both `access_enterprise/` and
+        `docubrowse-client/` are in `.gitignore` in the public repo.
+    - **Immediate action needed:** At minimum, add `access_enterprise/` to
+      `.gitignore` and scrub it from git history before the next push to
+      the public remote.
