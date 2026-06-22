@@ -990,18 +990,12 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         })
 
     def handle_download(self, query: dict):
-        """GET /api/download?path=<encoded-path> — Stream file bytes to remote client.
+        """GET /api/download?path=<encoded-path> — Stream file bytes to client.
 
-        CSRF-gated, index-validated.  Unlike /api/open this is NOT localhost-
-        restricted — it is the mechanism remote companion-app clients use to
-        retrieve documents.  The file must be present in the document index
-        (same guard as /api/open) to prevent arbitrary filesystem reads.
-
+        Index-validated, host-validated (via _host_allowed in do_GET routing).
+        Path must be present in the document index to prevent arbitrary reads.
         Streams in 64 KB chunks to avoid loading large files into memory.
         """
-        if not self._guard_mutation():
-            return
-
         path = query.get('path', [''])[0].strip()
         if not path:
             self.json_response({"ok": False, "error": "Missing path parameter"})

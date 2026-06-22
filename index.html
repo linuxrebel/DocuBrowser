@@ -91,8 +91,10 @@
   [data-theme="light"] .mode-btn:not(.active) { background:var(--surface2); }
   [data-theme="light"] .doc-card { box-shadow:0 1px 4px rgba(0,0,0,0.08); }
   [data-theme="light"] .tag-cloud { background:var(--surface2); }
-  .doc-path { font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-dim); margin-bottom:0.5rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; transition:color 0.15s; }
-  .doc-path:hover { color:var(--accent2); text-decoration:underline; }
+  .doc-path { font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-dim); margin-bottom:0.3rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .doc-file-actions { margin-bottom:0.5rem; display:flex; gap:0.4rem; }
+  .doc-open-btn, .doc-dl-btn { background:none; border:1px solid var(--border); color:var(--text-dim); border-radius:4px; padding:0.1rem 0.6rem; font-size:0.75rem; cursor:pointer; transition:border-color 0.15s, color 0.15s; }
+  .doc-open-btn:hover, .doc-dl-btn:hover { border-color:var(--accent2); color:var(--accent2); }
   .doc-desc { font-size:0.85rem; color:var(--text); line-height:1.5; margin-bottom:0.7rem; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .doc-tags { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.6rem; }
   .tag { font-family:'JetBrains Mono',monospace; font-size:0.7rem; background:var(--tag-bg); color:var(--tag-text); padding:2px 8px; border-radius:4px; cursor:pointer; transition:background 0.15s; }
@@ -302,6 +304,9 @@
 </div>
 
 <script>
+const isTauri = !!window.__TAURI__;
+const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname) || /^127\./.test(window.location.hostname);
+
 const grid = document.getElementById('docGrid');
 const meta = document.getElementById('resultsMeta');
 const input = document.getElementById('searchInput');
@@ -727,7 +732,11 @@ function renderDocs(docs, showScore, append = false) {
         <span class="doc-copy-btn" data-path="${esc(d.path)}" title="Copy path to clipboard" style="font-size:0.7rem;opacity:0.5;cursor:pointer;margin-left:0.2rem;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</span>
         <span class="doc-delete-btn" data-path="${esc(d.path)}" title="Delete from disk and index">🗑</span>
       </div>
-      <div class="doc-path" data-path="${esc(d.path)}" title="${esc(d.path)}">${esc(d.path)}</div>
+      <div class="doc-path" title="${esc(d.path)}">${esc(d.path)}</div>
+      <div class="doc-file-actions">
+        ${(isLocal || isTauri) ? `<button class="doc-open-btn" data-path="${esc(d.path)}">Open</button>` : ''}
+        ${(!isLocal || isTauri) ? `<button class="doc-dl-btn" data-path="${esc(d.path)}">Download</button>` : ''}
+      </div>
       ${desc ? `<div class="doc-desc">${esc(desc)}</div>` : ''}
       ${tags.length ? `<div class="doc-tags">${tags.map(t=>`<span class="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}</div>` : ''}
       <div class="doc-meta">
@@ -859,9 +868,15 @@ grid.addEventListener('click', (e) => {
   if (delEl) return deleteDoc(delEl.dataset.path, delEl);
   const tagEl = e.target.closest('.doc-tags .tag');
   if (tagEl) return searchTag(tagEl.dataset.tag);
-  const pathEl = e.target.closest('.doc-path');
-  if (pathEl) return openFile(pathEl.dataset.path, pathEl);
+  const openEl = e.target.closest('.doc-open-btn');
+  if (openEl) return openFile(openEl.dataset.path, openEl);
+  const dlEl = e.target.closest('.doc-dl-btn');
+  if (dlEl) return downloadFile(dlEl.dataset.path);
 });
+
+function downloadFile(path) {
+  window.location.href = '/api/download?path=' + encodeURIComponent(path);
+}
 
 // fetch() throws a generic TypeError ("Failed to fetch" / "NetworkError when
 // attempting to fetch resource") when it can't reach the server at all —

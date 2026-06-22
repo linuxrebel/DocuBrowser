@@ -541,3 +541,182 @@ See `status_docs/DECISIONS.md` for full details. Key open items:
   desktop, then Windows/Mac; tech stack TBD) against `doc_search.py`'s
   existing JSON API (`/api/search`, `/api/open`, `/api/view`, `/api/synopsis`,
   etc.).
+
+
+---
+
+## 2026-06-16 — Companion App: Architecture, Scaffold, First Integration Test
+
+### Architecture
+
+- Wrote `status_docs/ARCHITECTURE_NOTES_companion_app.md` (340 lines, 11
+  sections) covering the full Tauri v2 companion app design.
+- Chose **Tauri v2** (Rust + OS WebView) over Electron and Flutter. ~5 MB
+  binary, ~30 MB memory, uses WebKitGTK on Linux / WebView2 on Windows /
+  WebKit on macOS.
+- **Client-side decorations (CSD):** `decorations: false` + custom HTML
+  titlebar. Eliminates GTK-on-KDE theming mismatch — identical appearance on
+  GNOME, KDE, Sway, i3, Hyprland, Windows, macOS.
+- **Streaming only:** new `GET /api/download` endpoint streams file bytes from
+  server; client saves to temp, opens with OS default app. No VPN/NFS/SMB.
+- Decisions recorded in `DECISIONS.md`.
+
+### Server Changes (doc_search.py on app-dev)
+
+- **`GET /api/download`** — new endpoint. CSRF-gated, index-validated, 64 KB
+  chunked streaming, proper Content-Disposition/MIME headers. Not localhost-
+  restricted (unlike `/api/open`). Tested against testDebian with curl —
+  all 5 test cases pass, md5 checksum verified byte-perfect.
+- **CORS headers** — `_cors_headers()` method, active only when `--allow-remote`.
+  Sends `Access-Control-Allow-Origin: *`, allowed headers/methods. `do_OPTIONS`
+  handler for preflight. Required for Tauri WebView (`tauri://localhost` origin)
+  to reach the server.
+- **API Reference updated** — TOC, CSRF table, full section 4.16 for
+  `/api/download`. CORS not yet documented (deferred item).
+
+### Client App (docubrowse-client/)
+
+Scaffolded and built successfully on Fedora (Bairn). Project lives at
+`/home/james/git/AI/DocuBrowse/docubrowse-client/`.
+
+**Rust backend (src-tauri/):**
+- `commands/connection.rs` — `connection_test()`: GET /api/status health check.
+- `commands/csrf.rs` — `get_csrf_token()`: fetch + parse `<meta>` tag from
+  server HTML.
+- `commands/download.rs` — `download_and_open()`: stream file from
+  /api/download → temp file (preserving extension) → xdg-open/open/start.
+- `commands/config.rs` — `load_connections()`, `save_connection()`,
+  `delete_connection()`: persist server list to
+  `~/.config/docubrowse-client/connections.json`.
+- Deps: tauri 2, reqwest (rustls-tls, json, stream), scraper, tempfile, dirs,
+  chrono, urlencoding.
+
+**Frontend (src/):**
+- `connect.html` — connection manager: server URL input, test, save, list of
+  saved servers. Styled to match DocuBrowse design language.
+- `index.html` — forked from server's index.html with:
+  - Inline fetch monkey-patch (runs before any API calls) rewrites `/api/*`
+    URLs to remote server.
+  - Titlebar HTML injected after `<body>`.
+  - Settings button hidden (server admin, not client concern).
+  - `checkConfig()` disabled (irrelevant for remote client).
+- `patches.js` — post-load overrides: `openFile()` → Tauri IPC
+  `download_and_open`, `apiPost()` with CSRF auto-refresh on 403.
+- `titlebar.js` — CSD window controls (minimize/maximize/close) via Tauri v2
+  `getCurrentWindow()` API with defensive fallback.
+- `titlebar.css` — fixed 38px titlebar, drag region, hover states, close-red.
+
+**Build:**
+- `cargo check` passes, `cargo build` produces 234 MB debug binary (expected;
+  release build will be ~5 MB).
+- Required system packages: `gtk3-devel`, `webkit2gtk4.1-devel`,
+  `cairo-gobject-devel`, `libsoup3-devel`.
+
+### First Integration Test
+
+- Launched app on Bairn (Fedora, KDE Plasma/Wayland).
+- Connection screen worked — connected to testDebian (`http://testDebian:8643`),
+  CSRF token acquired, navigated to main UI.
+- **CSD titlebar rendered correctly** — app title, server badge, window controls.
+- **Documents loaded** — 20 docs, 80 tags, cards, pagination, alphabetic index,
+  search mode buttons, dark/light toggle all visible.
+- **Issues found:**
+  1. Click freeze after ~30s — suspected CSP missing `script-src 'unsafe-inline'`.
+     Fix deployed, needs retest.
+  2. Settings button showed server admin controls — hidden.
+  3. Download-and-open not yet tested from UI.
+  4. Close button initially non-functional — fixed with defensive Tauri v2 API
+     detection.
+
+### Open Items (deferred to next session)
+
+- Client-side settings screen (extend connect.html).
+- ~~Verify click-freeze fix (CSP).~~ → Root cause was WebKitGTK DMABUF renderer, not CSP. Fixed 2026-06-19.
+- Test download-and-open end-to-end from UI. → Verified working 2026-06-16.
+- Document CORS addition in API Reference and API Contract.
+- Server-side Settings visibility for remote clients (read-only view?).
+- Packaging: .deb, .rpm, AppImage for Linux first pass.
+
+---
+
+## Session: 2026-06-19 — UI Freeze Fix
+
+### UI Freeze Root Cause & Fix
+
+The ~30s UI freeze was caused by WebKitGTK's DMABUF renderer failing GBM
+buffer allocation on NVIDIA GPUs under Wayland. This is a known upstream bug
+(tauri-apps/tauri#13498) affecting all Tauri/WebKitGTK apps on NVIDIA+Wayland.
+
+**Fix:** `WEBKIT_DISABLE_DMABUF_RENDERER=1` set in `main.rs` before
+`tauri::Builder` runs. Guarded with `#[cfg(target_os = "linux")]` and
+respects any user-set value. **Confirmed working** — no freeze after 60+ seconds.
+
+### Semantic Search Fix
+
+`doc_embeddings` table was empty on testDebian — `embed_docs.py` had never
+been run. Executed manually: 20/20 docs embedded, 0 failures, 17.7s.
+Semantic search now returns ranked results by cosine similarity.
+
+### Server: `semantic_ready` added to `/api/status`
+
+New boolean field in the FOSS-tier status response. True when: DB up, Ollama
+up, embeddings exist, and embedding model present. Allows clients to disable
+the semantic search button when it would return empty results.
+
+### Desktop Client Fixes
+
+1. **Window close not killing process.** `appWindow.close()` hid the window
+   but left the process running. Added `on_window_event` handler in `lib.rs`
+   to call `std::process::exit(0)` on `CloseRequested`.
+
+2. **Titlebar buttons (minimize/maximize/close) not working.** Tauri v2
+   requires explicit capability permissions — no `capabilities/default.json`
+   existed. Created it with `core:window:allow-close`, `allow-minimize`,
+   `allow-toggle-maximize`, and other required permissions.
+
+3. **Inline onclick handlers not firing** (synopsis close, pagination, letter
+   index, scroll-to-top). Tauri v2 was blocking inline event handlers despite
+   `'unsafe-inline'` in CSP `script-src`. Fix: set CSP to `null` since this
+   is a trusted local desktop app. **Security debt:** must refactor all inline
+   handlers to `addEventListener` and re-enable strict CSP before enterprise
+   release.
+
+### Repository Restructure
+
+**Product split decided:**
+- **FOSS** = server + browser UI (localhost access). Public repo (`DocuBrowser`).
+- **Enterprise** = access layer + companion desktop app. Private repo (`DocuBrowse-Ent`).
+
+Actions taken:
+- `access_enterprise/` added to `.gitignore`, removed from git tracking.
+- `docubrowse-client/` added to `.gitignore`, removed from git tracking.
+- Both copied to local enterprise repo at `~/git/AI/DocuBrowse-Ent/`.
+- `DECISIONS.md` moved to enterprise repo (contains sensitive planning).
+- **Git history scrub still needed** before public release (`git filter-repo`).
+
+### Current Status — All Features Working
+
+As of end of session, the desktop client is fully functional:
+- Connection manager with saved servers
+- CSD titlebar with working minimize/maximize/close
+- Document browsing, pagination, alphabetic index
+- Keyword search ✓, Semantic search ✓
+- Tag cloud and tag filtering
+- Synopsis modal (open and close)
+- Download-and-open via Tauri IPC
+- Dark/light theme toggle
+- No UI freeze
+
+### Open Items (tracked in enterprise DECISIONS.md)
+
+- CSP security debt — refactor inline handlers, re-enable strict CSP
+- Regenerate Embeddings button in Settings (FOSS + Enterprise)
+- Server-defined instance naming (auto-fill from server API)
+- Multi-server switcher UX (beyond connection manager)
+- OAuth-gated Server Settings button in desktop client
+- Desktop Settings screen (client-local preferences)
+- Mobile web app (responsive PWA)
+- Packaging: macOS .dmg, Windows .msi, Linux .deb/.rpm/AppImage, server installers
+- App icon/logo — vibrant multi-color, works favicon through letterhead
+- Fresh install flow — verify embeddings auto-generated or prompted
+- Git history scrub before public release
