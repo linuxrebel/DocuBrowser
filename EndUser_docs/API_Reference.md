@@ -30,6 +30,7 @@
    - 4.13 [POST /api/config](#413-post-apiconfig)
    - 4.14 [POST /api/ignore-dirs](#414-post-apiignore-dirs)
    - 4.15 [POST /api/scan-dirs](#415-post-apiscan-dirs)
+   - 4.16 [GET /api/download](#416-get-apidownload)
 5. [Search Modes](#5-search-modes)
 6. [Enterprise Tier](#6-enterprise-tier)
 7. [Rate Limits and Performance Notes](#7-rate-limits-and-performance-notes)
@@ -95,6 +96,7 @@ Before checking the token, the server also inspects the `Origin` and `Referer` h
 | **POST /api/config** | **Yes** |
 | **POST /api/ignore-dirs** | **Yes** |
 | **POST /api/scan-dirs** | **Yes** |
+| **GET /api/download** | **Yes** |
 
 ### 2.2 Host-Header Allowlist (DNS Rebinding Protection)
 
@@ -109,6 +111,22 @@ HTTP/1.0 clients that omit the `Host` header entirely are accepted, because only
 ### 2.3 localhost-only Restriction on /api/open
 
 `POST /api/open` checks that the TCP connection originated from `127.0.0.1` or `::1`, even when the server is running with `--allow-remote`. This prevents remote clients from triggering arbitrary file opens on the server's desktop.
+
+### 2.4 CORS (Cross-Origin Resource Sharing)
+
+When the server is started with `--allow-remote`, all API responses include CORS headers to support the DocuBrowse companion app (which runs as a Tauri WebView with origin `tauri://localhost`):
+
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: X-CSRF-Token, Content-Type
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+```
+
+The server also responds to `OPTIONS` preflight requests with a `204 No Content` and the same CORS headers.
+
+In local-only mode (default, no `--allow-remote`), CORS headers are **not** sent. This is intentional — localhost-bound servers have no cross-origin clients.
+
+**Security note:** CORS headers do not weaken the existing security model. CSRF tokens still protect all mutating endpoints, and the document index check still gates file access on `/api/download` and `/api/open`.
 
 ---
 
@@ -157,6 +175,7 @@ The `ok` field is `true` only when both the database and Ollama are reachable. M
 | timestamp | string | ISO 8601 timestamp |
 | components.db.ok | boolean | true if the SQLite database is reachable |
 | components.db.error | string | Present only if db.ok is false; error message |
+| semantic_ready | boolean | true if semantic search is available (DB up, Ollama up, embeddings exist, embedding model present) |
 | components.ollama.ok | boolean | true if Ollama responded within 5 seconds |
 | components.ollama.error | string | Present only if ollama.ok is false; error message |
 
@@ -178,6 +197,7 @@ curl http://127.0.0.1:8643/api/status
   "version": "0.8.1",
   "uptime_seconds": 3721.4,
   "timestamp": "2026-06-15T14:22:08.113245",
+  "semantic_ready": true,
   "components": {
     "db": {
       "ok": true
@@ -188,6 +208,8 @@ curl http://127.0.0.1:8643/api/status
   }
 }
 ```
+
+The `semantic_ready` field is `false` when any of these conditions are not met: database reachable, Ollama reachable, at least one document has embeddings, and the configured embedding model is loaded in Ollama. Clients should use this to disable or hide semantic search controls when it would return empty results.
 
 **Example response (Ollama unreachable):**
 
@@ -912,6 +934,54 @@ curl -X POST \
 **Error cases:**
 
 - `400 Bad Request` — invalid JSON, missing `action` or `path`, or invalid path.
+
+---
+
+### 4.16 GET /api/download
+
+**CSRF required:** Yes
+**localhost-only:** No (usable from remote clients with `--allow-remote`)
+
+Stream a file's bytes to the client for local saving and opening. This is the remote-client counterpart to `/api/open`: instead of opening the file on the server's desktop, it sends the raw bytes so the client application can save to a temp file and open with the client OS's default app.
+
+The path must be present in the document index — arbitrary filesystem paths are rejected, same as `/api/open`.
+
+**Query parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| path | string | Yes | Absolute path of the document (must be in the index). |
+
+**Success response:**
+
+HTTP 200 with binary body. Headers:
+
+| Header | Value |
+|---|---|
+| Content-Type | Detected MIME type, or `application/octet-stream` |
+| Content-Disposition | `attachment; filename="<basename>"` |
+| Content-Length | File size in bytes |
+| Cache-Control | `no-store` |
+
+The body is streamed in 64 KB chunks — no full-file buffering.
+
+**Error responses (JSON):**
+
+| Condition | HTTP | Response |
+|---|---|---|
+| Missing path parameter | 200 | `{"ok": false, "error": "Missing path parameter"}` |
+| Path not in index | 200 | `{"ok": false, "error": "Path not in document index"}` |
+| File missing from disk | 404 | `{"ok": false, "error": "missing", "message": "..."}` |
+| Mount unavailable | 404 | `{"ok": false, "error": "unmounted", "message": "..."}` |
+| Invalid CSRF token | 403 | `Forbidden: missing or invalid CSRF token` |
+
+**Example request:**
+
+```bash
+curl -H "X-CSRF-Token: <token>" \
+  "https://192.168.1.50:8643/api/download?path=/home/james/docs/linux_perf_guide.pdf" \
+  -o linux_perf_guide.pdf
+```
 
 ---
 
