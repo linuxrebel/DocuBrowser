@@ -61,7 +61,9 @@
 
 This guide is for administrators, power users, and self-hosters responsible for installing, configuring, and maintaining a DocuBrowse instance. It assumes comfort with the Linux command line, package management, and basic systemd concepts.
 
-DocuBrowse turns a local collection of documents — PDFs, ebooks, Word documents, spreadsheets, presentations, plain text, and Markdown — into a searchable index accessible through a web browser at `http://localhost:8643`. It uses SQLite with FTS5 for keyword search and Ollama with local AI models for semantic search and on-demand document synopsis generation.
+DocuBrowse turns a local collection of documents — PDFs, ebooks, Word documents, spreadsheets, presentations, plain text, and Markdown — into a searchable index accessible through a web browser at `https://localhost:8643` (or `http://` if TLS is not configured). It uses SQLite with FTS5 for keyword search and Ollama with local AI models for semantic search and on-demand document synopsis generation.
+
+> **Note:** When TLS is configured (see Section 5), the server uses HTTPS with a self-signed certificate. The CLI launcher auto-detects the scheme for health checks and displayed URLs.
 
 Everything runs on your own machine. No internet connection is required after initial setup, no accounts, and no per-query costs.
 
@@ -254,17 +256,19 @@ DocuBrowse Status
   Config:   ./docubrowse.config
   Database: /path/to/du-docs.db
   Port:     8643
-  Server:   ● RUNNING  http://localhost:8643
+  Server:   ● RUNNING  https://localhost:8643
   Documents:  1,234
   Embedded:   1,234
   Tags:       456
 ```
 
+The URL scheme (`https` or `http`) is auto-detected based on whether TLS is configured.
+
 Verify the API directly:
 
 ```bash
-curl "http://localhost:8643/api/stats"
-curl "http://localhost:8643/api/search?q=test"
+curl -k "https://localhost:8643/api/stats"
+curl -k "https://localhost:8643/api/search?q=test"
 ```
 
 ### 3.9 Making docubrowser Globally Accessible
@@ -427,7 +431,7 @@ Open the DocuBrowse web UI in your default browser.
 docubrowser open
 ```
 
-Requires the server to be running. Opens `http://localhost:8643`.
+Requires the server to be running. Opens the server URL in your default browser (auto-detects `https` or `http`).
 
 ### 4.11 stopall
 
@@ -982,7 +986,7 @@ Check the status to confirm the new version is running:
 
 ```bash
 docubrowser status
-curl "http://localhost:8643/api/stats"
+curl -k "https://localhost:8643/api/stats"
 ```
 
 If Python dependencies have changed (check `requirements.txt`):

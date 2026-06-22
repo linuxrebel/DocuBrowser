@@ -105,7 +105,11 @@ Use the **Back** and **Next** buttons in the results bar to page through results
 
 ## 4. Opening a File
 
-Click the **file path** (shown in grey, below the document title) to open the file in the application your operating system has configured for that file type. For example, a PDF opens in your PDF viewer, a DOCX opens in LibreOffice Writer.
+Each document card shows action buttons below the file path, depending on how you access DocuBrowse:
+
+- **Local access** (browsing on the same machine as the server): An **Open** button appears. Clicking it opens the file in the application your operating system has configured for that file type — for example, a PDF opens in your PDF viewer, a DOCX opens in LibreOffice Writer.
+- **Remote access** (browsing from a different machine): A **Download** button appears instead. Clicking it streams the file to your browser as a download.
+- **Enterprise desktop client**: Both **Open** and **Download** buttons are available.
 
 You can also click the **📋** icon next to the title to copy the full file path to your clipboard, so you can paste it into a terminal or file manager.
 
