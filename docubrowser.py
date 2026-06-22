@@ -219,17 +219,37 @@ def ensure_ollama() -> bool:
 # ─── Server health check ──────────────────────────────────────────────────────
 
 def server_stats(port: int, timeout: float = 2.0) -> dict | None:
-    """Fetch /api/stats from the running server. Returns dict or None."""
-    try:
-        url = f"http://localhost:{port}/api/stats"
-        with urlopen(url, timeout=timeout) as resp:
-            return json.loads(resp.read())
-    except Exception:
-        return None
+    """Fetch /api/stats from the running server. Returns dict or None.
+    Tries HTTPS first (self-signed cert), then falls back to HTTP."""
+    import ssl
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    for scheme in ("https", "http"):
+        try:
+            url = f"{scheme}://localhost:{port}/api/stats"
+            with urlopen(url, timeout=timeout, context=ctx) as resp:
+                return json.loads(resp.read())
+        except Exception:
+            continue
+    return None
 
 
 def is_server_running(port: int) -> bool:
     return server_stats(port) is not None
+
+
+def server_url(port: int) -> str:
+    """Return the base URL (https or http) for the running server."""
+    import ssl
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    try:
+        with urlopen(f"https://localhost:{port}/api/stats", timeout=1, context=ctx):
+            return f"https://localhost:{port}"
+    except Exception:
+        return f"http://localhost:{port}"
 
 
 # ─── systemd integration ──────────────────────────────────────────────────────
@@ -293,7 +313,7 @@ def cmd_start(config: dict, args):
     if pid:
         if is_server_running(port):
             print(f"DocuBrowse is already running (PID {pid}) on port {port}.")
-            print(f"  UI: http://localhost:{port}")
+            print(f"  UI: {server_url(port)}")
             return
         else:
             print(f"Stale PID file found (PID {pid}). Cleaning up.")
@@ -301,7 +321,7 @@ def cmd_start(config: dict, args):
 
     if is_server_running(port):
         print(f"DocuBrowse is already running on port {port}.")
-        print(f"  UI: http://localhost:{port}")
+        print(f"  UI: {server_url(port)}")
         return
 
     # Verify Ollama is available before starting (needed for semantic search)
@@ -424,7 +444,7 @@ def cmd_restart(config: dict, args):
             time.sleep(0.5)
             if is_server_running(port):
                 print("DocuBrowse is running.")
-                print(f"  UI: http://localhost:{port}")
+                print(f"  UI: {server_url(port)}")
                 return
         print("WARNING: systemd reports the unit restarted but it is not responding yet.")
         print(f"  Check: systemctl status {SYSTEMD_UNIT}")
@@ -561,7 +581,7 @@ def cmd_status(config: dict, args):
     stats = server_stats(port)
     if stats:
         print()
-        print(f"  Server:   \033[92m● RUNNING\033[0m  http://localhost:{port}")
+        print(f"  Server:   \033[92m● RUNNING\033[0m  {server_url(port)}")
         print(f"  Documents:  {stats.get('total_docs', 0):,}")
         print(f"  Embedded:   {stats.get('embedded', 0):,}")
         print(f"  Tags:       {stats.get('unique_tags', 0):,}")
@@ -745,7 +765,7 @@ def cmd_embed(config: dict, args):
 
 def cmd_open(config: dict, args):
     port = args.port or config["port"]
-    url  = f"http://localhost:{port}"
+    url  = server_url(port)
 
     if not is_server_running(port):
         print(f"Server is not running on port {port}.")
