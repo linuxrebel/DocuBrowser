@@ -1,4 +1,4 @@
-# DocuBrowse v0.8.1
+# DocuBrowse v0.8.2
 
 <a name="top"></a>
 
@@ -62,7 +62,11 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 - Alphabetic index bar (A–Z, 0–9) for quick navigation, with state preserved across page loads; Home button to reset
 - Tag cloud for filtering by topic
 - Relevance score badges (0–100%) on every result
-- Click document title to open the file; 📋 copies path to clipboard; 🗑 deletes file from disk and index (with confirmation)
+- **Open / Download buttons** on each result card — context-aware:
+  - **Local access** (localhost/127.x.x.x): **Open** button launches the file in your default app
+  - **Remote access** (LAN): **Download** button streams the file to your browser
+  - File path is hidden in local mode (not useful); shown only for remote access
+- Click document title for an AI synopsis; 📋 copies path to clipboard; 🗑 deletes file from disk and index (with confirmation)
 - Moved/deleted documents: clicking a doc whose file no longer exists shows a dismissable
   modal (and removes it from the index on dismiss) if its filesystem is mounted, or a
   toast (no index change) if the filesystem can't be verified (e.g. unmounted drive)
@@ -700,6 +704,25 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+## v0.8.2 (2026-06-27)
+
+### UI: Open/Download buttons, TLS support, CLI improvements
+
+- **Open / Download action buttons** replace the old clickable file path link on each
+  result card. Context-aware: local access shows **Open** (launches in default app via
+  xdg-open), remote access shows **Download** (streams file via `/api/download`). File
+  path is hidden in local mode for a cleaner card layout.
+- **Button styling** updated — buttons use accent-colored border and text with a filled
+  hover state, replacing the previous dim/greyed appearance.
+- **TLS / HTTPS support** — the server can now serve over HTTPS with a self-signed
+  certificate. The CLI launcher (`docubrowser.py`) auto-detects the scheme when running
+  health checks and displays the correct URL. `curl` examples in documentation updated
+  with `-k` flag for self-signed certs.
+- **CLI health check** fixed for HTTPS servers — `server_stats()` now tries HTTPS first
+  with certificate verification disabled (`ssl.CERT_NONE`), then falls back to HTTP.
+
+---
+
 ## v0.8.1 (2026-06-14)
 
 ### Bug fix: stale example database schema
@@ -880,4 +903,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.8.1** — Fast, local, AI-powered document search.
+**DocuBrowse v0.8.2** — Fast, local, AI-powered document search.
