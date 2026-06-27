@@ -1,4 +1,4 @@
-# DocuBrowse v0.8.1 — User Guide
+# DocuBrowse v0.8.2 — User Guide
 
 ---
 
@@ -90,7 +90,8 @@ Phrase search does not work in Semantic or Both modes. In those modes, the quote
 Each result is displayed as a card. A card contains:
 
 - **Title** — The document title, displayed in blue. Click it to open a synopsis (see [Synopsis](#5-synopsis--ai-generated-summaries)).
-- **File path** — The full path to the file on disk. Click the path to open the file.
+- **Action buttons** — **Open** and/or **Download** buttons appear below the title (see [Opening a File](#4-opening-a-file) for details on which buttons appear).
+- **File path** — When accessing remotely, the full path to the file on the server is shown. Hidden in local mode since the path is not useful.
 - **Snippet** — The first few lines of extracted text, giving you a preview of the content.
 - **Tags** — Colored labels showing the document's topics and format. Click a tag to filter by it.
 - **File type badge** — Shows the file extension (PDF, DOCX, EPUB, etc.) in the top-right corner of the card.

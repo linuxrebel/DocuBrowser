@@ -1,7 +1,7 @@
-# DocuBrowse v0.8.1 — Administrator Guide
+# DocuBrowse v0.8.2 — Administrator Guide
 
-**Date:** 2026-06-15
-**Version:** v0.8.1
+**Date:** 2026-06-27
+**Version:** v0.8.2
 **License:** GPL-3.0-or-later
 
 ---

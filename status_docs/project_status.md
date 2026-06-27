@@ -1,8 +1,8 @@
 # DocuBrowse Project Status
 
-**Version**: v0.8.1  
+**Version**: v0.8.2  
 **Status**: 🟢 **STABLE — daily use, active development**  
-**Last Updated**: 2026-06-12  
+**Last Updated**: 2026-06-27  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
@@ -79,6 +79,45 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 ---
 
 ## Session History
+
+### 2026-06-27 — v0.8.2: UI polish and button styling
+
+- **File path hidden in local mode** — the `doc-path` line on each card only renders
+  when accessing remotely (useful for knowing what you're downloading). Local users
+  see a cleaner card without the redundant path.
+- **Open/Download buttons restyled** — changed from dim grey (`var(--text-dim)` border
+  and text) to accent blue (`var(--accent2)`) with a filled hover state. Buttons now
+  look clearly clickable instead of greyed out.
+- Merged app-dev to main, pushed.
+- Version bumped to v0.8.2.
+
+### 2026-06-22 — Enterprise client: HTTPS proxy, reload, server switcher, download modal
+
+**Enterprise Client (Tauri v2):**
+- **API proxy through Rust IPC** — WebKitGTK's JavaScript `fetch()` rejects self-signed
+  certs with no override available. Created `api_proxy` Rust IPC command using reqwest
+  with `danger_accept_invalid_certs(true)`. The fetch monkey-patch in index.html now
+  routes all `/api/` calls through IPC instead of direct HTTP, bypassing WebView TLS
+  restrictions entirely.
+- **Reload button** added to CSD titlebar (↻ icon, `titlebar-reload`).
+- **Server switcher dropdown** — clicking the server name badge in the titlebar shows a
+  dropdown of all configured servers (from `connections.json`) with the current server
+  marked active (●). Clicking a different server fetches a new CSRF token via IPC,
+  updates sessionStorage, and reloads. A "+ New Server" item navigates to `connect.html`.
+- **Download complete modal** — compact centered modal showing filename and save
+  directory after a successful download, with an OK dismiss button.
+- **Download/Open buttons on cards** — Enterprise client shows both Open and Download
+  buttons. Open launches via Tauri IPC `download_and_open`; Download saves to user's
+  Downloads directory via `download_to_disk`.
+
+**FOSS Server/CLI:**
+- **CLI health check fixed for HTTPS** — `server_stats()` now tries HTTPS first with
+  `ssl.CERT_NONE`, then falls back to HTTP. `server_url()` helper auto-detects scheme.
+- **Open/Download buttons (FOSS)** — replaced the old clickable file path link.
+  `isLocal` (localhost/127.x.x.x) shows Open button; remote shows Download button.
+- **Self-signed cert generated** — `certs/docubrowse.crt` and `.key` with SANs covering
+  localhost, common LAN IPs, and wildcard local domains. Valid 10 years.
+- **Test server migrated** from testDebian to test2Debian (10.110.180.74).
 
 ### Next session (TODO)
 - Build `docubrowser remote on|off|status` CLI command: flips allow_remote in
