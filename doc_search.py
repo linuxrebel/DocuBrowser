@@ -31,6 +31,15 @@ from urllib.error import URLError
 
 from docubrowse_db import get_db, check_missing_path, delete_document
 
+# Lazy-loaded scan_docs helpers (avoids sys.path.insert per request).
+# scan_docs.py lives in the same directory as this file.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from scan_docs import (                     # noqa: E402
+    _load_ignore_dirs, _load_scan_dirs,
+    IGNORE_DIRS_FILENAME, SCAN_DIRS_FILENAME,
+    purge_path_prefix,
+)
+
 try:
     from access_enterprise import branding as _branding
 except ImportError:
@@ -168,11 +177,6 @@ def generate_synopsis(title: str, description: str, snippet: str) -> tuple:
         return None, "error"
     except Exception:
         return None, "error"
-
-
-def normalize_score(score: float, max_val: float = 1.0) -> float:
-    """Normalize score to 0..1 range."""
-    return min(1.0, max(0.0, score / max_val if max_val > 0 else 0))
 
 
 # ── Cached embedding matrix for semantic search ───────────────────────────────
@@ -449,7 +453,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             elif path == '/api/config':
                 self.handle_config()
             elif path == '/api/synopsis':
-                self.handle_synopsis(query)
+                # Read-only: return cached synopsis without generating
+                self.handle_synopsis_get(query)
             elif path == '/api/ignore-dirs':
                 self.handle_ignore_dirs()
             elif path == '/api/scan-dirs':
@@ -461,11 +466,14 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             elif path == '/api/branding':
                 self.handle_branding()
             elif path == '/api/download':
+                if not self._guard_mutation():
+                    return
                 self.handle_download(query)
             else:
                 self.error_response(404, "Not found")
-        except Exception as e:
-            self.error_response(500, str(e))
+        except Exception:
+            logging.exception("Unhandled error in do_GET: %s", self.path)
+            self.error_response(500, "Internal server error")
 
     def do_POST(self):
         """Handle POST requests."""
@@ -480,7 +488,9 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             # All POST routes are state-changing — gate them all against CSRF.
             if not self._guard_mutation():
                 return
-            if path == '/api/config':
+            if path == '/api/synopsis':
+                self.handle_synopsis(query)
+            elif path == '/api/config':
                 self.handle_config_post()
             elif path == '/api/ignore-dirs':
                 self.handle_ignore_dirs_post()
@@ -492,8 +502,9 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_open(query)
             else:
                 self.error_response(404, "Not found")
-        except Exception as e:
-            self.error_response(500, str(e))
+        except Exception:
+            logging.exception("Unhandled error in do_POST: %s", self.path)
+            self.error_response(500, "Internal server error")
 
     def handle_stats(self):
         """GET /api/stats - Return database statistics."""
@@ -1013,17 +1024,11 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         if not p.exists():
             status = check_missing_path(path)
             if status == "unmounted":
-                self.send_error(404)
-                self.end_headers()
-                self.wfile.write(json.dumps(
-                    {"ok": False, "error": "unmounted",
-                     "message": f"Device not mounted: {path}"}).encode())
+                self.json_response({"ok": False, "error": "unmounted",
+                                    "message": f"Device not mounted: {path}"})
             else:
-                self.send_error(404)
-                self.end_headers()
-                self.wfile.write(json.dumps(
-                    {"ok": False, "error": "missing",
-                     "message": f"File not found on disk: {path}"}).encode())
+                self.json_response({"ok": False, "error": "missing",
+                                    "message": f"File not found on disk: {path}"})
             return
 
         # Determine MIME type
@@ -1033,7 +1038,9 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             mime = "application/octet-stream"
 
         file_size = p.stat().st_size
-        basename = p.name
+        # Sanitize filename for Content-Disposition header: strip quotes,
+        # newlines, and control chars that could inject headers.
+        basename = re.sub(r'[\x00-\x1f\x7f"\\]', '_', p.name)
 
         self.send_response(200)
         self.send_header("Content-Type", mime)
@@ -1099,11 +1106,37 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         conn.close()
         self.json_response({"ok": True, "deleted": path})
 
-    def handle_synopsis(self, query: dict):
-        """GET /api/synopsis?path=<encoded-path>
+    def handle_synopsis_get(self, query: dict):
+        """GET /api/synopsis?path=<encoded-path> — read-only, returns cached synopsis.
 
-        Returns a cached synopsis if one exists; otherwise generates one
-        via Ollama, caches it in the documents table, and returns it.
+        Does NOT generate — returns {ok: false, needs_generation: true} if none
+        is cached, so the UI can POST to trigger generation with CSRF.
+        """
+        path = query.get('path', [''])[0].strip()
+        if not path:
+            self.json_response({"ok": False, "error": "Missing path parameter"})
+            return
+
+        conn = get_db(self.db_path)
+        row = conn.execute(
+            'SELECT synopsis FROM documents WHERE path = ?', (path,)
+        ).fetchone()
+        conn.close()
+        if not row:
+            self.json_response({"ok": False, "error": "Path not in document index"})
+            return
+
+        synopsis = row[0]
+        if synopsis and synopsis.strip():
+            self.json_response({"ok": True, "synopsis": synopsis, "cached": True})
+        else:
+            self.json_response({"ok": False, "needs_generation": True})
+
+    def handle_synopsis(self, query: dict):
+        """POST /api/synopsis?path=<encoded-path> — generate + cache synopsis.
+
+        CSRF-protected (via do_POST gate). Generates via Ollama and caches
+        the result in the documents table.
         """
         path = query.get('path', [''])[0].strip()
         if not path:
@@ -1122,6 +1155,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         doc_id, title, name, description, snippet, synopsis = row
 
+        # Return cached if already present (idempotent)
         if synopsis and synopsis.strip():
             conn.close()
             self.json_response({"ok": True, "synopsis": synopsis, "cached": True})
@@ -1169,6 +1203,9 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 entries.append({"name": "..", "path": str(path_obj.parent), "parent": True})
             try:
                 for item in sorted(path_obj.iterdir(), key=lambda p: p.name.lower()):
+                    # Skip symlinks, hidden dirs, and sensitive system paths
+                    if item.is_symlink():
+                        continue
                     if item.is_dir() and not item.name.startswith('.'):
                         entries.append({"name": item.name, "path": str(item)})
             except PermissionError:
@@ -1187,8 +1224,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
     def handle_ignore_dirs(self):
         """GET /api/ignore-dirs - List directories excluded from scanning."""
-        sys.path.insert(0, str(Path(__file__).parent))
-        from scan_docs import _load_ignore_dirs
         dirs = sorted(_load_ignore_dirs(Path(self.db_path)))
         self.json_response({"dirs": dirs})
 
@@ -1212,9 +1247,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         if action not in ("add", "remove") or not raw_path:
             self.error_response(400, "action ('add'/'remove') and path are required")
             return
-
-        sys.path.insert(0, str(Path(__file__).parent))
-        from scan_docs import IGNORE_DIRS_FILENAME, _load_ignore_dirs, purge_path_prefix
 
         db_path = Path(self.db_path)
         ig_path = db_path.parent / IGNORE_DIRS_FILENAME
@@ -1249,8 +1281,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
     def handle_scan_dirs(self):
         """GET /api/scan-dirs - List additional directories earmarked for scanning."""
-        sys.path.insert(0, str(Path(__file__).parent))
-        from scan_docs import _load_scan_dirs
         dirs = sorted(_load_scan_dirs(Path(self.db_path)))
         self.json_response({"dirs": dirs})
 
@@ -1274,9 +1304,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         if action not in ("add", "remove") or not raw_path:
             self.error_response(400, "action ('add'/'remove') and path are required")
             return
-
-        sys.path.insert(0, str(Path(__file__).parent))
-        from scan_docs import SCAN_DIRS_FILENAME, _load_scan_dirs
 
         db_path = Path(self.db_path)
         sd_path = db_path.parent / SCAN_DIRS_FILENAME
@@ -1431,19 +1458,46 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.error_response(500, str(e))
 
+    # Origins allowed for CORS in remote mode.  The Tauri WebView sends
+    # "tauri://localhost" as its Origin; add more entries here if other
+    # known frontends need access.
+    _CORS_ALLOWED_ORIGINS = frozenset((
+        'tauri://localhost',
+    ))
+
     def _cors_headers(self):
         """Add CORS headers when running in --allow-remote mode.
 
         Required for the companion app (Tauri WebView origin: tauri://localhost)
-        to reach the server.  CSRF tokens still protect mutations; the document
-        index check still gates file access — CORS headers do not weaken either.
+        to reach the server.  Instead of a wildcard, we reflect the request
+        Origin only if it is in the allow-list or is from a loopback address.
+        CSRF tokens still protect mutations; the document index check still
+        gates file access — CORS headers do not weaken either.
         """
         if self.allow_remote:
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.send_header('Access-Control-Allow-Headers',
-                             'X-CSRF-Token, Content-Type')
-            self.send_header('Access-Control-Allow-Methods',
-                             'GET, POST, OPTIONS')
+            origin = self.headers.get('Origin', '')
+            if origin in self._CORS_ALLOWED_ORIGINS:
+                allowed = origin
+            elif origin:
+                # Allow origins whose host is a loopback address (e.g.
+                # http://127.0.0.1:8643 from a local browser tab).
+                try:
+                    host = urlparse(origin).hostname or ''
+                    if _is_loopback(host):
+                        allowed = origin
+                    else:
+                        allowed = None
+                except Exception:
+                    allowed = None
+            else:
+                allowed = None
+            if allowed:
+                self.send_header('Access-Control-Allow-Origin', allowed)
+                self.send_header('Vary', 'Origin')
+                self.send_header('Access-Control-Allow-Headers',
+                                 'X-CSRF-Token, Content-Type')
+                self.send_header('Access-Control-Allow-Methods',
+                                 'GET, POST, OPTIONS')
 
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
