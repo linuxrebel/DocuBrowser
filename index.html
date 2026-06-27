@@ -93,8 +93,8 @@
   [data-theme="light"] .tag-cloud { background:var(--surface2); }
   .doc-path { font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-dim); margin-bottom:0.3rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .doc-file-actions { margin-bottom:0.5rem; display:flex; gap:0.4rem; }
-  .doc-open-btn, .doc-dl-btn { background:none; border:1px solid var(--border); color:var(--text-dim); border-radius:4px; padding:0.1rem 0.6rem; font-size:0.75rem; cursor:pointer; transition:border-color 0.15s, color 0.15s; }
-  .doc-open-btn:hover, .doc-dl-btn:hover { border-color:var(--accent2); color:var(--accent2); }
+  .doc-open-btn, .doc-dl-btn { background:none; border:1px solid var(--accent2); color:var(--accent2); border-radius:4px; padding:0.15rem 0.7rem; font-size:0.75rem; cursor:pointer; font-family:'JetBrains Mono',monospace; transition:background 0.15s, color 0.15s; }
+  .doc-open-btn:hover, .doc-dl-btn:hover { background:var(--accent2); color:var(--bg); }
   .doc-desc { font-size:0.85rem; color:var(--text); line-height:1.5; margin-bottom:0.7rem; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .doc-tags { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.6rem; }
   .tag { font-family:'JetBrains Mono',monospace; font-size:0.7rem; background:var(--tag-bg); color:var(--tag-text); padding:2px 8px; border-radius:4px; cursor:pointer; transition:background 0.15s; }
@@ -732,7 +732,7 @@ function renderDocs(docs, showScore, append = false) {
         <span class="doc-copy-btn" data-path="${esc(d.path)}" title="Copy path to clipboard" style="font-size:0.7rem;opacity:0.5;cursor:pointer;margin-left:0.2rem;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</span>
         <span class="doc-delete-btn" data-path="${esc(d.path)}" title="Delete from disk and index">🗑</span>
       </div>
-      <div class="doc-path" title="${esc(d.path)}">${esc(d.path)}</div>
+      ${!isLocal ? `<div class="doc-path" title="${esc(d.path)}">${esc(d.path)}</div>` : ''}
       <div class="doc-file-actions">
         ${(isLocal || isTauri) ? `<button class="doc-open-btn" data-path="${esc(d.path)}">Open</button>` : ''}
         ${(!isLocal || isTauri) ? `<button class="doc-dl-btn" data-path="${esc(d.path)}">Download</button>` : ''}
