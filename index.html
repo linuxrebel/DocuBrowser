@@ -721,7 +721,6 @@ function renderDocs(docs, showScore, append = false) {
         <span class="doc-copy-btn" data-path="${esc(d.path)}" title="Copy path to clipboard" style="font-size:0.7rem;opacity:0.5;cursor:pointer;margin-left:0.2rem;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</span>
         <span class="doc-delete-btn" data-path="${esc(d.path)}" title="Delete from disk and index">🗑</span>
       </div>
-      ${!isLocal ? `<div class="doc-path" title="${esc(d.path)}">${esc(d.path)}</div>` : ''}
       <div class="doc-file-actions">
         ${(isLocal || isTauri) ? `<button class="doc-open-btn" data-path="${esc(d.path)}">Open</button>` : ''}
         ${(!isLocal || isTauri) ? `<button class="doc-dl-btn" data-path="${esc(d.path)}">Download</button>` : ''}
