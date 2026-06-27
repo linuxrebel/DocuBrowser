@@ -565,7 +565,6 @@ async function doSearch() {
 async function renderAll() {
   document.querySelector('[data-letter="Home"]')?.classList.remove('home-highlight');
   try {
-    console.log('renderAll() starting');
     // Reset for fresh "all documents" view
     const seq = ++renderSeq;
     allDocs = [];
@@ -577,31 +576,21 @@ async function renderAll() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (seq !== renderSeq) return;   // superseded by a newer search/render
-    console.log('API response:', data);
     allDocs = data.results || data.documents || data.docs || [];
-    console.log('allDocs loaded:', allDocs.length, 'documents');
 
     // Store pagination state
     currentTotal = data.total || 100;
     currentHasMore = data.has_more || false;
     currentOffset = (data.offset || 0) + allDocs.length;
 
-    console.log('Setting meta.innerHTML');
     const endIdx = allDocs.length;
     const startIdx = currentOffset > 0 ? currentOffset - allDocs.length + 1 : 1;
     const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous page">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
     meta.innerHTML = `<span class="results-title">All Documents</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
-    console.log('Rendering index bar');
     await renderIndexBar();
-    console.log('Clearing grid');
     grid.innerHTML = '';
-    console.log('Rendering docs');
     renderDocs(allDocs, false);  // false = don't show score badges
-    console.log('renderDocs completed');
-
-    // Show Load More if there are more documents
-    console.log('renderAll() complete');
   } catch (e) {
     console.error('Render all error:', e);
     meta.innerHTML = `<span style="color:var(--accent3)">⚠ Error loading documents: ${friendlyError(e)}</span>`;
@@ -874,8 +863,23 @@ grid.addEventListener('click', (e) => {
   if (dlEl) return downloadFile(dlEl.dataset.path);
 });
 
-function downloadFile(path) {
-  window.location.href = '/api/download?path=' + encodeURIComponent(path);
+async function downloadFile(path) {
+  try {
+    const res = await fetch('/api/download?path=' + encodeURIComponent(path), {
+      headers: { 'X-CSRF-Token': CSRF }
+    });
+    if (!res.ok) throw new Error('Download failed: HTTP ' + res.status);
+    const blob = await res.blob();
+    const filename = path.split('/').pop() || 'download';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    showToast('Download failed: ' + e.message, 3000);
+  }
 }
 
 // fetch() throws a generic TypeError ("Failed to fetch" / "NetworkError when
@@ -909,8 +913,18 @@ async function showSynopsis(path, title) {
   }, 25000);
 
   try {
-    const res = await fetch('/api/synopsis?path=' + encodeURIComponent(path));
-    const data = await res.json();
+    // Try cached synopsis first (GET, no CSRF needed)
+    const getRes = await fetch('/api/synopsis?path=' + encodeURIComponent(path));
+    const getData = await getRes.json();
+    if (getData.ok && getData.synopsis) {
+      bodyEl.textContent = getData.synopsis;
+      bodyEl.className = 'synopsis-body';
+      return;
+    }
+    // Not cached — generate via POST (CSRF-protected)
+    const postRes = await fetch('/api/synopsis?path=' + encodeURIComponent(path),
+      { method: 'POST', headers: { 'X-CSRF-Token': CSRF } });
+    const data = await postRes.json();
     if (data.ok && data.synopsis) {
       bodyEl.textContent = data.synopsis;
       bodyEl.className = 'synopsis-body';
