@@ -935,4 +935,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.8.2** — Fast, local, AI-powered document search.
+**DocuBrowse v0.8.3** — Fast, local, AI-powered document search.

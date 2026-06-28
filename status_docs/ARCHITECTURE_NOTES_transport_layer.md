@@ -70,7 +70,7 @@ know or care which access layer is in front of it.
 
 ## Mapping onto DocuBrowse today
 
-Current `main` (v0.8.1) is already accidentally close to this shape:
+Current `main` (v0.8.3) is already accidentally close to this shape:
 
 - **Core engine** ≈ `scan_docs.py`, `embed_docs.py`, `docubrowse_db.py`,
   extractors, `dup_detect.py` — all local, all FOSS-shaped already.
