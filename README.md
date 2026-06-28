@@ -1,4 +1,4 @@
-# DocuBrowse v0.8.2
+# DocuBrowse v0.8.3
 
 <a name="top"></a>
 
@@ -703,6 +703,38 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 ## Recent Changes
 
 [↑ Top](#top)
+
+## v0.8.3 (2026-06-27)
+
+### UI overhaul, search fix, scan improvement
+
+- **Dark & light mode palettes redesigned** — new CSS variable theming with
+  `data-theme` attribute switching. Dark mode uses deep navy/purple tones with
+  cyan, orange, and violet accents. Light mode uses clean whites with darkened
+  accent variants for readability. Tag colors cycle through five distinct hues
+  via `nth-child` selectors. Score badges, mode buttons, and action buttons
+  all use the new palette.
+- **Trash icon now opens a 4-option modal** instead of immediately deleting:
+  (1) Remove from index only (file stays on disk, re-scanned next run),
+  (2) Remove & blacklist (file stays, future scans skip it),
+  (3) Remove & delete file from disk (with double-confirmation),
+  (4) Cancel.
+  Server API updated: `POST /api/delete?path=...&mode=db_only|blacklist|delete_file`
+  (defaults to `db_only` for backward compatibility).
+- **Search scoring fixed in "both" mode** — keyword matches were previously
+  buried under thousands of low-similarity semantic results. Now applies a
+  semantic floor (`SEM_FLOOR=0.30`) and uses `max(fts, sem)` scoring instead
+  of a weighted average that capped keyword-only hits at 0.3.
+- **`scan` command now embeds by default** (same as `rescan`) — new installations
+  get working semantic search out of the box. Added `--no-embed` and
+  `--embed-workers` flags for opt-out.
+- **Security hardening** — CSRF protection added to `/api/download` and
+  `/api/synopsis`; CORS restricted in remote mode; exception leak to client
+  suppressed.
+- **Remote card cleanup** — file path display removed from document cards in
+  remote mode for a cleaner layout.
+
+---
 
 ## v0.8.2 (2026-06-27)
 
