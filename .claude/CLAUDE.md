@@ -19,7 +19,7 @@ unguarded stat() call in sort key, NameError from conditionally-defined variable
 ## Project Context
 - Repo: /home/james/git/AI/DocuBrowse
 - Main entry point: docubrowser.py
-- Decisions log: status_docs/DECISIONS.md  ← write deferred decisions here
+- Decisions log: DECISIONS.md lives in the enterprise repo (DocuBrowse-Ent); not in this FOSS repo
 - Status doc: status_docs/project_status.md
 
 ## Key Files
@@ -28,14 +28,15 @@ unguarded stat() call in sort key, NameError from conditionally-defined variable
 - embed_docs.py       — Ollama embedding, ThreadPoolExecutor
 - pdf_extractor.py    — pdfplumber extraction, MAX_PAGES cap
 - hardware_utils.py   — CPU/GPU/RAM detection, worker count formula, wait_for_memory
-- doc_search.py       — HTTP search server (port 8643)
+- doc_search.py       — HTTP search server (port 8643); includes /api/add-tags, /api/remove-tag, /api/delete, /api/download, /api/synopsis
+- index.html          — Single-file frontend UI (dark/light theme, tag/hide/unhide, search, pagination)
 - docubrowse_db.py    — SQLite schema
 - scan_blacklist.txt  — auto-populated list of files that failed extraction (skip on rescan)
 - pii_blacklist.txt   — files removed by `purge` command for containing PII (never ingest; separate from scan_blacklist.txt so users can't accidentally re-enable them)
 - purge_pii.py        — PII scanner/purger; detects SSN, CC, DOB, MRN, DL, Passport in stored description/snippet; --dry-run flag; all-or-nothing transaction; writes pii_blacklist.txt only after successful commit
 
 ## Development Rules
-- Any deferred decision or skipped feature → add to status_docs/DECISIONS.md
+- Any deferred decision or skipped feature → note in status_docs/project_status.md (DECISIONS.md is in enterprise repo)
 - Run QA agent after every set of code changes
 - Log file: /var/log/docubrowser.log (falls back to ~/.local/share/docubrowser/docubrowser.log)
 - **Never commit release tarballs to git.** They go on the GitHub Releases page only.
