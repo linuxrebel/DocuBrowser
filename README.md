@@ -45,8 +45,8 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 
 ### 📖 AI Synopsis
 - Click any document title for a Kindle-style book-jacket synopsis, generated on demand
-  via Ollama (`dolphin3:latest`) and cached in the database after
-  first generation
+  via Ollama (`dolphin3:latest`) and cached in the database after first generation.
+  Semantic search embeddings are produced by a second local model (`nomic-embed-text:latest`)
 
 ### 📚 Document Indexing
 - **Formats**: PDF, DOCX, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
