@@ -77,11 +77,19 @@
   .doc-delete-btn { font-size:0.7rem; opacity:0.4; cursor:pointer; margin-left:0.15rem; transition:opacity 0.2s; user-select:none; }
   .doc-delete-btn:hover { opacity:1; }
   /* Delete confirm modal */
-  .del-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:999; align-items:center; justify-content:center; }
+  .del-overlay { display:none; position:fixed; inset:0; background:var(--modal-overlay); z-index:999; align-items:center; justify-content:center; }
   .del-overlay.open { display:flex; }
-  .del-box { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.5rem 2rem; max-width:420px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+  .del-box { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.5rem 2rem; max-width:440px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
   .del-box h3 { margin:0 0 0.5rem; font-size:1rem; color:var(--text); }
   .del-box .del-path { font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-dim); word-break:break-all; margin-bottom:1.1rem; }
+  .del-box .del-options { display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem; }
+  .del-option { display:flex; align-items:center; gap:0.6rem; padding:0.6rem 0.8rem; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); cursor:pointer; font-size:0.82rem; transition:border-color 0.2s, background 0.2s; text-align:left; width:100%; }
+  .del-option:hover { border-color:var(--accent); background:var(--surface); }
+  .del-option.destructive { border-color:transparent; }
+  .del-option.destructive:hover { border-color:#c0392b; background:rgba(192,57,43,0.1); }
+  .del-option .del-icon { font-size:1rem; flex-shrink:0; width:1.4rem; text-align:center; }
+  .del-option .del-label { flex:1; }
+  .del-option .del-label small { display:block; color:var(--text-dim); font-size:0.72rem; margin-top:2px; }
   .del-box .del-actions { display:flex; gap:0.6rem; justify-content:flex-end; }
   .del-cancel { padding:6px 16px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer; font-size:0.85rem; }
   .del-cancel:hover { border-color:var(--text-dim); }
@@ -737,7 +745,7 @@ function renderDocs(docs, showScore, append = false) {
         ${badge}
         ${extBadge}
         <span class="doc-copy-btn" data-path="${esc(d.path)}" title="Copy path to clipboard" style="font-size:0.7rem;opacity:0.5;cursor:pointer;margin-left:0.2rem;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</span>
-        <span class="doc-delete-btn" data-path="${esc(d.path)}" title="Delete from disk and index">🗑</span>
+        <span class="doc-delete-btn" data-path="${esc(d.path)}" title="Remove document…">🗑</span>
       </div>
       <div class="doc-file-actions">
         ${(isLocal || isTauri) ? `<button class="doc-open-btn" data-path="${esc(d.path)}">Open</button>` : ''}
@@ -1000,7 +1008,7 @@ function showMissingDocModal(path, card) {
   const dismiss = async () => {
     overlay.remove();
     try {
-      const res = await apiPost('/api/delete?path=' + encodeURIComponent(path));
+      const res = await apiPost('/api/delete?path=' + encodeURIComponent(path) + '&mode=db_only');
       const data = await res.json();
       if (data.ok) {
         if (card) {
@@ -1060,7 +1068,7 @@ const gearBtn = document.getElementById('gearBtn');
 // ── Initialize ────────────────────────────────────────────────
 renderAll();
 
-// ── Delete document ──────────────────────────────────────────────────────────
+// ── Delete / remove document ─────────────────────────────────────────────────
 let _delPath = null;
 let _delCard = null;
 
@@ -1074,52 +1082,125 @@ function deleteDoc(path, btn) {
 
 function _closeDelModal() {
   document.getElementById('delOverlay').classList.remove('open');
+}
+function _closeDelConfirm() {
+  document.getElementById('delConfirmOverlay').classList.remove('open');
+}
+function _closeAllDelModals() {
+  _closeDelModal();
+  _closeDelConfirm();
   _delPath = null;
   _delCard = null;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('delCancelBtn').addEventListener('click', _closeDelModal);
-  document.getElementById('delOverlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('delOverlay')) _closeDelModal();
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.getElementById('delOverlay').classList.contains('open')) {
-      _closeDelModal();
-    }
-  });
-  document.getElementById('delOkBtn').addEventListener('click', async () => {
-    if (!_delPath) return;
-    const path = _delPath;
-    const card = _delCard;
-    _closeDelModal();
-    try {
-      const res = await apiPost('/api/delete?path=' + encodeURIComponent(path));
-      const data = await res.json();
-      if (data.ok) {
-        if (card) {
-          card.style.transition = 'opacity 0.25s';
-          card.style.opacity = '0';
-          setTimeout(() => card.remove(), 260);
-        }
-      } else {
-        alert('Delete failed: ' + (data.error || 'unknown error'));
+async function _executeDelete(mode) {
+  if (!_delPath) return;
+  const path = _delPath;
+  const card = _delCard;
+  _closeAllDelModals();
+  try {
+    const res = await apiPost('/api/delete?path=' + encodeURIComponent(path) + '&mode=' + mode);
+    const data = await res.json();
+    if (data.ok) {
+      const labels = { db_only: 'Removed from index', blacklist: 'Removed & blacklisted', delete_file: 'Deleted' };
+      showToast(labels[mode] || 'Done');
+      if (card) {
+        card.style.transition = 'opacity 0.25s';
+        card.style.opacity = '0';
+        setTimeout(() => card.remove(), 260);
       }
-    } catch (e) {
-      alert('Delete request failed: ' + friendlyError(e));
+    } else {
+      alert('Delete failed: ' + (data.error || 'unknown error'));
+    }
+  } catch (e) {
+    alert('Delete request failed: ' + friendlyError(e));
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Main trash modal — option buttons
+  document.querySelectorAll('#delOverlay .del-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      if (mode === 'delete_file') {
+        // Double-confirm for destructive action
+        _closeDelModal();
+        document.getElementById('delConfirmPath').textContent = _delPath;
+        document.getElementById('delConfirmOverlay').classList.add('open');
+        document.getElementById('delConfirmCancelBtn').focus();
+      } else {
+        _executeDelete(mode);
+      }
+    });
+  });
+
+  // Main modal cancel
+  document.getElementById('delCancelBtn').addEventListener('click', _closeAllDelModals);
+  document.getElementById('delOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('delOverlay')) _closeAllDelModals();
+  });
+
+  // Double-confirm modal
+  document.getElementById('delConfirmCancelBtn').addEventListener('click', () => {
+    _closeDelConfirm();
+    // Re-open main modal
+    document.getElementById('delOverlay').classList.add('open');
+  });
+  document.getElementById('delConfirmOkBtn').addEventListener('click', () => {
+    _executeDelete('delete_file');
+  });
+  document.getElementById('delConfirmOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('delConfirmOverlay')) _closeAllDelModals();
+  });
+
+  // Escape key closes whichever is open
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (document.getElementById('delConfirmOverlay').classList.contains('open')) {
+        _closeDelConfirm();
+        document.getElementById('delOverlay').classList.add('open');
+      } else if (document.getElementById('delOverlay').classList.contains('open')) {
+        _closeAllDelModals();
+      }
     }
   });
 });
 </script>
 
-  <!-- Delete confirm modal -->
+  <!-- Trash action modal -->
   <div class="del-overlay" id="delOverlay">
     <div class="del-box">
-      <h3>Delete this document?</h3>
+      <h3>Remove this document?</h3>
       <div class="del-path" id="delPathLabel"></div>
+      <div class="del-options">
+        <button class="del-option" data-mode="db_only">
+          <span class="del-icon">🗃</span>
+          <span class="del-label">Remove from index<small>File stays on disk; will be re-scanned next run</small></span>
+        </button>
+        <button class="del-option" data-mode="blacklist">
+          <span class="del-icon">🚫</span>
+          <span class="del-label">Remove &amp; blacklist<small>File stays on disk; future scans will skip it</small></span>
+        </button>
+        <button class="del-option destructive" data-mode="delete_file">
+          <span class="del-icon">🗑</span>
+          <span class="del-label">Remove &amp; delete file<small>Permanently deletes the file from disk</small></span>
+        </button>
+      </div>
       <div class="del-actions">
         <button class="del-cancel" id="delCancelBtn" autofocus>Cancel</button>
-        <button class="del-confirm" id="delOkBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Double-confirm modal for file deletion -->
+  <div class="del-overlay" id="delConfirmOverlay">
+    <div class="del-box">
+      <h3>⚠ Permanently delete this file?</h3>
+      <div class="del-path" id="delConfirmPath"></div>
+      <p style="color:var(--text-dim);font-size:0.82rem;margin:0 0 1rem;">This cannot be undone. The file will be removed from disk and from the index.</p>
+      <div class="del-actions">
+        <button class="del-cancel" id="delConfirmCancelBtn">Go back</button>
+        <button class="del-confirm" id="delConfirmOkBtn">Delete permanently</button>
       </div>
     </div>
   </div>

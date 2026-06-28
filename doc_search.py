@@ -1080,10 +1080,20 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             logging.error("handle_download: I/O error streaming %s: %s", path, e)
 
     def handle_delete(self, query: dict):
-        """GET /api/delete?path=<encoded-path> - Delete a file from disk and DB."""
+        """POST /api/delete?path=<encoded-path>&mode=<mode>
+
+        Modes (default: ``db_only``):
+          db_only     — remove from DB only (document stays on disk)
+          blacklist   — remove from DB + add to scan_blacklist.txt
+          delete_file — remove from DB + delete file from disk
+        """
         path = query.get('path', [''])[0].strip()
+        mode = query.get('mode', ['db_only'])[0].strip()
         if not path:
             self.json_response({"ok": False, "error": "Missing path parameter"})
+            return
+        if mode not in ('db_only', 'blacklist', 'delete_file'):
+            self.json_response({"ok": False, "error": f"Invalid mode: {mode}"})
             return
 
         # Security: path must be in the index (not arbitrary filesystem access)
@@ -1095,19 +1105,16 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             return
         doc_id = row[0]
 
-        # Delete file from disk (may already be gone - that is fine)
-        disk_error = None
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass  # already gone; still clean up DB
-        except OSError as e:
-            disk_error = str(e)
-
-        if disk_error:
-            conn.close()
-            self.json_response({"ok": False, "error": f"Could not delete file: {disk_error}"})
-            return
+        # Mode: delete_file — remove from disk first
+        if mode == 'delete_file':
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass  # already gone; still clean up DB
+            except OSError as e:
+                conn.close()
+                self.json_response({"ok": False, "error": f"Could not delete file: {e}"})
+                return
 
         # Remove from DB via the shared helper (CASCADEs to tags/embeddings;
         # leaves the harmless contentless-FTS orphan).
@@ -1118,7 +1125,13 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.json_response({"ok": False, "error": f"DB delete failed: {e}"})
             return
         conn.close()
-        self.json_response({"ok": True, "deleted": path})
+
+        # Mode: blacklist — add to scan_blacklist.txt so future scans skip it
+        if mode == 'blacklist':
+            from scan_docs import _blacklist_add
+            _blacklist_add(Path(self.db_path), path, "removed via UI")
+
+        self.json_response({"ok": True, "deleted": path, "mode": mode})
 
     def handle_synopsis_get(self, query: dict):
         """GET /api/synopsis?path=<encoded-path> — read-only, returns cached synopsis.
