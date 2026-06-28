@@ -3,6 +3,8 @@
 ## Communication Style
 After reading status docs or context files, do NOT summarize or repeat back what was learned unless James explicitly asks. Just confirm you're up to date and ask what to work on.
 
+Unless explicitly told to take an action, ask first. Do not anticipate or act on assumptions.
+
 ## QA Requirement
 **Always run the QA agent after making code changes, before telling the user the code is ready to run.**
 
@@ -36,6 +38,9 @@ unguarded stat() call in sort key, NameError from conditionally-defined variable
 - Any deferred decision or skipped feature → add to status_docs/DECISIONS.md
 - Run QA agent after every set of code changes
 - Log file: /var/log/docubrowser.log (falls back to ~/.local/share/docubrowser/docubrowser.log)
+- **Never commit release tarballs to git.** They go on the GitHub Releases page only.
+  Build with `git archive` (not `tar czf .`) to avoid including untracked files.
+  Tarballs are gitignored and stored locally in `dist/`.
 
 ## Known Pitfalls & Hard-Won Lessons
 

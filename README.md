@@ -1,4 +1,4 @@
-# DocuBrowse v0.8.3
+# DocuBrowse v0.8.3.1
 
 <a name="top"></a>
 
@@ -704,6 +704,29 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+## v0.8.3.1 (2026-06-28)
+
+### Show, hide, and unhide documents with tag-based visibility controls
+
+- **Hide documents from view** — each card now has a 🙈 Hide icon that tags the
+  document as "hidden" and fades it out of the listing. Hidden documents remain
+  in the database and can be restored at any time.
+- **"Show 🙈" toggle button** — added next to the page count in all views
+  (All Documents, letter filter, search results). Clicking it reveals all hidden
+  cards alongside normal ones; the button label switches to "Hide 🙈" to toggle
+  them back off.
+- **Unhide (👀) icon** — when hidden cards are visible, they display a 👀 icon
+  instead of 🙈. Clicking it removes the "hidden" tag server-side, swaps the
+  icon back to 🙈, and removes the "hidden" tag chip from the card.
+- **New API endpoint: `POST /api/remove-tag`** — removes a single tag from a
+  document. Parameters: `path` (URL-encoded file path), `tag` (tag name).
+  Returns the updated tag list. CSRF-protected.
+- **Card action icons restyled** — all icons (📋 🔖 🙈 ❌) now use solid,
+  colorful emoji at full opacity. No more faded/dim icons in dark mode.
+- All changes ported to the Enterprise (Tauri) client.
+
+[↑ Top](#top)
+
 ## v0.8.3 (2026-06-27)
 
 ### UI overhaul, search fix, scan improvement
@@ -935,4 +958,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.8.3** — Fast, local, AI-powered document search.
+**DocuBrowse v0.8.3.1** — Fast, local, AI-powered document search.

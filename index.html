@@ -74,8 +74,21 @@
   .doc-title a:hover { text-decoration:underline; }
   .doc-title-copy { cursor:pointer; opacity:0.6; transition:opacity 0.2s; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .doc-title-copy:hover { opacity:1; }
-  .doc-delete-btn { font-size:0.7rem; opacity:0.4; cursor:pointer; margin-left:0.15rem; transition:opacity 0.2s; user-select:none; }
-  .doc-delete-btn:hover { opacity:1; }
+  /* ── Card action icons (inline with Open/Download buttons) ── */
+  .doc-action-icon { font-size:1.1rem; cursor:pointer; transition:background 0.15s; user-select:none; padding:0.25rem 0.45rem; border-radius:5px; line-height:1; }
+  .doc-action-icon:hover { background:var(--surface2); }
+  /* ── Tag add modal ── */
+  .tag-modal-overlay { display:none; position:fixed; inset:0; background:var(--modal-overlay); z-index:999; align-items:center; justify-content:center; }
+  .tag-modal-overlay.open { display:flex; }
+  .tag-modal-box { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.5rem 2rem; max-width:440px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+  .tag-modal-box h3 { margin:0 0 0.5rem; font-size:1rem; color:var(--text); }
+  .tag-modal-box .tag-modal-path { font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-dim); word-break:break-all; margin-bottom:0.8rem; }
+  .tag-modal-input { width:100%; padding:0.5rem 0.8rem; background:var(--surface2); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:0.85rem; font-family:'DM Sans',sans-serif; outline:none; }
+  .tag-modal-input:focus { border-color:var(--accent); }
+  .tag-modal-hint { font-size:0.7rem; color:var(--text-dim); margin-top:0.3rem; }
+  .tag-modal-actions { display:flex; gap:0.6rem; justify-content:flex-end; margin-top:1rem; }
+  .tag-modal-save { padding:6px 16px; border-radius:6px; border:none; background:var(--accent); color:#fff; cursor:pointer; font-size:0.85rem; font-weight:600; }
+  .tag-modal-save:hover { opacity:0.85; }
   /* Delete confirm modal */
   .del-overlay { display:none; position:fixed; inset:0; background:var(--modal-overlay); z-index:999; align-items:center; justify-content:center; }
   .del-overlay.open { display:flex; }
@@ -349,6 +362,19 @@ let isLoadingMore = false;
 // overwritten by a slower in-flight page load (last-writer-wins stale results).
 let renderSeq = 0;
 let pageSize = parseInt(localStorage.getItem('db-page-size') || '50');
+let showHidden = false;
+
+function showHiddenHtml() {
+  const label = showHidden ? 'Hide' : 'Show';
+  return ` <button class="load-more-btn-inline" onclick="toggleShowHidden()" title="Show Hidden Cards">${label} 🙈</button>`;
+}
+
+function toggleShowHidden() {
+  showHidden = !showHidden;
+  if (currentQuery) doSearch();
+  else if (currentLetter) filterByLetter(currentLetter);
+  else renderAll();
+}
 
 function pageSizeHtml() {
   const opts = [25, 50, 75, 100].map(n =>
@@ -575,7 +601,7 @@ async function doSearch() {
     const startIdx = rawOffset + 1;
     const endIdx = rawOffset + docs.length;
     const loadMoreBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Load More</button>` : '';
-    meta.innerHTML = `<span class="results-info"><b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> for "<b>${esc(q)}</b>" ${ms}ms ${loadMoreBtn}${pageSizeHtml()}</span>`;
+    meta.innerHTML = `<span class="results-info"><b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> for "<b>${esc(q)}</b>" ${ms}ms ${loadMoreBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
     grid.innerHTML = '';
     renderDocs(docs, true);
@@ -613,7 +639,7 @@ async function renderAll() {
     const startIdx = currentOffset > 0 ? currentOffset - allDocs.length + 1 : 1;
     const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous page">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    meta.innerHTML = `<span class="results-title">All Documents</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
+    meta.innerHTML = `<span class="results-title">All Documents</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
     grid.innerHTML = '';
     renderDocs(allDocs, false);  // false = don't show score badges
@@ -701,7 +727,7 @@ async function filterByLetter(letter) {
     const startIdx = currentOffset > 0 ? currentOffset - docs.length + 1 : 0;
     const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous page">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    meta.innerHTML = `<span class="results-title">Starting with "${esc(letter)}"</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
+    meta.innerHTML = `<span class="results-title">Starting with "${esc(letter)}"</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
 
     window.scrollTo(0, 0);
@@ -714,6 +740,16 @@ async function filterByLetter(letter) {
 }
 
 function renderDocs(docs, showScore, append = false) {
+  // Filter out documents tagged "hidden" (unless showHidden is on)
+  if (!showHidden) {
+    docs = docs.filter(d => {
+      let tags = [];
+      if (Array.isArray(d.tags)) tags = d.tags.filter(Boolean);
+      else if (d.tags) tags = (d.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+      return !tags.some(t => t.toLowerCase() === 'hidden');
+    });
+  }
+
   const html = docs.map(d => {
     // Tags can be array or comma-separated string; handle both
     let tags = [];
@@ -744,12 +780,16 @@ function renderDocs(docs, showScore, append = false) {
         <span class="doc-title-copy" data-path="${esc(d.path)}" data-title="${esc(titleText)}" title="View synopsis">${esc(titleText)}</span>
         ${badge}
         ${extBadge}
-        <span class="doc-copy-btn" data-path="${esc(d.path)}" title="Copy path to clipboard" style="font-size:0.7rem;opacity:0.5;cursor:pointer;margin-left:0.2rem;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">📋</span>
-        <span class="doc-delete-btn" data-path="${esc(d.path)}" title="Remove document…">🗑</span>
       </div>
       <div class="doc-file-actions">
         ${(isLocal || isTauri) ? `<button class="doc-open-btn" data-path="${esc(d.path)}">Open</button>` : ''}
         ${(!isLocal || isTauri) ? `<button class="doc-dl-btn" data-path="${esc(d.path)}">Download</button>` : ''}
+        <span class="doc-action-icon doc-copy-btn" data-path="${esc(d.path)}" title="Copy link">📋</span>
+        <span class="doc-action-icon doc-tag-btn" data-path="${esc(d.path)}" title="Add tags">🔖</span>
+        ${tags.some(t => t.toLowerCase() === 'hidden')
+          ? `<span class="doc-action-icon doc-unhide-btn" data-path="${esc(d.path)}" title="Unhide">👀</span>`
+          : `<span class="doc-action-icon doc-hide-btn" data-path="${esc(d.path)}" title="Hide">🙈</span>`}
+        <span class="doc-action-icon doc-delete-btn" data-path="${esc(d.path)}" title="Remove document…">❌</span>
       </div>
       ${desc ? `<div class="doc-desc">${esc(desc)}</div>` : ''}
       ${tags.length ? `<div class="doc-tags">${tags.map(t=>`<span class="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}</div>` : ''}
@@ -804,7 +844,7 @@ async function loadMoreTop() {
     const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
     const title = currentQuery ? 'Search Results' : (currentLetter ? `Starting with "${esc(currentLetter)}"` : 'All Documents');
-    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
+    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
 
     window.scrollTo(0, 0);
@@ -853,7 +893,7 @@ async function loadMorePrev() {
     const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
     const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
     const title = currentQuery ? 'Search Results' : (currentLetter ? `Starting with "${esc(currentLetter)}"` : 'All Documents');
-    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}</span>`;
+    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
 
     window.scrollTo(0, 0);
@@ -878,6 +918,12 @@ grid.addEventListener('click', (e) => {
   if (titleEl) return showSynopsis(titleEl.dataset.path, titleEl.dataset.title);
   const copyEl = e.target.closest('.doc-copy-btn');
   if (copyEl) return copyToClipboard(copyEl.dataset.path);
+  const tagEl2 = e.target.closest('.doc-tag-btn');
+  if (tagEl2) return showTagModal(tagEl2.dataset.path, tagEl2);
+  const hideEl = e.target.closest('.doc-hide-btn');
+  if (hideEl) return hideDoc(hideEl.dataset.path, hideEl);
+  const unhideEl = e.target.closest('.doc-unhide-btn');
+  if (unhideEl) return unhideDoc(unhideEl.dataset.path, unhideEl);
   const delEl = e.target.closest('.doc-delete-btn');
   if (delEl) return deleteDoc(delEl.dataset.path, delEl);
   const tagEl = e.target.closest('.doc-tags .tag');
@@ -1062,6 +1108,113 @@ function showErrorModal(msg) {
   overlay.querySelector('#modalOkBtn').focus();
 }
 
+// ── Tag modal ────────────────────────────────────────────────────────────────
+let _tagPath = null;
+let _tagCard = null;
+
+function showTagModal(path, el) {
+  _tagPath = path;
+  _tagCard = el.closest('.doc-card');
+  document.getElementById('tagModalPath').textContent = path;
+  document.getElementById('tagModalInput').value = '';
+  document.getElementById('tagModalOverlay').classList.add('open');
+  document.getElementById('tagModalInput').focus();
+}
+
+function _closeTagModal() {
+  document.getElementById('tagModalOverlay').classList.remove('open');
+  _tagPath = null;
+  _tagCard = null;
+}
+
+async function _submitTags() {
+  const input = document.getElementById('tagModalInput');
+  const raw = input.value.trim();
+  if (!_tagPath || !raw) return;
+  const path = _tagPath;
+  const card = _tagCard;
+  _closeTagModal();
+  try {
+    const res = await apiPost('/api/add-tags?path=' + encodeURIComponent(path) + '&tags=' + encodeURIComponent(raw));
+    if (!res.ok) { showToast('⚠ Server error: ' + res.status, 3000); return; }
+    const data = await res.json();
+    if (data.ok) {
+      showToast(`Added ${data.added} tag${data.added !== 1 ? 's' : ''}`);
+      // Update the card's tag display in-place
+      if (card && data.tags) {
+        const tagDiv = card.querySelector('.doc-tags');
+        const newHtml = data.tags.map(t => `<span class="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('');
+        if (tagDiv) {
+          tagDiv.innerHTML = newHtml;
+        } else {
+          // Insert tag div before doc-meta
+          const metaDiv = card.querySelector('.doc-meta');
+          if (metaDiv) {
+            const d = document.createElement('div');
+            d.className = 'doc-tags';
+            d.innerHTML = newHtml;
+            metaDiv.parentNode.insertBefore(d, metaDiv);
+          }
+        }
+      }
+    } else {
+      showToast('⚠ ' + (data.error || 'Failed to add tags'), 3000);
+    }
+  } catch (e) {
+    showToast('⚠ Error: ' + friendlyError(e), 3000);
+  }
+}
+
+// ── Hide document (adds "hidden" tag) ────────────────────────────────────────
+async function hideDoc(path, el) {
+  const card = el.closest('.doc-card');
+  try {
+    const res = await apiPost('/api/add-tags?path=' + encodeURIComponent(path) + '&tags=hidden');
+    if (!res.ok) { showToast('⚠ Server error: ' + res.status, 3000); return; }
+    const data = await res.json();
+    if (data.ok) {
+      showToast('Document hidden');
+      if (card) {
+        card.style.transition = 'opacity 0.25s';
+        card.style.opacity = '0';
+        setTimeout(() => card.remove(), 260);
+      }
+    } else {
+      showToast('⚠ ' + (data.error || 'Failed to hide'), 3000);
+    }
+  } catch (e) {
+    showToast('⚠ Error: ' + friendlyError(e), 3000);
+  }
+}
+
+async function unhideDoc(path, el) {
+  const card = el.closest('.doc-card');
+  try {
+    const res = await apiPost('/api/remove-tag?path=' + encodeURIComponent(path) + '&tag=hidden');
+    if (!res.ok) { showToast('⚠ Server error: ' + res.status, 3000); return; }
+    const data = await res.json();
+    if (data.ok) {
+      showToast('Document unhidden');
+      // Swap the unhide icon back to hide icon
+      if (card) {
+        const btn = card.querySelector('.doc-unhide-btn');
+        if (btn) {
+          btn.className = 'doc-action-icon doc-hide-btn';
+          btn.title = 'Hide';
+          btn.textContent = '🙈';
+        }
+        // Remove the "hidden" tag chip if present
+        const hiddenTag = card.querySelector('.tag[data-tag="hidden"]');
+        if (hiddenTag) hiddenTag.remove();
+      }
+    } else {
+      showToast('⚠ ' + (data.error || 'Failed to unhide'), 3000);
+    }
+  } catch (e) {
+    showToast('⚠ Error: ' + friendlyError(e), 3000);
+  }
+}
+
 // ── Settings ──────────────────────────────────────────────────
 const gearBtn = document.getElementById('gearBtn');
 
@@ -1153,10 +1306,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target === document.getElementById('delConfirmOverlay')) _closeAllDelModals();
   });
 
+  // Tag modal
+  document.getElementById('tagModalCancelBtn').addEventListener('click', _closeTagModal);
+  document.getElementById('tagModalSaveBtn').addEventListener('click', _submitTags);
+  document.getElementById('tagModalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('tagModalOverlay')) _closeTagModal();
+  });
+  document.getElementById('tagModalInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); _submitTags(); }
+  });
+
   // Escape key closes whichever is open
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      if (document.getElementById('delConfirmOverlay').classList.contains('open')) {
+      if (document.getElementById('tagModalOverlay').classList.contains('open')) {
+        _closeTagModal();
+      } else if (document.getElementById('delConfirmOverlay').classList.contains('open')) {
         _closeDelConfirm();
         document.getElementById('delOverlay').classList.add('open');
       } else if (document.getElementById('delOverlay').classList.contains('open')) {
@@ -1201,6 +1366,20 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="del-actions">
         <button class="del-cancel" id="delConfirmCancelBtn">Go back</button>
         <button class="del-confirm" id="delConfirmOkBtn">Delete permanently</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tag add modal -->
+  <div class="tag-modal-overlay" id="tagModalOverlay">
+    <div class="tag-modal-box">
+      <h3>Add tags</h3>
+      <div class="tag-modal-path" id="tagModalPath"></div>
+      <input class="tag-modal-input" id="tagModalInput" type="text" placeholder="e.g. security, networking, reference">
+      <div class="tag-modal-hint">Comma-separated list of tags to add</div>
+      <div class="tag-modal-actions">
+        <button class="del-cancel" id="tagModalCancelBtn">Cancel</button>
+        <button class="tag-modal-save" id="tagModalSaveBtn">Add tags</button>
       </div>
     </div>
   </div>

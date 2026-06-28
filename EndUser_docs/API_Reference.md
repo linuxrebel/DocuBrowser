@@ -31,6 +31,8 @@
    - 4.14 [POST /api/ignore-dirs](#414-post-apiignore-dirs)
    - 4.15 [POST /api/scan-dirs](#415-post-apiscan-dirs)
    - 4.16 [GET /api/download](#416-get-apidownload)
+   - 4.17 [POST /api/add-tags](#417-post-apiadd-tags)
+   - 4.18 [POST /api/remove-tag](#418-post-apiremove-tag)
 5. [Search Modes](#5-search-modes)
 6. [Enterprise Tier](#6-enterprise-tier)
 7. [Rate Limits and Performance Notes](#7-rate-limits-and-performance-notes)
@@ -97,6 +99,8 @@ Before checking the token, the server also inspects the `Origin` and `Referer` h
 | **POST /api/ignore-dirs** | **Yes** |
 | **POST /api/scan-dirs** | **Yes** |
 | **GET /api/download** | **Yes** |
+| **POST /api/add-tags** | **Yes** |
+| **POST /api/remove-tag** | **Yes** |
 
 ### 2.2 Host-Header Allowlist (DNS Rebinding Protection)
 
@@ -981,6 +985,90 @@ The body is streamed in 64 KB chunks — no full-file buffering.
 curl -H "X-CSRF-Token: <token>" \
   "https://192.168.1.50:8643/api/download?path=/home/james/docs/linux_perf_guide.pdf" \
   -o linux_perf_guide.pdf
+```
+
+---
+
+### 4.17 POST /api/add-tags
+
+**CSRF required:** Yes
+
+Append one or more tags to a document. Existing tags are preserved (uses `INSERT OR IGNORE` on the unique constraint). Tag names are lowercased and trimmed. Source is set to `user`.
+
+**Query parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| path | string | Yes | Absolute path of the document (must be in the index). |
+| tags | string | Yes | Comma-separated list of tags to add. |
+
+**Response fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| ok | boolean | `true` on success. |
+| path | string | The document path. |
+| added | integer | Number of new tags actually inserted (0 if all existed). |
+| tags | array | Full current tag list for this document. |
+
+**Example request:**
+
+```bash
+curl -X POST -H "X-CSRF-Token: <token>" \
+  "https://localhost:8643/api/add-tags?path=/home/james/docs/guide.pdf&tags=security,reference"
+```
+
+**Example response:**
+
+```json
+{
+  "ok": true,
+  "path": "/home/james/docs/guide.pdf",
+  "added": 2,
+  "tags": ["linux", "reference", "security"]
+}
+```
+
+---
+
+### 4.18 POST /api/remove-tag
+
+**CSRF required:** Yes
+
+Remove a single tag from a document.
+
+**Query parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| path | string | Yes | Absolute path of the document (must be in the index). |
+| tag | string | Yes | The tag to remove (case-insensitive). |
+
+**Response fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| ok | boolean | `true` on success. |
+| path | string | The document path. |
+| removed | integer | Number of rows deleted (0 if the tag wasn't present). |
+| tags | array | Full current tag list for this document after removal. |
+
+**Example request:**
+
+```bash
+curl -X POST -H "X-CSRF-Token: <token>" \
+  "https://localhost:8643/api/remove-tag?path=/home/james/docs/guide.pdf&tag=hidden"
+```
+
+**Example response:**
+
+```json
+{
+  "ok": true,
+  "path": "/home/james/docs/guide.pdf",
+  "removed": 1,
+  "tags": ["linux", "reference", "security"]
+}
 ```
 
 ---

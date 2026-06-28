@@ -498,6 +498,10 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_scan_dirs_post()
             elif path == '/api/delete':
                 self.handle_delete(query)
+            elif path == '/api/add-tags':
+                self.handle_add_tags(query)
+            elif path == '/api/remove-tag':
+                self.handle_remove_tag(query)
             elif path == '/api/open':
                 self.handle_open(query)
             else:
@@ -1132,6 +1136,75 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             _blacklist_add(Path(self.db_path), path, "removed via UI")
 
         self.json_response({"ok": True, "deleted": path, "mode": mode})
+
+    def handle_add_tags(self, query: dict):
+        """POST /api/add-tags?path=<encoded-path>&tags=<comma-separated>
+
+        Appends tags to a document. Existing tags are preserved (INSERT OR IGNORE).
+        Tag names are lowercased and trimmed. Source is set to 'user'.
+        """
+        path = query.get('path', [''])[0].strip()
+        raw_tags = query.get('tags', [''])[0].strip()
+        if not path or not raw_tags:
+            self.json_response({"ok": False, "error": "Missing path or tags parameter"})
+            return
+
+        tags = [t.strip().lower() for t in raw_tags.split(',') if t.strip()]
+        if not tags:
+            self.json_response({"ok": False, "error": "No valid tags provided"})
+            return
+
+        conn = get_db(self.db_path)
+        row = conn.execute('SELECT id FROM documents WHERE path = ?', (path,)).fetchone()
+        if not row:
+            conn.close()
+            self.json_response({"ok": False, "error": "Path not in document index"})
+            return
+        doc_id = row[0]
+
+        added = 0
+        for tag in tags:
+            cur = conn.execute(
+                'INSERT OR IGNORE INTO doc_tags (doc_id, tag, source) VALUES (?, ?, ?)',
+                (doc_id, tag, 'user'))
+            added += cur.rowcount
+        conn.commit()
+
+        # Return the full current tag list for this document
+        all_tags = [r[0] for r in conn.execute(
+            'SELECT tag FROM doc_tags WHERE doc_id = ? ORDER BY tag', (doc_id,)).fetchall()]
+        conn.close()
+
+        self.json_response({"ok": True, "path": path, "added": added, "tags": all_tags})
+
+    def handle_remove_tag(self, query: dict):
+        """POST /api/remove-tag?path=<encoded-path>&tag=<tag-name>
+
+        Removes a single tag from a document.
+        """
+        path = query.get('path', [''])[0].strip()
+        tag = query.get('tag', [''])[0].strip().lower()
+        if not path or not tag:
+            self.json_response({"ok": False, "error": "Missing path or tag parameter"})
+            return
+
+        conn = get_db(self.db_path)
+        row = conn.execute('SELECT id FROM documents WHERE path = ?', (path,)).fetchone()
+        if not row:
+            conn.close()
+            self.json_response({"ok": False, "error": "Path not in document index"})
+            return
+        doc_id = row[0]
+
+        cur = conn.execute(
+            'DELETE FROM doc_tags WHERE doc_id = ? AND tag = ?', (doc_id, tag))
+        conn.commit()
+
+        all_tags = [r[0] for r in conn.execute(
+            'SELECT tag FROM doc_tags WHERE doc_id = ? ORDER BY tag', (doc_id,)).fetchall()]
+        conn.close()
+
+        self.json_response({"ok": True, "path": path, "removed": cur.rowcount, "tags": all_tags})
 
     def handle_synopsis_get(self, query: dict):
         """GET /api/synopsis?path=<encoded-path> — read-only, returns cached synopsis.
