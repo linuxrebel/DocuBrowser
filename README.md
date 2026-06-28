@@ -88,9 +88,9 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 
 Click any thumbnail to view full size.
 
-| Light Mode | Dark Mode |
+| Dark Mode | Light Mode |
 |---|---|
-| [![Light mode](screenshots/screenshot-dark-mode.png)](screenshots/screenshot-dark-mode.png) | [![Dark mode](screenshots/screenshot-light-mode.png)](screenshots/screenshot-light-mode.png) |
+| [![Dark mode](screenshots/screenshot-dark-mode.png)](screenshots/screenshot-dark-mode.png) | [![Light mode](screenshots/screenshot-light-mode.png)](screenshots/screenshot-light-mode.png) |
 
 | Settings | AI Synopsis |
 |---|---|
