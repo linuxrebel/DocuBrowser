@@ -9,7 +9,7 @@ native file-open capabilities.
 ## Hard Constraints
 
 - **No VPN / NFS / SMB / FUSE.** All document access is streamed over HTTP(S).
-- **API contract locked at v0.8.1.** Non-breaking additions only (see
+- **API contract locked at v0.8.3.** Non-breaking additions only (see
   `bus_docs/DocuBrowse_API_Contract.docx`). One new endpoint: `/api/download`.
 - **Consistent appearance across all OSs and window managers.** Client-side
   decorations (CSD) — no OS-native titlebar.
@@ -56,7 +56,7 @@ everything that needs native access.
          ▼
 ┌─────────────────────────────────────────────────┐
 │  DocuBrowse Server (doc_search.py)              │
-│  ─ existing API endpoints (v0.8.1)              │
+│  ─ existing API endpoints (v0.8.3)              │
 │  ─ NEW: GET /api/download?path=...              │
 │  ─ --allow-remote + optional TLS (app-dev)      │
 └─────────────────────────────────────────────────┘

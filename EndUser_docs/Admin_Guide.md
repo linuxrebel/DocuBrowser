@@ -1,7 +1,7 @@
-# DocuBrowse v0.8.2 — Administrator Guide
+# DocuBrowse v0.8.3 — Administrator Guide
 
 **Date:** 2026-06-27
-**Version:** v0.8.2
+**Version:** v0.8.3
 **License:** GPL-3.0-or-later
 
 ---
@@ -123,8 +123,8 @@ cd DocuBrowser
 Or unpack a release tarball:
 
 ```bash
-tar xzf docubrowse-v0.8.1.tar.gz
-cd docubrowse-v0.8.1
+tar xzf docubrowse-v0.8.3.tar.gz
+cd docubrowse-v0.8.3
 ```
 
 ### 3.2 Recommended Install via install.sh
@@ -1155,5 +1155,5 @@ pdfinfo /path/to/file.pdf | grep -i objects
 
 ---
 
-*DocuBrowse v0.8.1 — Administrator Guide — 2026-06-15*
+*DocuBrowse v0.8.3 — Administrator Guide — 2026-06-27*
 *Copyright (C) 2026 James Sparenberg — GPL-3.0-or-later*

@@ -1,4 +1,4 @@
-# DocuBrowse v0.8.2 — API Reference
+# DocuBrowse v0.8.3 — API Reference
 
 **Date:** 2026-06-27
 **Base URL:** `http://127.0.0.1:8643`
@@ -170,7 +170,7 @@ The `ok` field is `true` only when both the database and Ollama are reachable. M
 | Field | Type | Description |
 |---|---|---|
 | ok | boolean | true if DB and Ollama are both reachable |
-| version | string | Server version string (e.g. "0.8.1") |
+| version | string | Server version string (e.g. "0.8.3") |
 | uptime_seconds | number | Seconds since the server process started |
 | timestamp | string | ISO 8601 timestamp |
 | components.db.ok | boolean | true if the SQLite database is reachable |
@@ -194,9 +194,9 @@ curl http://127.0.0.1:8643/api/status
 ```json
 {
   "ok": true,
-  "version": "0.8.1",
+  "version": "0.8.3",
   "uptime_seconds": 3721.4,
-  "timestamp": "2026-06-15T14:22:08.113245",
+  "timestamp": "2026-06-27T14:22:08.113245",
   "semantic_ready": true,
   "components": {
     "db": {
@@ -216,9 +216,9 @@ The `semantic_ready` field is `false` when any of these conditions are not met: 
 ```json
 {
   "ok": false,
-  "version": "0.8.1",
+  "version": "0.8.3",
   "uptime_seconds": 42.1,
-  "timestamp": "2026-06-15T09:00:42.000000",
+  "timestamp": "2026-06-27T09:00:42.000000",
   "components": {
     "db": { "ok": true },
     "ollama": {
@@ -1069,9 +1069,9 @@ When `enterprise_mode` is `True`, the `GET /api/status` response includes additi
 ```json
 {
   "ok": true,
-  "version": "0.8.1",
+  "version": "0.8.3",
   "uptime_seconds": 7200.0,
-  "timestamp": "2026-06-15T16:00:00.000000",
+  "timestamp": "2026-06-27T16:00:00.000000",
   "components": {
     "db": {
       "ok": true,
