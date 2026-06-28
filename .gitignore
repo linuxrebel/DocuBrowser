@@ -93,6 +93,9 @@ bus_docs/
 # Enterprise branding config (deployment-specific; commit branding.json.example instead)
 branding.json
 
+# Release tarballs (uploaded to GitHub Releases, not tracked in repo)
+*.tar.gz
+
 # TLS config and generated certificates (deployment-specific)
 tls.json
 certs/
