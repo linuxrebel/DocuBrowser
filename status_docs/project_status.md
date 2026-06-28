@@ -80,6 +80,34 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 
 ## Session History
 
+### 2026-06-28 — v0.8.3.1: Show/Unhide hidden documents
+
+- **Show Hidden toggle** — "Show 🙈" button in the results bar (next to page
+  count) toggles visibility of hidden documents. When active, hidden cards
+  reappear with a 👀 icon and "hidden" tag chip. Button label flips between
+  Show/Hide. Works across All Documents, letter-filtered, and search views.
+- **Unhide action** — 👀 icon on hidden cards calls `POST /api/remove-tag`
+  to strip the "hidden" tag. Icon swaps back to 🙈 and tag chip is removed
+  inline (no page reload).
+- **`POST /api/remove-tag`** — new endpoint removes a single tag from a
+  document. CSRF-protected. Returns updated tag list.
+- Updated dark/light mode screenshots.
+- All changes ported to Enterprise client.
+
+### 2026-06-28 — v0.8.3: Tagging, hide/delete icons, dark/light palette refresh
+
+- **`POST /api/add-tags`** — new endpoint adds one or more comma-separated
+  tags to a document. CSRF-protected. Deduplicates against existing tags.
+- **Tag modal** — 🔖 icon on each card opens a modal to enter tags manually.
+- **Hide action** — 🙈 icon adds a "hidden" tag; card fades out.
+- **Card icon bar rearranged** — icons now: 📋 copy, 🔖 tag, 🙈 hide, ❌ delete.
+  All use emoji instead of Unicode symbols.
+- **`DELETE /api/delete`** — migrated from GET to DELETE method. Old GET path
+  preserved for backwards compatibility.
+- **Dark mode palette** — new deep navy/indigo scheme replacing the old grey.
+- **Light mode palette** — new warm cream/white scheme replacing the old stark white.
+- All changes ported to Enterprise client.
+
 ### 2026-06-27 — v0.8.2: UI polish and button styling
 
 - **File path hidden in local mode** — the `doc-path` line on each card only renders
@@ -440,6 +468,8 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 - [x] Click to open file (xdg-open), copy path to clipboard
 - [x] `/api/stats`, `/api/search`, `/api/tags`, `/api/open`
 - [x] Delete from UI (🗑 trash icon, confirm modal, `/api/delete`)
+- [x] Tag from UI (🔖 icon, add-tags modal, `/api/add-tags`)
+- [x] Hide/unhide from UI (🙈/👀 icons, `/api/remove-tag`, Show toggle)
 - [x] Config read/write UI (Settings modal, `/api/config` GET + POST)
 
 **Format Support**
