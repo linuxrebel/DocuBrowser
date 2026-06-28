@@ -90,7 +90,7 @@ Phrase search does not work in Semantic or Both modes. In those modes, the quote
 Each result is displayed as a card. A card contains:
 
 - **Title** — The document title, displayed in blue. Click it to open a synopsis (see [Synopsis](#5-synopsis--ai-generated-summaries)).
-- **Action buttons** — **Open** and/or **Download** buttons appear below the title (see [Opening a File](#4-opening-a-file) for details on which buttons appear).
+- **Action buttons** — **Open** and/or **Download** buttons appear below the title (see [Opening a File](#4-opening-a-file) for details on which buttons appear). Next to them are icon buttons: 📋 copy link, 🔖 add tags, 🙈 hide, and ❌ remove document.
 - **File path** — When accessing remotely, the full path to the file on the server is shown. Hidden in local mode since the path is not useful.
 - **Snippet** — The first few lines of extracted text, giving you a preview of the content.
 - **Tags** — Colored labels showing the document's topics and format. Click a tag to filter by it.
@@ -149,6 +149,18 @@ To filter by a tag, you have two options:
 Only tags that appear on at least three documents are shown in the tag panel.
 
 To clear a tag filter, delete the text from the search bar or click the **Home** button in the alphabetic index bar.
+
+### Adding Tags Manually
+
+Click the 🔖 icon on any card to open the tag modal. Enter one or more tags separated by commas (e.g. `security, networking, reference`) and click **Add tags**. Tags are appended — existing tags on that document are not removed.
+
+### Hiding and Unhiding Documents
+
+Click the 🙈 icon on any card to hide it. The card fades out and is removed from the current view. Behind the scenes, this adds a "hidden" tag to the document.
+
+Hidden documents are not deleted — they remain in the index and can be brought back at any time. To see them, click the **Show 🙈** button that appears next to the page count in the results bar. All hidden cards reappear, each showing a 👀 icon instead of 🙈 and a "hidden" tag chip.
+
+To unhide a document, click the 👀 icon. The "hidden" tag is removed and the icon reverts to 🙈. Click **Hide 🙈** in the results bar to toggle hidden cards back out of view.
 
 ---
 
