@@ -784,10 +784,24 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 if sem >= 0.30:  # noise floor for semantic-only results
                     scored.append((doc_id, sem, 0.0, sem))
         else:  # both
-            for doc_id in (set(kw_scores) | set(sem_scores)):
+            # A document must have EITHER a keyword hit OR a meaningful
+            # semantic score (>= 0.30) to appear in combined results.
+            # Without this gate, every embedded document leaks in via
+            # low-but-nonzero cosine similarity — burying keyword matches.
+            SEM_FLOOR = 0.30
+            all_ids = set(kw_scores) | {
+                did for did, s in sem_scores.items() if s >= SEM_FLOOR
+            }
+            for doc_id in all_ids:
                 fts = kw_scores.get(doc_id, 0.0)
                 sem = sem_scores.get(doc_id, 0.0)
-                final = 0.3 * fts + 0.7 * sem
+                # Use max rather than weighted average so a strong keyword
+                # match isn't diluted by a zero semantic score (no embedding)
+                # and vice versa. When both are present, boost slightly.
+                if fts > 0 and sem >= SEM_FLOOR:
+                    final = max(fts, sem) + 0.1 * min(fts, sem)
+                else:
+                    final = max(fts, sem)
                 if final > 0.01:
                     scored.append((doc_id, final, fts, sem))
 

@@ -741,11 +741,16 @@ def cmd_rescan(config: dict, args):
 
 
 def cmd_scan(config: dict, args):
-    """scan — scan only, no embedding. Equivalent to rescan --no-embed."""
-    # Reuse rescan logic by injecting no_embed=True
-    args.no_embed = True
+    """scan — scan documents and embed them (same as rescan).
+
+    Historically this was a scan-only alias (no embedding), but that
+    left new installations without semantic search — a confusing default.
+    Now scan and rescan are equivalent; use --no-embed to skip embedding.
+    """
+    if not hasattr(args, "no_embed"):
+        args.no_embed = False
     if not hasattr(args, "embed_workers"):
-        args.embed_workers = 0
+        args.embed_workers = globals().get("_default_embed_workers", 6)
     cmd_rescan(config, args)
 
 
@@ -1555,9 +1560,9 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=textwrap.dedent("""            Examples:
               docubrowser start
               docubrowser status
-              docubrowser scan                           scan all types, no embed
+              docubrowser scan                           scan all types + embed
               docubrowser scan --doc-dir /folder/to/be/scanned   scan a specific folder
-              docubrowser scan pdf                       PDFs only, no embed
+              docubrowser scan pdf                       PDFs only + embed
               docubrowser rescan                         scan + embed all types
               docubrowser rescan pdf                     scan + embed PDFs only
               docubrowser rescan pdf txt                 scan + embed PDFs and text
@@ -1647,19 +1652,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_rescan.add_argument("--limit", metavar="N", type=int, default=None,
                           help="Process at most N unindexed files this run; next run resumes where this left off")
 
-    # scan (scan-only alias — no embedding step)
+    # scan (scan + embed — same as rescan)
     p_scan = sub.add_parser(
         "scan",
-        help="Scan documents only (no embedding)  [TYPE: pdf txt md html | --workers N]",
+        help="Scan documents and generate embeddings  [TYPE: pdf txt md html | --workers N]",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
             File types: pdf  txt  md  html  (default: all four)
-            Same as:    rescan --no-embed [TYPE ...]
+            Equivalent to rescan — scans documents then generates embeddings.
+            Use --no-embed to skip the embedding step.
 
             Examples:
-              scan                  scan all supported types
-              scan pdf              PDFs only
-              scan pdf txt          PDFs and plain text
+              scan                  scan all supported types + embed
+              scan pdf              PDFs only + embed
+              scan pdf txt          PDFs and plain text + embed
+              scan --no-embed       scan without generating embeddings
               scan --workers 4      override CPU worker count
         """),
     )
@@ -1671,6 +1678,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan.add_argument("--workers", metavar="N", type=int,
                         default=_default_scan_workers,
                         help=f"Parallel worker processes (default: {_default_scan_workers})")
+    p_scan.add_argument("--no-embed", action="store_true",
+                        help="Skip the embedding step (keyword search only)")
+    p_scan.add_argument("--embed-workers", metavar="N", type=int,
+                        default=_default_embed_workers, dest="embed_workers",
+                        help=f"Parallel threads for Ollama embedding (default: {_default_embed_workers})")
     p_scan.add_argument("--limit", metavar="N", type=int, default=None,
                         help="Process at most N unindexed files this run; next run resumes where this left off")
 
