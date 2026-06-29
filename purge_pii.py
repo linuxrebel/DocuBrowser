@@ -63,6 +63,27 @@ def _valid_ssn(m) -> bool:
     return True
 
 
+def _valid_aba(m) -> bool:
+    """Validate an ABA routing transit number via the standard checksum.
+    Format: 9 digits, weighted sum (3·7·1 repeated) mod 10 == 0.
+    Also rejects known test/invalid prefixes."""
+    digits = re.sub(r'\D', '', m.group())
+    if len(digits) != 9 or len(set(digits)) == 1:
+        return False
+    # ABA first two digits (Federal Reserve district) must be 00-12, 21-32,
+    # 61-72, or 80. Reject anything outside that.
+    prefix = int(digits[:2])
+    valid_ranges = (
+        (0, 12), (21, 32), (61, 72), (80, 80),
+    )
+    if not any(lo <= prefix <= hi for lo, hi in valid_ranges):
+        return False
+    # Weighted checksum: 3·d1 + 7·d2 + 1·d3 + 3·d4 + 7·d5 + 1·d6 + 3·d7 + 7·d8 + 1·d9
+    weights = (3, 7, 1, 3, 7, 1, 3, 7, 1)
+    total = sum(int(d) * w for d, w in zip(digits, weights))
+    return total % 10 == 0
+
+
 def _valid_cc(m) -> bool:
     """Validate a candidate card number: plausible PAN length, a real issuer
     prefix, and Luhn. The IIN check (cards begin 2-6: Amex/Diners/JCB 3,
@@ -127,6 +148,28 @@ _PII_PATTERNS = [
          r"\b(?:driver'?s?\s+licen[sc]e|dl\s+#?|license\s+#?)[:\s]+[A-Z0-9]{5,15}\b",
          re.IGNORECASE,
      ),
+     None),
+
+    # ABA routing number — labeled form (keyword + 9 digits). Checksum-validated.
+    ("Bank Routing Number",
+     re.compile(
+         r'\b(?:routing(?:\s+(?:transit\s+)?number)?|rtn|aba)[:\s#]+(?<!\d)\d{9}(?!\d)',
+         re.IGNORECASE),
+     _valid_aba),
+
+    # ABA routing number — bare 9-digit form with separators (e.g. on checks).
+    # Only flagged when checksum passes AND prefix is valid — keeps precision high.
+    ("Bank Routing Number",
+     re.compile(r'(?<![0-9\-])\d{9}(?![0-9\-])'),
+     _valid_aba),
+
+    # Bank account number — variable length (4-17 digits), requires a nearby
+    # keyword to avoid flagging arbitrary digit runs. No checksum exists for
+    # account numbers, so context is the only discriminator.
+    ("Bank Account Number",
+     re.compile(
+         r'\b(?:(?:bank\s+)?account(?:\s+(?:no|number|#))?|acct)[:\s#]+(?<!\d)\d{4,17}(?!\d)',
+         re.IGNORECASE),
      None),
 ]
 
