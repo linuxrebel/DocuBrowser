@@ -1,4 +1,4 @@
-# DocuBrowse v0.8.3 — Administrator Guide
+# DocuBrowse v0.8.3.1 — Administrator Guide
 
 **Date:** 2026-06-27
 **Version:** v0.8.3
@@ -480,6 +480,8 @@ docubrowser purge              # interactive — prompts before deleting
 Checks the stored description and snippet text (approximately 800 characters per document) for:
 - Social Security Numbers (validated against SSA allocation rules)
 - Credit card numbers (validated by length, issuer prefix, and Luhn algorithm)
+- Bank routing numbers (ABA checksum and Federal Reserve prefix validated)
+- Bank account numbers (keyword-context gated, 4–17 digits)
 - Passport numbers
 - Dates of birth
 - Medical Record Numbers (MRN)
@@ -1155,5 +1157,5 @@ pdfinfo /path/to/file.pdf | grep -i objects
 
 ---
 
-*DocuBrowse v0.8.3 — Administrator Guide — 2026-06-27*
+*DocuBrowse v0.8.3.1 — Administrator Guide — 2026-06-28*
 *Copyright (C) 2026 James Sparenberg — GPL-3.0-or-later*

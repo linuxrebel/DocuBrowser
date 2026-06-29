@@ -1,4 +1,4 @@
-# DocuBrowse v0.8.3 — User Guide
+# DocuBrowse v0.8.3.1 — User Guide
 
 ---
 

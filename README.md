@@ -54,7 +54,7 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 - **Word documents**: python-docx extracts paragraphs, tables, and core properties (title, author, subject)
 - **E-books**: ebooklib for EPUB; mobi package + Calibre fallback for MOBI/AZW3; DRM-encrypted AZW files indexed with metadata only (title/author visible, body not searchable)
 - **Metadata**: title, author, subject extracted from document metadata fields; auto-generated tags from directory structure and content keywords
-- **PII protection**: post-ingest scanner detects SSN, credit card, DOB, MRN, driver license, passport patterns; removes matching documents and permanently blacklists them
+- **PII protection**: post-ingest scanner detects SSN, credit card, bank routing/account number, DOB, MRN, driver license, passport patterns; removes matching documents and permanently blacklists them
 
 ### 🎨 User Interface
 - Dark/Light theme toggle
@@ -541,8 +541,9 @@ is hardened so a malicious web page you happen to visit can't reach it:
   card actions use `data-*` attributes + delegated listeners (no inline
   `onclick` built from document data), closing a stored-XSS vector.
 - **PII purge** validates structurally before deleting: SSNs against SSA
-  allocation rules, credit cards by length + issuer prefix + Luhn — so it both
-  catches more real PII and avoids deleting docs over incidental number groups.
+  allocation rules, credit cards by length + issuer prefix + Luhn, bank routing
+  numbers by ABA checksum + Federal Reserve prefix — so it both catches more
+  real PII and avoids deleting docs over incidental number groups.
 
 Authentication is still not provided; this is for trusted local use, not a
 network-exposed deployment.
