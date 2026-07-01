@@ -51,6 +51,13 @@ except Exception:  # numpy is normally present (dup_detect uses it); degrade gra
     _np = None
 
 
+__all__ = [
+    'DocSearchHandler', 'DocuBrowseServer',
+    'DEFAULT_PORT', 'SERVER_VERSION',
+    'embed_text', 'generate_synopsis',
+    'cosine_similarity', 'blob_to_vector',
+]
+
 DEFAULT_PORT = 8643
 TLS_CONFIG_NAME = "tls.json"   # keep in sync with docubrowser.py
 _LOOPBACK_NET = ipaddress.ip_network("127.0.0.0/8")
@@ -71,7 +78,7 @@ EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
 SERVER_VERSION = "0.8.1"
 
-_SERVER_START_TIME = time.time()  # set at import; used by /api/status
+_SERVER_START_TIME = None  # set by main(); used by /api/status
 # Cold Ollama starts (e.g. right after a reboot) need to load the model into
 # memory before the first generation can begin, which can take well over 30s
 # on top of the generation time itself. Use a generous timeout so the first
@@ -359,6 +366,12 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                                 # enables extended /api/status response
     allowed_hostnames = frozenset(('localhost', '127.0.0.1', '::1'))
 
+    @staticmethod
+    def _model_present(configured_name: str, model_list: list) -> bool:
+        """Check if *configured_name* appears in *model_list*, ignoring :tag."""
+        base = configured_name.split(":")[0]
+        return any(base == m.split(":")[0] for m in model_list)
+
     def log_message(self, format, *args):
         """Suppress default logging."""
         pass
@@ -550,7 +563,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         The 'ok' field is True only when both DB and Ollama are reachable. Model
         presence does not affect 'ok' — keyword search works without embeddings.
         """
-        uptime = time.time() - _SERVER_START_TIME
+        uptime = time.time() - (_SERVER_START_TIME or time.time())
 
         # DB connectivity — use try/finally to guarantee close on any path
         db_ok = False
@@ -587,9 +600,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         # Normalize model names for comparison: strip tag suffix from both sides
         # so "nomic-embed-text:latest" and "nomic-embed-text" both match.
-        def _model_present(configured_name):
-            base = configured_name.split(":")[0]
-            return any(base == m.split(":")[0] for m in ollama_models)
 
         overall_ok = db_ok and ollama_ok
 
@@ -598,7 +608,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         semantic_ready = (
             db_ok and ollama_ok
             and embedded_count > 0
-            and _model_present(EMBEDDING_MODEL)
+            and self._model_present(EMBEDDING_MODEL, ollama_models)
         )
 
         # ── FOSS tier: minimal response ───────────────────────────────────
@@ -631,11 +641,11 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             status["components"]["ollama"].update({
                 "embedding_model": {
                     "name": EMBEDDING_MODEL,
-                    "present": _model_present(EMBEDDING_MODEL),
+                    "present": self._model_present(EMBEDDING_MODEL, ollama_models),
                 },
                 "synopsis_model": {
                     "name": SYNOPSIS_MODEL,
-                    "present": _model_present(SYNOPSIS_MODEL),
+                    "present": self._model_present(SYNOPSIS_MODEL, ollama_models),
                 },
             })
             status["config"] = {
@@ -1660,6 +1670,9 @@ def _load_tls_context(db_path: str):
 
 def main():
     """Start the document search server."""
+    global _SERVER_START_TIME
+    _SERVER_START_TIME = time.time()
+
     # Args: <database_path> [port] [--allow-remote]
     argv = sys.argv[1:]
     allow_remote = '--allow-remote' in argv

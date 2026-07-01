@@ -43,6 +43,7 @@ from urllib.error import URLError
 DEFAULT_PORT    = 8643
 DEFAULT_DB      = Path(__file__).parent / "du-docs.db"
 DEFAULT_DOC_DIR = ""  # no default — user must configure via Settings (gear icon) or docubrowse.config
+SERVER_SCRIPT   = "doc_search.py"  # Enterprise overrides to its own server
 CONFIG_PATHS    = [
     Path(__file__).parent / "docubrowse.config",
 ]
@@ -358,7 +359,7 @@ def cmd_start(config: dict, args):
     _kill_port(port)
 
     # Launch server as detached subprocess
-    server_script = Path(__file__).parent / "doc_search.py"
+    server_script = Path(__file__).parent / SERVER_SCRIPT
     if not server_script.exists():
         print(f"ERROR: Server script not found: {server_script}")
         sys.exit(1)
