@@ -2,7 +2,7 @@
 
 **Version**: v0.8.3.1  
 **Status**: 🟢 **STABLE — daily use, active development**  
-**Last Updated**: 2026-06-28  
+**Last Updated**: 2026-06-30  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
@@ -789,3 +789,56 @@ As of end of session, the desktop client is fully functional:
 - App icon/logo — vibrant multi-color, works favicon through letterhead
 - Fresh install flow — verify embeddings auto-generated or prompted
 - Git history scrub before public release
+
+---
+
+## Session: 2026-06-30 — FOSS/Enterprise Split: Phases 1 & 2
+
+### Architecture Document Written (2026-06-29)
+
+Created `ARCHITECTURE_NOTES_foss_enterprise_split.md` — complete plan for moving
+all remote capabilities out of FOSS into Enterprise:
+
+- **Design**: FOSS = localhost-only, Enterprise = reverse-proxy backend (web-server-agnostic: Nginx/Apache/IIS)
+- **SSO at proxy layer**: oauth2-proxy (Nginx), mod_auth_openidc (Apache), Windows Auth (IIS) — Python reads trusted headers only
+- **Subclass pattern**: `EnterpriseHandler(DocSearchHandler)` extends without forking; FOSS as git submodule at `core/`
+- **5-phase execution plan**: prepare for subclassing → build Enterprise server → test through proxy → strip FOSS → git history scrub
+
+### Phase 1 Complete: Prepare FOSS for Subclassing
+
+**doc_search.py changes (all QA-passed):**
+- Added `__all__` export list — stable import contract for Enterprise
+- `_SERVER_START_TIME` deferred from import-time to `main()` — no side effects on import
+- Extracted nested `_model_present()` closure to `@staticmethod` on `DocSearchHandler`
+- Safe uptime calc when imported without main()
+
+**docubrowser.py changes (all QA-passed):**
+- Added `SERVER_SCRIPT = "doc_search.py"` module constant — Enterprise overrides to launch its server
+- `cmd_start()` uses the constant instead of hardcoded path
+
+### Phase 2 Complete: Build Enterprise Server
+
+**Enterprise repo (`DocuBrowse-Ent/`) — 9 files, 771 lines added:**
+
+`access_enterprise/` package:
+- `server.py` — `EnterpriseHandler(DocSearchHandler)` + `EnterpriseServer` + `main()`. Overrides `_host_allowed()` (trusts proxy), `handle_branding()` (Enterprise module). Inherits all FOSS search/status/download logic.
+- `download.py` — standalone `handle_download()` for Phase 4 when FOSS removes its copy
+- `auth.py` — `get_user_from_headers()`, `require_auth()`, `has_role()` reading proxy-injected X-Auth-Request-* headers
+- `branding.py` — copy into package for clean imports
+- `__init__.py` — package marker
+
+CLI:
+- `docubrowse-ent.py` — extends FOSS CLI, overrides SERVER_SCRIPT
+
+Reverse proxy config templates:
+- `deploy/nginx/docubrowse.conf.template` — proxy_pass, oauth2-proxy SSO, Tauri CORS
+- `deploy/apache/docubrowse.conf.template` — ProxyPass, mod_auth_openidc, Tauri CORS
+- `deploy/iis/web.config.template` — ARR URL Rewrite, Windows Auth, Tauri CORS
+
+### Branch Policy
+
+All work now on `development` branch in both repos. Merge to `main` when ready to release.
+
+### Next: Phase 3 — Integration Testing
+
+Test Enterprise server behind Nginx on testDebian. Verify companion app connects through proxy. Validate SSO flow end-to-end. Not yet started.

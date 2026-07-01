@@ -1,7 +1,7 @@
 # FOSS / Enterprise Split — Remote Capabilities Architecture
 
 **Date:** 2026-06-29
-**Status:** Plan — awaiting approval
+**Status:** In progress — Phase 1 & 2 complete, Phase 3 next
 **Author:** James Sparenberg + Claude (architecture session)
 
 ---
@@ -428,7 +428,7 @@ DocuBrowse Search Server
 
 ## Execution plan
 
-### Phase 1: Prepare FOSS for subclassing (FOSS repo)
+### Phase 1: Prepare FOSS for subclassing (FOSS repo) ✅ COMPLETE
 
 **Goal:** Ensure `DocSearchHandler` and `DocuBrowseServer` can be imported
 and subclassed cleanly by the Enterprise server.
@@ -446,7 +446,9 @@ and subclassed cleanly by the Enterprise server.
 
 **Estimated effort:** 1–2 hours. Low risk — mostly verification.
 
-### Phase 2: Build Enterprise server (Enterprise repo)
+**Completed:** 2026-06-30. Commit `698aed2` in FOSS repo.
+
+### Phase 2: Build Enterprise server (Enterprise repo) ✅ COMPLETE
 
 1. Set up FOSS repo as git submodule at `core/`.
 2. Create `access_enterprise/server.py` — subclass `DocSearchHandler`,
@@ -464,6 +466,10 @@ and subclassed cleanly by the Enterprise server.
 
 **Estimated effort:** 2–3 days. Medium risk — the subclassing and proxy
 configs need integration testing.
+
+**Completed:** 2026-06-30. Commit `4372ca2` in Enterprise repo. Git
+submodule (`core/`) not yet configured — import paths reference it but
+the submodule add is deferred to Phase 3 setup.
 
 ### Phase 3: Test companion app against proxy-fronted Enterprise
 
