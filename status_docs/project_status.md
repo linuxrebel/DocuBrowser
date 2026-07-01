@@ -850,9 +850,17 @@ All work now on `development` branch in both repos. Merge to `main` when ready t
 - Duplicate CORS headers (proxy + backend). Fixed by overriding `_cors_headers()` to no-op in `EnterpriseHandler`.
 - Nginx CORS config too permissive (all origins got `tauri://localhost`). Fixed with conditional `set $cors_origin` in both test and production templates.
 
-**Test results:** 19/19 pass (integration_test.sh on testDebian):
+**Architecture correction:** Enterprise is client-based (Tauri companion app),
+not browser-based. Removed static file serving from Nginx configs and integration
+tests. Standard HTTPS port 443.
+
+**CSRF fix:** FOSS embeds CSRF in HTML `<meta>` tags, but Enterprise has no HTML.
+Added `GET /api/csrf-token` JSON endpoint to Enterprise server. Client `csrf.rs`
+updated to use JSON API; `scraper` crate removed. Companion app connects successfully.
+
+**Test results:** 18/18 pass (integration_test.sh on testDebian):
 - Direct API: status, search, branding, download (CSRF check), host validation — all correct
-- Nginx proxy: all API endpoints proxied, CORS origin-restricted, spoofed auth headers stripped, static files served
+- Nginx proxy (HTTPS/443): all API endpoints proxied, CORS origin-restricted, spoofed auth headers stripped
 - SSO end-to-end: deferred (needs oauth2-proxy + OIDC provider)
 - Apache proxy: deferred (same backend, needs Apache install)
 - IIS: deferred (needs Windows)
