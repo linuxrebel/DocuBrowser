@@ -16,7 +16,6 @@ import math
 import re
 import socket
 import sqlite3
-import ssl
 import struct
 import threading
 import subprocess
@@ -41,11 +40,6 @@ from scan_docs import (                     # noqa: E402
 )
 
 try:
-    from access_enterprise import branding as _branding
-except ImportError:
-    _branding = None
-
-try:
     import numpy as _np
 except Exception:  # numpy is normally present (dup_detect uses it); degrade gracefully
     _np = None
@@ -59,7 +53,6 @@ __all__ = [
 ]
 
 DEFAULT_PORT = 8643
-TLS_CONFIG_NAME = "tls.json"   # keep in sync with docubrowser.py
 _LOOPBACK_NET = ipaddress.ip_network("127.0.0.0/8")
 _IPV6_LOOPBACK = ipaddress.ip_address("::1")
 
@@ -329,29 +322,26 @@ def _valid_doc_ids(conn) -> set:
 
 
 class DocuBrowseServer(ThreadingHTTPServer):
-    """ThreadingHTTPServer that enforces loopback-only access in local mode.
+    """ThreadingHTTPServer that enforces loopback-only access.
 
     Always binds to 0.0.0.0 so all 127.x.x.x addresses are reachable
-    (the entire 127.0.0.0/8 subnet is loopback per RFC 5735).  When
-    local_only=True (the default), verify_request() drops any connection
-    whose source IP is outside 127.0.0.0/8 at the TCP accept level —
-    before a single byte of HTTP is read.  When local_only=False
-    (--allow-remote), all source IPs are accepted.
+    (the entire 127.0.0.0/8 subnet is loopback per RFC 5735).
+    verify_request() drops any connection whose source IP is outside
+    127.0.0.0/8 at the TCP accept level — before a single byte of HTTP
+    is read.
     """
-    local_only: bool = True
 
     def verify_request(self, request, client_address):
-        if self.local_only:
-            try:
-                addr = ipaddress.ip_address(client_address[0])
-                # Accept IPv6 loopback (::1) — localhost often resolves to it
-                if addr == ipaddress.ip_address('::1'):
-                    return True
-                # Accept anything in 127.0.0.0/8; reject all other IPs
-                if addr not in _LOOPBACK_NET:
-                    return False
-            except (ValueError, TypeError):
+        try:
+            addr = ipaddress.ip_address(client_address[0])
+            # Accept IPv6 loopback (::1) — localhost often resolves to it
+            if addr == ipaddress.ip_address('::1'):
+                return True
+            # Accept anything in 127.0.0.0/8; reject all other IPs
+            if addr not in _LOOPBACK_NET:
                 return False
+        except (ValueError, TypeError):
+            return False
         return True
 
 
@@ -361,10 +351,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
     db_path     = None          # Will be set by server
     server_port = DEFAULT_PORT  # Will be set by server
     csrf_token  = None          # Per-process secret, set by server at startup
-    allow_remote = False        # True when bound for LAN access (opt-in)
-    enterprise_mode = False     # True when enterprise access layer is active;
-                                # enables extended /api/status response
-    allowed_hostnames = frozenset(('localhost', '127.0.0.1', '::1'))
 
     @staticmethod
     def _model_present(configured_name: str, model_list: list) -> bool:
@@ -396,21 +382,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         if port and port != str(self.server_port):
             return False
         # Loopback is always allowed (entire 127.0.0.0/8 subnet + ::1).
-        if _is_loopback(hostname):
-            return True
-        # Remote (LAN) access is opt-in. When enabled, allow this machine's own
-        # hostnames and any IP-literal Host. Requiring a known name or a literal
-        # IP still blocks DNS-rebinding, which depends on an attacker-controlled
-        # *domain name* resolving to us.
-        if self.allow_remote:
-            if hostname in self.allowed_hostnames:
-                return True
-            try:
-                ipaddress.ip_address(hostname)
-                return True
-            except ValueError:
-                return False
-        return False
+        return _is_loopback(hostname)
 
     def _guard_mutation(self) -> bool:
         """Gate state-changing / sensitive endpoints against CSRF.
@@ -421,7 +393,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         longer returns Access-Control-Allow-Origin), so it cannot forge the
         X-CSRF-Token header this requires. As defense in depth, any Origin/
         Referer that isn't same-origin with the addressed Host (or loopback)
-        is rejected — this works whether bound to localhost or the LAN.
+        is rejected.
 
         Sends a 403 and returns False on failure; returns True if allowed.
         """
@@ -476,12 +448,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_browse(query)
             elif path == '/api/status':
                 self.handle_status()
-            elif path == '/api/branding':
-                self.handle_branding()
-            elif path == '/api/download':
-                if not self._guard_mutation():
-                    return
-                self.handle_download(query)
             else:
                 self.error_response(404, "Not found")
         except Exception:
@@ -554,14 +520,10 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         No CSRF required — monitoring agents must be able to probe this endpoint
         without first-party HTML.
 
-        Response depth is tiered by deployment mode:
-          FOSS (enterprise_mode=False): minimal — ok, version, uptime, db.ok,
-            ollama.ok. Enough for a load-balancer or simple watchdog.
-          Enterprise (enterprise_mode=True): full — adds doc/embedded counts,
-            model presence, and config details for richer dashboards and alerts.
-
-        The 'ok' field is True only when both DB and Ollama are reachable. Model
-        presence does not affect 'ok' — keyword search works without embeddings.
+        Returns ok, version, uptime, db.ok, ollama.ok — enough for a simple
+        watchdog.  The 'ok' field is True only when both DB and Ollama are
+        reachable.  Model presence does not affect 'ok' — keyword search works
+        without embeddings.
         """
         uptime = time.time() - (_SERVER_START_TIME or time.time())
 
@@ -611,7 +573,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             and self._model_present(EMBEDDING_MODEL, ollama_models)
         )
 
-        # ── FOSS tier: minimal response ───────────────────────────────────
         status = {
             "ok": overall_ok,
             "version": SERVER_VERSION,
@@ -630,53 +591,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             },
         }
 
-        # ── Enterprise tier: extended response ────────────────────────────
-        # enterprise_mode is set True by the enterprise access layer when it
-        # starts doc_search.py; defaults False in the FOSS distribution.
-        if self.enterprise_mode:
-            status["components"]["db"].update({
-                "doc_count": doc_count,
-                "embedded_count": embedded_count,
-            })
-            status["components"]["ollama"].update({
-                "embedding_model": {
-                    "name": EMBEDDING_MODEL,
-                    "present": self._model_present(EMBEDDING_MODEL, ollama_models),
-                },
-                "synopsis_model": {
-                    "name": SYNOPSIS_MODEL,
-                    "present": self._model_present(SYNOPSIS_MODEL, ollama_models),
-                },
-            })
-            status["config"] = {
-                "allow_remote": self.allow_remote,
-                "port": self.server_port,
-            }
-
         self.json_response(status)
-
-    def handle_branding(self):
-        """GET /api/branding - Return active branding config.
-
-        When access_enterprise.branding is available AND a branding.json exists
-        next to the database, returns the configured values. Missing fields are
-        returned as null so the client can apply defaults selectively.
-
-        Always returns 200 — FOSS installs (no branding module) get all-null
-        config, which the client treats as "use built-in defaults".
-        """
-        if _branding is not None:
-            config = _branding.load(self.db_path)
-        else:
-            config = {
-                "app_title": None,
-                "company_name": None,
-                "logo_url": None,
-                "favicon_url": None,
-                "primary_color": None,
-                "accent_color": None,
-            }
-        self.json_response(config)
 
     def handle_tags(self):
         """GET /api/tags - Return all tags with counts."""
@@ -1027,71 +942,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             "detail": last_err,
             "hint": hint.strip(),
         })
-
-    def handle_download(self, query: dict):
-        """GET /api/download?path=<encoded-path> — Stream file bytes to client.
-
-        Index-validated, host-validated (via _host_allowed in do_GET routing).
-        Path must be present in the document index to prevent arbitrary reads.
-        Streams in 64 KB chunks to avoid loading large files into memory.
-        """
-        path = query.get('path', [''])[0].strip()
-        if not path:
-            self.json_response({"ok": False, "error": "Missing path parameter"})
-            return
-
-        # Security: path must be in the index
-        conn = get_db(self.db_path)
-        row = conn.execute('SELECT id FROM documents WHERE path = ?', (path,)).fetchone()
-        conn.close()
-        if not row:
-            self.json_response({"ok": False, "error": "Path not in document index"})
-            return
-
-        p = Path(path)
-        if not p.exists():
-            status = check_missing_path(path)
-            if status == "unmounted":
-                self.json_response({"ok": False, "error": "unmounted",
-                                    "message": f"Device not mounted: {path}"})
-            else:
-                self.json_response({"ok": False, "error": "missing",
-                                    "message": f"File not found on disk: {path}"})
-            return
-
-        # Determine MIME type
-        import mimetypes as _mt
-        mime, _ = _mt.guess_type(str(p))
-        if not mime:
-            mime = "application/octet-stream"
-
-        file_size = p.stat().st_size
-        # Sanitize filename for Content-Disposition header: strip quotes,
-        # newlines, and control chars that could inject headers.
-        basename = re.sub(r'[\x00-\x1f\x7f"\\]', '_', p.name)
-
-        self.send_response(200)
-        self.send_header("Content-Type", mime)
-        self.send_header("Content-Length", str(file_size))
-        self.send_header("Content-Disposition",
-                         f'attachment; filename="{basename}"')
-        self.send_header("Cache-Control", "no-store")
-        self._cors_headers()
-        self.end_headers()
-
-        # Stream in 64 KB chunks
-        chunk_size = 65536
-        try:
-            with open(path, "rb") as fh:
-                while True:
-                    chunk = fh.read(chunk_size)
-                    if not chunk:
-                        break
-                    self.wfile.write(chunk)
-        except (BrokenPipeError, ConnectionResetError):
-            logging.debug("handle_download: client disconnected during transfer: %s", path)
-        except OSError as e:
-            logging.error("handle_download: I/O error streaming %s: %s", path, e)
 
     def handle_delete(self, query: dict):
         """POST /api/delete?path=<encoded-path>&mode=<mode>
@@ -1503,20 +1353,12 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             return
 
         cfg_path = Path(__file__).parent / "docubrowse.config"
-        # Preserve allow_remote (and avoid clobbering it on every settings save).
-        allow_remote = "false"
-        if cfg_path.exists():
-            for line in cfg_path.read_text(encoding="utf-8").splitlines():
-                s = line.strip()
-                if s.lower().startswith("allow_remote") and "=" in s:
-                    allow_remote = s.split("=", 1)[1].strip()
         try:
             lines = [
                 "# docubrowse.config — written by the Settings UI\n",
                 f"doc_dir  = {doc_path}\n",
                 f"work_dir = {work_dir}\n",
                 f"port     = {port}\n",
-                f"allow_remote = {allow_remote}\n",
             ]
             cfg_path.write_text("".join(lines), encoding="utf-8")
             self.json_response({
@@ -1562,59 +1404,10 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.send_header('Content-Type', 'application/octet-stream')
 
             self.send_header('Content-Length', len(content))
-            self._cors_headers()
             self.end_headers()
             self.wfile.write(content)
         except Exception as e:
             self.error_response(500, str(e))
-
-    # Origins allowed for CORS in remote mode.  The Tauri WebView sends
-    # "tauri://localhost" as its Origin; add more entries here if other
-    # known frontends need access.
-    _CORS_ALLOWED_ORIGINS = frozenset((
-        'tauri://localhost',
-    ))
-
-    def _cors_headers(self):
-        """Add CORS headers when running in --allow-remote mode.
-
-        Required for the companion app (Tauri WebView origin: tauri://localhost)
-        to reach the server.  Instead of a wildcard, we reflect the request
-        Origin only if it is in the allow-list or is from a loopback address.
-        CSRF tokens still protect mutations; the document index check still
-        gates file access — CORS headers do not weaken either.
-        """
-        if self.allow_remote:
-            origin = self.headers.get('Origin', '')
-            if origin in self._CORS_ALLOWED_ORIGINS:
-                allowed = origin
-            elif origin:
-                # Allow origins whose host is a loopback address (e.g.
-                # http://127.0.0.1:8643 from a local browser tab).
-                try:
-                    host = urlparse(origin).hostname or ''
-                    if _is_loopback(host):
-                        allowed = origin
-                    else:
-                        allowed = None
-                except Exception:
-                    allowed = None
-            else:
-                allowed = None
-            if allowed:
-                self.send_header('Access-Control-Allow-Origin', allowed)
-                self.send_header('Vary', 'Origin')
-                self.send_header('Access-Control-Allow-Headers',
-                                 'X-CSRF-Token, Content-Type')
-                self.send_header('Access-Control-Allow-Methods',
-                                 'GET, POST, OPTIONS')
-
-    def do_OPTIONS(self):
-        """Handle CORS preflight requests."""
-        self.send_response(204)
-        self._cors_headers()
-        self.send_header('Content-Length', '0')
-        self.end_headers()
 
     def json_response(self, data: dict):
         """Send a JSON response."""
@@ -1622,7 +1415,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', len(content))
-        self._cors_headers()
         self.end_headers()
         self.wfile.write(content)
 
@@ -1632,40 +1424,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header('Content-Type', 'text/plain; charset=utf-8')
         self.send_header('Content-Length', len(content))
-        self._cors_headers()
         self.end_headers()
         self.wfile.write(content)
-
-
-def _load_tls_context(db_path: str):
-    """Load tls.json next to the database and return an SSLContext, or None.
-
-    Returns None (plain HTTP) if no tls.json exists. Exits on bad config so
-    the user gets a clear error rather than a silent fallback to HTTP.
-    """
-    tls_cfg_path = Path(db_path).parent / TLS_CONFIG_NAME
-    if not tls_cfg_path.exists():
-        return None
-
-    try:
-        cfg = json.loads(tls_cfg_path.read_text())
-        cert = cfg.get("cert")
-        key  = cfg.get("key")
-        if not cert or not key:
-            print(f"ERROR: tls.json missing 'cert' or 'key' field: {tls_cfg_path}")
-            sys.exit(1)
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-        ctx.load_cert_chain(cert, key)
-        return ctx
-    except ssl.SSLError as e:
-        print(f"ERROR: Failed to load TLS certificate: {e}")
-        print(f"  Config: {tls_cfg_path}")
-        print("  Run 'docubrowser setup-tls' to reconfigure.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: Could not read {tls_cfg_path}: {e}")
-        sys.exit(1)
 
 
 def main():
@@ -1673,16 +1433,13 @@ def main():
     global _SERVER_START_TIME
     _SERVER_START_TIME = time.time()
 
-    # Args: <database_path> [port] [--allow-remote]
+    # Args: <database_path> [port]
     argv = sys.argv[1:]
-    allow_remote = '--allow-remote' in argv
-    argv = [a for a in argv if a != '--allow-remote']
     if not argv:
-        print(f"Usage: {sys.argv[0]} <database_path> [port] [--allow-remote]")
+        print(f"Usage: {sys.argv[0]} <database_path> [port]")
         print(f"\nExample:")
         print(f"  {sys.argv[0]} /path/to/du-docs.db")
         print(f"  {sys.argv[0]} /path/to/du-docs.db 8643")
-        print(f"  {sys.argv[0]} /path/to/du-docs.db 8643 --allow-remote   # bind 0.0.0.0 (LAN)")
         sys.exit(1)
 
     db_path = argv[0]
@@ -1697,27 +1454,13 @@ def main():
     DocSearchHandler.db_path      = str(db_path)
     DocSearchHandler.server_port  = port
     DocSearchHandler.csrf_token   = secrets.token_urlsafe(32)
-    DocSearchHandler.allow_remote = allow_remote
-    if allow_remote:
-        names = {'localhost', '127.0.0.1', '::1'}
-        try:
-            names.add(socket.gethostname().lower())
-            names.add(socket.getfqdn().lower())
-        except Exception:
-            pass
-        DocSearchHandler.allowed_hostnames = frozenset(n for n in names if n)
-
-    # Load TLS config (tls.json next to the database), if present
-    tls_ctx = _load_tls_context(str(db_path))
-    scheme = "https" if tls_ctx else "http"
 
     # Always bind 0.0.0.0 so the entire 127.0.0.0/8 loopback subnet is
     # reachable (127.0.0.1, 127.0.1.1, etc.).  DocuBrowseServer.verify_request
-    # drops connections from outside 127.0.0.0/8 when local_only=True.
+    # drops connections from outside 127.0.0.0/8.
     server_address = ('0.0.0.0', port)
     try:
         httpd = DocuBrowseServer(server_address, DocSearchHandler)
-        httpd.local_only = not allow_remote
     except OSError as e:
         if e.errno == 98:  # Address already in use
             print(f"ERROR: Port {port} is already in use.")
@@ -1728,22 +1471,12 @@ def main():
         else:
             raise
 
-    if tls_ctx:
-        httpd.socket = tls_ctx.wrap_socket(httpd.socket, server_side=True)
-
     print(f"DocuBrowse Search Server")
     print(f"  Database: {db_path}")
     print(f"  Ollama: {OLLAMA_HOST}")
     print(f"  Model: {EMBEDDING_MODEL}")
-    if tls_ctx:
-        print(f"  TLS: enabled")
-    if allow_remote:
-        print(f"  Listening on {scheme}://0.0.0.0:{port}  (LAN/remote access ENABLED)")
-        print(f"  ⚠ Remote access is on and there is NO authentication yet — anyone who")
-        print(f"    can reach this host on port {port} can read and delete indexed documents.")
-    else:
-        print(f"  Listening on {scheme}://127.0.0.0/8:{port}  (loopback subnet only)")
-        print(f"  Any 127.x.x.x address works; all external interfaces rejected.")
+    print(f"  Listening on http://127.0.0.0/8:{port}  (loopback subnet only)")
+    print(f"  Any 127.x.x.x address works; all external interfaces rejected.")
 
     # Self-test: confirm semantic search will actually work. A silent
     # embed failure (e.g. wrong response key, Ollama down) degrades

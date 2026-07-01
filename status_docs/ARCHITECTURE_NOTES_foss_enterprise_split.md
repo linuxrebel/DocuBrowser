@@ -1,7 +1,7 @@
 # FOSS / Enterprise Split — Remote Capabilities Architecture
 
 **Date:** 2026-06-29
-**Status:** In progress — Phases 1–3 complete, Phase 4 next
+**Status:** In progress — Phases 1–4 complete, Phase 5 (git history scrub) next
 **Author:** James Sparenberg + Claude (architecture session)
 
 ---
@@ -515,20 +515,12 @@ the submodule add is deferred to Phase 3 setup.
   mod_auth_openidc config.
 - IIS testing deferred — requires Windows build environment.
 
-### Phase 4: Strip remote code from FOSS (FOSS repo)
+### Phase 4: Strip remote code from FOSS (FOSS repo) ✅ COMPLETE (2026-06-30)
 
-Only after Phases 2–3 confirm Enterprise works independently:
-
-1. Remove all items listed in "What moves out of FOSS" above.
-2. Simplify `_host_allowed()`, `DocuBrowseServer`, `main()` as shown.
-3. Remove `_cors_headers()` calls from `json_response`/`error_response`.
-4. Remove `/api/download` and `/api/branding` routes from `do_GET`.
-5. Remove `tls.json`, `certs/`, `branding.json.example`.
-6. Update README, INSTALL, project_status to reflect local-only scope.
-7. Run full test suite (Playwright + curl contract tests) against stripped
-   FOSS server to confirm nothing broke.
-
-**Estimated effort:** Half day. Low risk — purely subtractive.
+All remote-access, TLS, CORS, download, branding, and enterprise-mode code
+removed from FOSS `doc_search.py` and `docubrowser.py`. Enterprise-only files
+deleted. `.gitignore` cleaned. Both files pass `py_compile` with zero stale
+references. FOSS is now purely localhost-only as designed.
 
 ### Phase 5: Git history scrub (FOSS repo)
 

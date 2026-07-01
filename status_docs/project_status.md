@@ -865,6 +865,42 @@ updated to use JSON API; `scraper` crate removed. Companion app connects success
 - Apache proxy: deferred (same backend, needs Apache install)
 - IIS: deferred (needs Windows)
 
-### Next: Phase 4 — Strip Remote Code from FOSS
+### Phase 4 Complete: Strip Remote Code from FOSS
 
-Remove all remote-access code from `doc_search.py` and `docubrowser.py` per the "What moves out of FOSS" list in ARCHITECTURE_NOTES. Only after Phase 3 validates Enterprise works independently.
+Removed all remote-access, TLS, CORS, download, branding, and enterprise-mode
+code from the FOSS codebase. FOSS is now purely localhost-only.
+
+**doc_search.py — code removed:**
+- `from access_enterprise import branding` import, `import ssl`, `TLS_CONFIG_NAME`
+- Class attributes: `allow_remote`, `enterprise_mode`, `allowed_hostnames`
+- `local_only` parameter from `DocuBrowseServer` (always enforces loopback now)
+- Remote hostname/IP checking in `_host_allowed()` (kept loopback-only check)
+- `/api/branding` and `/api/download` routes from `do_GET()`
+- Enterprise tier block from `handle_status()`
+- Entire methods: `handle_branding()`, `handle_download()`, `_cors_headers()`, `do_OPTIONS()`
+- `_CORS_ALLOWED_ORIGINS` frozenset
+- `_load_tls_context()` function
+- `--allow-remote` argument parsing, TLS socket wrapping, remote warning banner
+- `allow_remote` preservation in config save
+
+**docubrowser.py — code removed:**
+- `allow_remote` from default config dict and bool normalization
+- `--allow-remote` passthrough to server launch
+- Entire `cmd_setup_tls()` function and all TLS helpers (~200 lines)
+- `setup-tls` argparse subparser and command dispatch entry
+- TLS-based scheme detection replaced with hardcoded `http://`
+
+**Files deleted from FOSS repo:**
+- `branding.json.example` (was tracked)
+- `tls.json`, `certs/`, `access_enterprise/`, `docubrowse-client/` (local only, gitignored)
+
+**.gitignore cleaned:** Removed entries for branding.json, tls.json, certs/,
+access_enterprise/, docubrowse-client/ — no longer relevant to FOSS.
+
+**Validation:** Both files pass `py_compile`. Zero grep hits for allow_remote,
+enterprise_mode, CORS, TLS, branding, or download references.
+
+### Next: Phase 5 — Git History Scrub
+
+Scrub any enterprise-related code that was previously committed from the public
+repo history before open-source release.
