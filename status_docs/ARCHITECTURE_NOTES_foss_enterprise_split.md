@@ -1,7 +1,7 @@
 # FOSS / Enterprise Split — Remote Capabilities Architecture
 
 **Date:** 2026-06-29
-**Status:** In progress — Phase 1 & 2 complete, Phase 3 next
+**Status:** In progress — Phases 1–3 complete, Phase 4 next
 **Author:** James Sparenberg + Claude (architecture session)
 
 ---
@@ -471,7 +471,7 @@ configs need integration testing.
 submodule (`core/`) not yet configured — import paths reference it but
 the submodule add is deferred to Phase 3 setup.
 
-### Phase 3: Test companion app against proxy-fronted Enterprise
+### Phase 3: Test companion app against proxy-fronted Enterprise ✅ COMPLETE
 
 1. Verify Tauri companion app works through Nginx reverse proxy (CORS
    headers from proxy, not Python).
@@ -482,6 +482,30 @@ the submodule add is deferred to Phase 3 setup.
    build is available).
 
 **Estimated effort:** 1–2 days.
+
+**Completed:** 2026-06-30. Findings:
+
+- Git submodule configured and working (commit `23e609e`).
+- Enterprise server starts, all API endpoints respond correctly on
+  testDebian (Debian 13 trixie, Python 3.13, Nginx 1.26).
+- **Bug found & fixed:** `server.py` did not add repo root to sys.path,
+  causing `from access_enterprise import branding` to fail. Fixed by
+  adding `_REPO_ROOT` to sys.path alongside `_CORE_DIR`.
+- **Bug found & fixed:** Duplicate CORS headers — proxy AND backend both
+  emitted `Access-Control-Allow-Origin`. Fixed by overriding
+  `_cors_headers()` in `EnterpriseHandler` to no-op (proxy owns CORS).
+- **Bug found & fixed:** Nginx config emitted CORS headers for ALL
+  origins, not just `tauri://localhost`. Fixed with `set $cors_origin`
+  conditional in both test and production templates.
+- Integration test suite created (`tests/integration_test.sh`) — 19
+  tests covering direct API, proxy API, CORS, host validation, spoofed
+  header stripping, static file serving. All pass.
+- SSO end-to-end testing deferred — requires oauth2-proxy + OIDC provider
+  setup. Proxy header stripping verified (spoofed `X-Auth-Request-*`
+  headers correctly blocked by Nginx).
+- Apache testing deferred — same Python backend, needs Apache install +
+  mod_auth_openidc config.
+- IIS testing deferred — requires Windows build environment.
 
 ### Phase 4: Strip remote code from FOSS (FOSS repo)
 

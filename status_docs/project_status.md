@@ -839,6 +839,24 @@ Reverse proxy config templates:
 
 All work now on `development` branch in both repos. Merge to `main` when ready to release.
 
-### Next: Phase 3 — Integration Testing
+### Phase 3 Complete: Integration Testing
 
-Test Enterprise server behind Nginx on testDebian. Verify companion app connects through proxy. Validate SSO flow end-to-end. Not yet started.
+**Infrastructure:** testDebian (Debian 13 trixie, Python 3.13, Nginx 1.26.3)
+
+**Git submodule:** FOSS repo configured as `core/` in Enterprise repo (commit `23e609e`).
+
+**Bugs found & fixed:**
+- `server.py` missing repo root on sys.path → `from access_enterprise` import failed. Fixed.
+- Duplicate CORS headers (proxy + backend). Fixed by overriding `_cors_headers()` to no-op in `EnterpriseHandler`.
+- Nginx CORS config too permissive (all origins got `tauri://localhost`). Fixed with conditional `set $cors_origin` in both test and production templates.
+
+**Test results:** 19/19 pass (integration_test.sh on testDebian):
+- Direct API: status, search, branding, download (CSRF check), host validation — all correct
+- Nginx proxy: all API endpoints proxied, CORS origin-restricted, spoofed auth headers stripped, static files served
+- SSO end-to-end: deferred (needs oauth2-proxy + OIDC provider)
+- Apache proxy: deferred (same backend, needs Apache install)
+- IIS: deferred (needs Windows)
+
+### Next: Phase 4 — Strip Remote Code from FOSS
+
+Remove all remote-access code from `doc_search.py` and `docubrowser.py` per the "What moves out of FOSS" list in ARCHITECTURE_NOTES. Only after Phase 3 validates Enterprise works independently.
