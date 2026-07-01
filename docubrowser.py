@@ -28,7 +28,6 @@ import json
 import os
 import shutil
 import signal
-import socket
 import ssl
 import subprocess
 import sys
@@ -103,7 +102,6 @@ def load_config() -> dict:
         "db_path": str(DEFAULT_DB),
         "port":    DEFAULT_PORT,
         "work_dir": str(Path(__file__).parent),
-        "allow_remote": False,
     }
 
     for cfg_path in CONFIG_PATHS:
@@ -122,11 +120,6 @@ def load_config() -> dict:
             break
     else:
         config["_config_source"] = "(built-in defaults)"
-
-    # Normalize allow_remote to a bool (config-file values arrive as strings).
-    ar = config.get("allow_remote", False)
-    if isinstance(ar, str):
-        config["allow_remote"] = ar.strip().lower() in ("1", "true", "yes", "on")
 
     return config
 
@@ -342,7 +335,7 @@ def cmd_start(config: dict, args):
         print(f"Starting DocuBrowse via systemd ({SYSTEMD_UNIT})...")
         if not _systemctl("start"):
             sys.exit(1)
-        _scheme = "https" if (Path(db_path).parent / TLS_CONFIG_NAME).exists() else "http"
+        _scheme = "http"
         for _ in range(10):
             time.sleep(0.5)
             if is_server_running(port):
@@ -365,8 +358,6 @@ def cmd_start(config: dict, args):
         sys.exit(1)
 
     server_cmd = [sys.executable, str(server_script), db_path, str(port)]
-    if config.get("allow_remote"):
-        server_cmd.append("--allow-remote")
     log_fh = open(LOG_FILE, "a")   # noqa: SIM115 — kept open for proc lifetime
     proc = subprocess.Popen(
         server_cmd,
@@ -376,16 +367,13 @@ def cmd_start(config: dict, args):
     )
     write_pid(proc.pid)
 
-    # Determine scheme for URL display
-    scheme = "https" if (Path(db_path).parent / TLS_CONFIG_NAME).exists() else "http"
-
     # Wait for server to come up (up to 5 seconds)
     print(f"Starting DocuBrowse server (PID {proc.pid}) on port {port}...")
     for _ in range(10):
         time.sleep(0.5)
         if is_server_running(port):
             print(f"DocuBrowse is running.")
-            print(f"  UI:       {scheme}://localhost:{port}")
+            print(f"  UI:       http://localhost:{port}")
             print(f"  Database: {db_path}")
             return
 
@@ -1029,206 +1017,6 @@ def cmd_scan_file(config: dict, args):
         print("Run 'docubrowser embed' to generate embeddings later.")
 
 
-# ─── setup-tls ────────────────────────────────────────────────────────────────
-
-TLS_CONFIG_NAME = "tls.json"
-
-
-def _tls_config_path(db_path: str) -> Path:
-    return Path(db_path).parent / TLS_CONFIG_NAME
-
-
-def _write_tls_config(db_path: str, cert: str, key: str, tls_type: str):
-    cfg = {"cert": str(cert), "key": str(key), "type": tls_type}
-    path = _tls_config_path(db_path)
-    path.write_text(json.dumps(cfg, indent=2) + "\n")
-    print(f"  TLS config written: {path}")
-
-
-def _tls_self_signed(db_path: str):
-    """Generate a self-signed certificate using openssl."""
-    if not shutil.which("openssl"):
-        print("ERROR: openssl not found. Install it with: sudo dnf install openssl")
-        return False
-
-    certs_dir = Path(db_path).parent / "certs"
-    certs_dir.mkdir(exist_ok=True)
-    cert_path = certs_dir / "docubrowse.crt"
-    key_path  = certs_dir / "docubrowse.key"
-
-    # Collect hostname for the SAN
-    try:
-        hostname = socket.getfqdn()
-    except Exception:
-        hostname = "localhost"
-
-    subj = f"/CN={hostname}/O=DocuBrowse/OU=Self-Signed"
-    san  = f"subjectAltName=DNS:{hostname},DNS:localhost,IP:127.0.0.1,IP:127.0.1.1,IP:::1"
-
-    cmd = [
-        "openssl", "req", "-x509",
-        "-newkey", "rsa:4096",
-        "-keyout", str(key_path),
-        "-out",    str(cert_path),
-        "-days",   "3650",
-        "-nodes",
-        "-subj",   subj,
-        "-addext", san,
-    ]
-    print(f"  Generating 4096-bit RSA self-signed certificate for {hostname}...")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print("ERROR: openssl failed:")
-        print(result.stderr)
-        return False
-
-    # Restrict key permissions
-    key_path.chmod(0o600)
-    print(f"  Certificate: {cert_path}")
-    print(f"  Private key: {key_path}  (mode 600)")
-    print()
-    print("  ⚠  Browsers will show a security warning for self-signed certificates.")
-    print("     To suppress it, add the certificate to your OS/browser trust store:")
-    print(f"       sudo cp {cert_path} /etc/pki/ca-trust/source/anchors/")
-    print("       sudo update-ca-trust")
-
-    _write_tls_config(db_path, cert_path, key_path, "self-signed")
-    return True
-
-
-def _tls_existing_cert(db_path: str):
-    """Accept paths to an existing cert and key."""
-    print("  Enter the full path to your certificate file (PEM format).")
-    print("  Tip: ensure the cert's SAN includes IP:127.0.0.1, IP:127.0.1.1,")
-    print("       and IP:::1 if you want all loopback addresses to work.")
-    cert_path = input("  Certificate: ").strip()
-    print("  Enter the full path to your private key file (PEM format):")
-    key_path = input("  Key:         ").strip()
-
-    cert_p = Path(cert_path)
-    key_p  = Path(key_path)
-
-    if not cert_p.exists():
-        print(f"ERROR: Certificate file not found: {cert_path}")
-        return False
-    if not key_p.exists():
-        print(f"ERROR: Key file not found: {key_path}")
-        return False
-
-    # Quick sanity-check: try loading the context now so we fail early
-    try:
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        ctx.load_cert_chain(str(cert_p), str(key_p))
-    except ssl.SSLError as e:
-        print(f"ERROR: Could not load certificate/key: {e}")
-        return False
-
-    print(f"  Certificate verified: {cert_p}")
-    _write_tls_config(db_path, cert_p, key_p, "provided")
-    return True
-
-
-def _tls_letsencrypt(db_path: str):
-    """Obtain a Let's Encrypt certificate via certbot --standalone."""
-    if not shutil.which("certbot"):
-        print("ERROR: certbot not found.")
-        print("  Install it with:  sudo dnf install certbot   (Fedora/RHEL)")
-        print("                    sudo apt install certbot    (Debian/Ubuntu)")
-        return False
-
-    print("  Let's Encrypt requires:")
-    print("    • A public domain name pointing to this server")
-    print("    • Port 80 open and reachable from the internet (for the ACME challenge)")
-    print("    • The DocuBrowse server stopped during cert issuance (certbot needs port 80)")
-    print()
-    domain = input("  Domain name (e.g. docubrowse.example.com): ").strip()
-    if not domain:
-        print("ERROR: No domain entered.")
-        return False
-
-    email = input("  Contact email for Let's Encrypt renewal notices: ").strip()
-    if not email:
-        print("ERROR: No email entered.")
-        return False
-
-    print(f"\n  Running certbot for {domain}...")
-    cmd = [
-        "certbot", "certonly",
-        "--standalone",
-        "-d", domain,
-        "--email", email,
-        "--agree-tos",
-        "--non-interactive",
-    ]
-    result = subprocess.run(cmd)
-    if result.returncode != 0:
-        print("ERROR: certbot failed. See output above.")
-        print("  Common causes: port 80 not reachable, domain DNS not pointing here.")
-        return False
-
-    cert_path = Path(f"/etc/letsencrypt/live/{domain}/fullchain.pem")
-    key_path  = Path(f"/etc/letsencrypt/live/{domain}/privkey.pem")
-
-    if not cert_path.exists():
-        print(f"ERROR: Expected cert not found at {cert_path}")
-        return False
-
-    print(f"  Certificate: {cert_path}")
-    print(f"  Private key: {key_path}")
-    print()
-    print("  Renewal: certbot installs a systemd timer that auto-renews before expiry.")
-    print("  Verify with:  systemctl status certbot-renew.timer")
-
-    _write_tls_config(db_path, cert_path, key_path, "letsencrypt")
-    return True
-
-
-def cmd_setup_tls(config: dict, args):
-    """setup-tls — configure HTTPS for the DocuBrowse server."""
-    db_path = args.db or config["db_path"]
-
-    tls_cfg = _tls_config_path(db_path)
-    if tls_cfg.exists():
-        existing = json.loads(tls_cfg.read_text())
-        print(f"TLS is already configured ({existing.get('type', 'unknown')}).")
-        print(f"  Config: {tls_cfg}")
-        print(f"  Cert:   {existing.get('cert')}")
-        print()
-        ans = input("Replace existing TLS configuration? [y/N] ").strip().lower()
-        if ans != "y":
-            print("Aborted — existing TLS config unchanged.")
-            return
-
-    print()
-    print("DocuBrowse setup-tls — choose a certificate option:")
-    print()
-    print("  1. Use an existing certificate  (you already have a cert + key)")
-    print("  2. Let's Encrypt                (free, public domain + port 80 required)")
-    print("  3. Self-signed certificate      (no external requirements; browser warning)")
-    print()
-    choice = input("Choose [1/2/3]: ").strip()
-
-    print()
-    if choice == "1":
-        ok = _tls_existing_cert(db_path)
-    elif choice == "2":
-        ok = _tls_letsencrypt(db_path)
-    elif choice == "3":
-        ok = _tls_self_signed(db_path)
-    else:
-        print(f"ERROR: Invalid choice '{choice}'.")
-        return
-
-    if ok:
-        print()
-        print("TLS configured. Restart DocuBrowse to apply:")
-        print("  docubrowser restart")
-        print()
-        port = args.port or config.get("port", 8643)
-        print(f"  After restart, the UI will be at: https://localhost:{port}")
-        print(f"  (In local mode the server binds to 127.0.0.1 — use localhost or 127.0.0.1)")
-
-
 # ─── duplist / dupclean ───────────────────────────────────────────────────────
 
 def cmd_duplist(config: dict, args):
@@ -1863,28 +1651,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan_missing.add_argument("--dry-run", action="store_true", dest="dry_run",
                                  help="Show what would be removed without changing the DB")
 
-    # setup-tls
-    p_setup_tls = sub.add_parser(
-        "setup-tls",
-        help="Configure HTTPS/TLS for the DocuBrowse server",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=textwrap.dedent("""\
-            Interactive wizard. Choose one of three certificate options:
-
-              1  Existing certificate  — provide paths to your cert + key files
-              2  Let's Encrypt        — free cert; requires public domain + port 80
-              3  Self-signed          — no external requirements; browser shows a warning
-
-            Writes tls.json next to the database. Restart the server to apply.
-
-            Examples:
-              setup-tls               interactive (prompts for cert type)
-              setup-tls --db /path/to/du-docs.db
-        """),
-    )
-    p_setup_tls.add_argument("--db",   metavar="PATH", help="Database path")
-    p_setup_tls.add_argument("--port", metavar="PORT", type=int, help="Port (used for post-setup URL display)")
-
     return parser
 
 
@@ -1905,7 +1671,6 @@ COMMANDS = {
     "duplist":   cmd_duplist,
     "dupclean":  cmd_dupclean,
     "scan-missing": cmd_scan_missing,
-    "setup-tls":  cmd_setup_tls,
 }
 
 
