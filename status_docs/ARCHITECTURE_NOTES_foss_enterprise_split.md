@@ -59,7 +59,7 @@ private Enterprise repo (`DocuBrowse-Ent`). After the split:
               ┌──────▼──────┐
               │ Reverse Proxy│  Customer's existing web server
               │ (Nginx /     │  ─ TLS termination
-              │  Apache /    │  ─ Static files (index.html, CSS, JS)
+              │  Apache /    │  ─ CORS for companion app (tauri://localhost)
               │  IIS)        │  ─ SSO gate (oauth2-proxy / mod_auth_openidc / IIS auth)
               │              │  ─ Rate limiting, access logs, HTTP/2
               └──────┬───────┘
@@ -497,9 +497,17 @@ the submodule add is deferred to Phase 3 setup.
 - **Bug found & fixed:** Nginx config emitted CORS headers for ALL
   origins, not just `tauri://localhost`. Fixed with `set $cors_origin`
   conditional in both test and production templates.
-- Integration test suite created (`tests/integration_test.sh`) — 19
-  tests covering direct API, proxy API, CORS, host validation, spoofed
-  header stripping, static file serving. All pass.
+- Integration test suite created (`tests/integration_test.sh`) — 18
+  tests covering direct API, proxy API (HTTPS/443), CORS, host validation,
+  spoofed header stripping. All pass.
+- **Architecture correction:** Enterprise is client-based (Tauri companion
+  app), not browser-based. Removed static file serving from Nginx test
+  config, production template, and integration tests. Standard HTTPS
+  port 443, not custom ports.
+- **CSRF fix:** FOSS embeds CSRF token in HTML `<meta>` tags. Enterprise
+  has no HTML pages, so added `GET /api/csrf-token` JSON endpoint to
+  Enterprise server. Client `csrf.rs` updated; `scraper` crate removed.
+  Tauri companion app connects and authenticates successfully.
 - SSO end-to-end testing deferred — requires oauth2-proxy + OIDC provider
   setup. Proxy header stripping verified (spoofed `X-Auth-Request-*`
   headers correctly blocked by Nginx).
@@ -575,14 +583,14 @@ These build on the Enterprise architecture but are separate efforts:
    (add Enterprise-specific keys) or use a separate `docubrowse-ent.config`?
    Separate file is cleaner — FOSS config stays untouched.
 
-3. **Static file serving:** Should the Enterprise Python server still serve
-   `index.html` (for the proxy to cache), or should the proxy serve static
-   files directly from the FOSS `core/` directory? Proxy-direct is more
-   efficient but requires the proxy config to know the file path. Ship both
-   options in the templates.
+3. ~~**Static file serving:**~~ **RESOLVED (2026-06-30).** Enterprise is
+   client-based (Tauri companion app) — neither the proxy nor the Python
+   server serves static files. No `root`, `try_files`, or asset caching
+   directives in Enterprise Nginx config. The proxy is API-only.
 
-4. **Companion app CSRF:** With a reverse proxy in front, the CSRF token
-   flow changes. The proxy serves the HTML (with the `<meta>` CSRF tag),
-   and the companion app fetches the token from the proxy URL. The Python
-   backend still validates the token. Confirm this works end-to-end through
-   all three proxy types.
+4. ~~**Companion app CSRF:**~~ **RESOLVED (2026-06-30).** Enterprise is
+   client-based (Tauri app), not browser-based — there is no HTML page to
+   embed a `<meta>` CSRF tag in. Added `GET /api/csrf-token` JSON endpoint
+   to Enterprise server. Client `csrf.rs` calls this instead of scraping
+   HTML. `scraper` crate removed from client dependencies. Tested and
+   working through Nginx proxy on port 443.
