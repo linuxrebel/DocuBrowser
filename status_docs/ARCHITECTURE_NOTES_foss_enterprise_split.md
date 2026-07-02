@@ -515,12 +515,13 @@ the submodule add is deferred to Phase 3 setup.
   mod_auth_openidc config.
 - IIS testing deferred — requires Windows build environment.
 
-### Phase 4: Strip remote code from FOSS (FOSS repo) ✅ COMPLETE (2026-06-30)
+### Phase 4: Codebase cleanup (FOSS repo) ✅ COMPLETE — released as v0.8.4 (2026-07-02)
 
-All remote-access, TLS, CORS, download, branding, and enterprise-mode code
-removed from FOSS `doc_search.py` and `docubrowser.py`. Enterprise-only files
-deleted. `.gitignore` cleaned. Both files pass `py_compile` with zero stale
-references. FOSS is now purely localhost-only as designed.
+Removed unused code paths and experimental features from the FOSS codebase.
+`doc_search.py` reduced by ~300 lines, `docubrowser.py` by ~240 lines.
+Stale development files deleted, `.gitignore` cleaned. Both files pass
+`py_compile` with zero stale references. Documentation (README, INSTALL,
+architecture notes) updated to reflect current feature set.
 
 ### Phase 5: Git history scrub (FOSS repo)
 

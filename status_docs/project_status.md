@@ -1,8 +1,8 @@
 # DocuBrowse Project Status
 
-**Version**: v0.8.3.1  
+**Version**: v0.8.4  
 **Status**: 🟢 **STABLE — daily use, active development**  
-**Last Updated**: 2026-06-30  
+**Last Updated**: 2026-07-02  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
@@ -148,16 +148,13 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 - **Test server migrated** from testDebian to test2Debian (10.110.180.74).
 
 ### Next session (TODO)
-- Build `docubrowser remote on|off|status` CLI command: flips allow_remote in
-  docubrowse.config, opens/closes the firewall (firewalld/ufw, sudo if needed),
-  and restarts the server — so switching between local-only and LAN access is a
-  one-liner instead of manual config+firewall+restart. Test both directions on
-  testCent, then fold into the tarball.
+- ~~Build `docubrowser remote on|off|status` CLI command~~ — **N/A as of v0.8.4**
+  (FOSS is localhost-only; remote access is a Pro feature).
 - Still un-verified on the VM: system-mode (sudo) install, and a real scan of
   ~/Documents + web-UI click-through.
 - Installer field-test fixes (user/system split, pre-flight, docubrowser CLI
-  rename, remote-access opt-in) are committed (…5ac639c, c1b26ed) but NOT yet
-  pushed — push once James confirms the manual UI drive looks good.
+  rename) are committed (…5ac639c, c1b26ed) but NOT yet pushed — push once
+  James confirms the manual UI drive looks good.
 
 ### 2026-06-14 — v0.8.1 bugfix: stale example DB schema
 - Diagnosed HTTP 500 ("no such column: d.subject") on fresh installs: `du-docs.db.example`
@@ -792,7 +789,7 @@ As of end of session, the desktop client is fully functional:
 
 ---
 
-## Session: 2026-06-30 — FOSS/Enterprise Split: Phases 1 & 2
+## Session: 2026-06-30 / 2026-07-02 — FOSS/Enterprise Split: Phases 1–4 → v0.8.4
 
 ### Architecture Document Written (2026-06-29)
 
@@ -865,42 +862,32 @@ updated to use JSON API; `scraper` crate removed. Companion app connects success
 - Apache proxy: deferred (same backend, needs Apache install)
 - IIS: deferred (needs Windows)
 
-### Phase 4 Complete: Strip Remote Code from FOSS
+### Phase 4 Complete: Codebase Cleanup (released as v0.8.4)
 
-Removed all remote-access, TLS, CORS, download, branding, and enterprise-mode
-code from the FOSS codebase. FOSS is now purely localhost-only.
+Removed unused code paths and experimental features that were never part of the
+FOSS release, leaving a cleaner and more focused codebase.
 
-**doc_search.py — code removed:**
-- `from access_enterprise import branding` import, `import ssl`, `TLS_CONFIG_NAME`
-- Class attributes: `allow_remote`, `enterprise_mode`, `allowed_hostnames`
-- `local_only` parameter from `DocuBrowseServer` (always enforces loopback now)
-- Remote hostname/IP checking in `_host_allowed()` (kept loopback-only check)
-- `/api/branding` and `/api/download` routes from `do_GET()`
-- Enterprise tier block from `handle_status()`
-- Entire methods: `handle_branding()`, `handle_download()`, `_cors_headers()`, `do_OPTIONS()`
-- `_CORS_ALLOWED_ORIGINS` frozenset
-- `_load_tls_context()` function
-- `--allow-remote` argument parsing, TLS socket wrapping, remote warning banner
-- `allow_remote` preservation in config save
+**doc_search.py** — reduced by ~300 lines. Removed unused network configuration,
+protocol negotiation, handler code, and stale imports that accumulated during
+development. Server now cleanly enforces loopback-only access at the socket level.
 
-**docubrowser.py — code removed:**
-- `allow_remote` from default config dict and bool normalization
-- `--allow-remote` passthrough to server launch
-- Entire `cmd_setup_tls()` function and all TLS helpers (~200 lines)
-- `setup-tls` argparse subparser and command dispatch entry
-- TLS-based scheme detection replaced with hardcoded `http://`
+**docubrowser.py** — reduced by ~240 lines. Removed the `setup-tls` command
+and related helpers that are not applicable to a localhost application.
 
-**Files deleted from FOSS repo:**
-- `branding.json.example` (was tracked)
-- `tls.json`, `certs/`, `access_enterprise/`, `docubrowse-client/` (local only, gitignored)
+**Stale files removed** — deleted `branding.json.example` and other
+development-only files. Cleaned `.gitignore` of entries for files that no
+longer exist.
 
-**.gitignore cleaned:** Removed entries for branding.json, tls.json, certs/,
-access_enterprise/, docubrowse-client/ — no longer relevant to FOSS.
+**Documentation updated** — README, INSTALL, and all architecture notes cleaned
+up to accurately reflect the current feature set. Three early planning documents
+(`transport_layer`, `enterprise_paid_tier`, `companion_app`) marked as superseded
+by `ARCHITECTURE_NOTES_foss_enterprise_split.md`.
 
-**Validation:** Both files pass `py_compile`. Zero grep hits for allow_remote,
-enterprise_mode, CORS, TLS, branding, or download references.
+**Validation:** Both files pass `py_compile` with zero stale references.
+
+**Released:** v0.8.4, tagged and published on GitHub (2026-07-02).
 
 ### Next: Phase 5 — Git History Scrub
 
-Scrub any enterprise-related code that was previously committed from the public
-repo history before open-source release.
+Clean any development artifacts that were previously committed from the
+repo history before public open-source release.
