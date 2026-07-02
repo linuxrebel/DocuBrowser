@@ -1,4 +1,4 @@
-# DocuBrowse v0.8.3.1
+# DocuBrowse v0.8.4
 
 <a name="top"></a>
 
@@ -668,6 +668,26 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 ## Recent Changes
 
 [↑ Top](#top)
+
+## v0.8.4 (2026-07-02)
+
+### Codebase cleanup and simplification
+
+Removes unused code paths and experimental features that were never part of the
+FOSS release, leaving a cleaner and more focused codebase.
+
+- **Leaner server** — `doc_search.py` reduced by ~300 lines; removed unused
+  network configuration, protocol negotiation, and handler code that had
+  accumulated during development.
+- **Leaner CLI** — `docubrowser.py` reduced by ~240 lines; removed the
+  `setup-tls` command and related helpers that are not applicable to a
+  localhost application.
+- **Stale files removed** — deleted `branding.json.example` and other
+  development-only files that were never used in production.
+- **Documentation updated** — README, INSTALL, and architecture notes cleaned
+  up to accurately reflect the current feature set.
+
+---
 
 ## v0.8.3.1 (2026-06-28)
 
