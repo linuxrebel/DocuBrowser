@@ -62,10 +62,7 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 - Alphabetic index bar (A–Z, 0–9) for quick navigation, with state preserved across page loads; Home button to reset
 - Tag cloud for filtering by topic
 - Relevance score badges (0–100%) on every result
-- **Open / Download buttons** on each result card — context-aware:
-  - **Local access** (localhost/127.x.x.x): **Open** button launches the file in your default app
-  - **Remote access** (LAN): **Download** button streams the file to your browser
-  - File path is hidden in local mode (not useful); shown only for remote access
+- **Open button** on each result card — launches the file in your default app via `xdg-open`
 - Click document title for an AI synopsis; 📋 copies path to clipboard; 🗑 deletes file from disk and index (with confirmation)
 - Moved/deleted documents: clicking a doc whose file no longer exists shows a dismissable
   modal (and removes it from the index on dismiss) if its filesystem is mounted, or a
@@ -309,12 +306,7 @@ doc_dir      = /mnt/data/Documents
 db_path      = /home/user/DocuBrowse/du-docs.db
 port         = 8643
 work_dir     = /home/user/DocuBrowse
-allow_remote = false
 ```
-
-`allow_remote` (boolean, default `false`) controls whether the server binds
-localhost-only (`127.0.0.1`) or all interfaces (`0.0.0.0`) for LAN access.
-See [Security](#security) before enabling it.
 
 ### Defaults
 
@@ -324,7 +316,6 @@ See [Security](#security) before enabling it.
 | `db_path` | `<script dir>/du-docs.db` |
 | `port` | `8643` |
 | `work_dir` | `<script dir>` |
-| `allow_remote` | `false` (localhost-only bind) |
 
 ---
 
@@ -531,8 +522,6 @@ is hardened so a malicious web page you happen to visit can't reach it:
 - **Host-header allow-list** — every request is rejected unless `Host` is
   `localhost`/`127.0.0.1`/`[::1]` (optionally with the serving port). Defeats
   DNS-rebinding against the localhost-bound server.
-- **No wildcard CORS** — `Access-Control-Allow-Origin: *` is gone, so other
-  origins can't read the index/config cross-origin.
 - **CSRF tokens on mutations** — `/api/delete` and `/api/open` are POST-only;
   they plus the POST config/dir routes and the filesystem-exposing
   `/api/browse` require a per-process `X-CSRF-Token` (injected into the served
@@ -545,34 +534,9 @@ is hardened so a malicious web page you happen to visit can't reach it:
   numbers by ABA checksum + Federal Reserve prefix — so it both catches more
   real PII and avoids deleting docs over incidental number groups.
 
-Authentication is still not provided; this is for trusted local use, not a
-network-exposed deployment.
-
-### Remote (LAN) access
-
-By default the server binds `127.0.0.1` (localhost only) and the firewall is
-left untouched. Remote/LAN access is strictly **opt-in**:
-
-- During install, `install.sh` asks **"Allow remote (LAN) access?"** (default
-  **No**). Non-interactively, set `DOCUBROWSE_ALLOW_REMOTE=1` to enable it.
-- When enabled, the installer binds `0.0.0.0`, opens the firewall for the
-  configured port (firewalld `--add-port=8643/tcp`, or ufw), and sets
-  `allow_remote=true` in `docubrowse.config`.
-
-Security implications of enabling remote access:
-
-- **No authentication yet** — remote access exposes read *and delete* to anyone
-  on the network. This is opt-in and the installer warns about it.
-- **DNS-rebinding is still blocked** — the Host allow-list always permits
-  loopback names, and additionally permits this host's own names + IP-literal
-  Host values when remote access is on.
-- **Mutating requests still require the CSRF token AND a same-origin
-  `Origin`/`Referer`** — this works for both local and LAN clients.
-
-> **Switching local ↔ remote after install is currently manual:** edit
-> `allow_remote` in `docubrowse.config`, open/close the firewall yourself, then
-> `docubrowser restart`. A `docubrowser remote on|off` command is planned but
-> **not yet available**.
+The server is localhost-only — it binds the loopback subnet and rejects all
+non-loopback connections at the socket level. No authentication is needed
+because only the local user can reach the server.
 
 ---
 
@@ -724,8 +688,6 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
   Returns the updated tag list. CSRF-protected.
 - **Card action icons restyled** — all icons (📋 🔖 🙈 ❌) now use solid,
   colorful emoji at full opacity. No more faded/dim icons in dark mode.
-- All changes ported to the Enterprise (Tauri) client.
-
 [↑ Top](#top)
 
 ## v0.8.3 (2026-06-27)
@@ -752,30 +714,19 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 - **`scan` command now embeds by default** (same as `rescan`) — new installations
   get working semantic search out of the box. Added `--no-embed` and
   `--embed-workers` flags for opt-out.
-- **Security hardening** — CSRF protection added to `/api/download` and
-  `/api/synopsis`; CORS restricted in remote mode; exception leak to client
-  suppressed.
-- **Remote card cleanup** — file path display removed from document cards in
-  remote mode for a cleaner layout.
+- **Security hardening** — CSRF protection added to `/api/synopsis`; exception
+  leak to client suppressed.
 
 ---
 
 ## v0.8.2 (2026-06-27)
 
-### UI: Open/Download buttons, TLS support, CLI improvements
+### UI: Open button, CLI improvements
 
-- **Open / Download action buttons** replace the old clickable file path link on each
-  result card. Context-aware: local access shows **Open** (launches in default app via
-  xdg-open), remote access shows **Download** (streams file via `/api/download`). File
-  path is hidden in local mode for a cleaner card layout.
+- **Open action button** replaces the old clickable file path link on each result card —
+  launches the file in your default app via `xdg-open`.
 - **Button styling** updated — buttons use accent-colored border and text with a filled
   hover state, replacing the previous dim/greyed appearance.
-- **TLS / HTTPS support** — the server can now serve over HTTPS with a self-signed
-  certificate. The CLI launcher (`docubrowser.py`) auto-detects the scheme when running
-  health checks and displays the correct URL. `curl` examples in documentation updated
-  with `-k` flag for self-signed certs.
-- **CLI health check** fixed for HTTPS servers — `server_stats()` now tries HTTPS first
-  with certificate verification disabled (`ssl.CERT_NONE`), then falls back to HTTP.
 
 ---
 
@@ -835,7 +786,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
   directory, cleans up pid/log files, and (system mode, separate confirmation)
   can remove the dedicated `docubrowse` user/group.
 
-### Installer & remote access
+### Installer
 - **Installer:** rewritten `install.sh`/`uninstall.sh` with a clean user vs.
   system split — user mode installs to `~/.docubrowse` (own venv, wrapper at
   `~/.local/bin/docubrowser`, no root, no systemd); system mode installs to
@@ -849,9 +800,6 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 - **requirements.txt** added and installed via `pip install -r requirements.txt`
   — now includes previously-missing deps (numpy, python-pptx, openpyxl)
   alongside pdfplumber, pypdf, python-docx, ebooklib, beautifulsoup4, mobi.
-- **Opt-in LAN access:** localhost-only by default; when enabled the installer
-  binds `0.0.0.0`, opens the firewall, sets `allow_remote=true`, and keeps the
-  Host allow-list + CSRF/same-origin protections (see [Security](#security)).
 - **Fresh installs start empty:** `du-docs.db.example` now ships empty, so new
   installs begin with no documents indexed.
 - **Multiple document directories:** Settings now shows a single "Document
@@ -862,11 +810,11 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 ### Security & reliability hardening
 Remediation of a full code-quality + security audit (details in
 `status_docs/DECISIONS.md`). Highlights:
-- **Security:** Host-header allow-list (anti DNS-rebinding); removed wildcard
-  CORS; `/api/delete` and `/api/open` moved to POST and, with the POST config/
-  dir routes and `/api/browse`, gated by a per-process CSRF token + loopback
-  origin; stored-XSS vector closed (data-attribute + delegated listeners);
-  PII purge now validates with SSA rules + Luhn/IIN.
+- **Security:** Host-header allow-list (anti DNS-rebinding); `/api/delete` and
+  `/api/open` moved to POST and, with the POST config/dir routes and
+  `/api/browse`, gated by a per-process CSRF token + loopback origin;
+  stored-XSS vector closed (data-attribute + delegated listeners); PII purge
+  now validates with SSA rules + Luhn/IIN.
 - **Search:** keyword path now uses the FTS5 `bm25()` index and semantic scoring
   uses a cached NumPy embedding matrix instead of loading the whole corpus per
   request (keyword ~4ms, both ~55ms); server-side semantic search fixed (was

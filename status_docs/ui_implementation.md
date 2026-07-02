@@ -286,7 +286,7 @@ When implementing the actual `doc_search.py` server, ensure:
 - [x] Dates in ISO format (YYYY-MM-DDTHH:MM:SSZ)
 - [x] Path truncation is automatic (CSS handles display)
 - [x] Error responses include meaningful messages
-- [x] CORS headers allow browser requests
+- [x] Localhost-only server (loopback enforcement)
 - [x] Config endpoint persists to filesystem
 - [x] Browse endpoint lists directories safely
 

@@ -1,5 +1,10 @@
 # Enterprise/Paid Tier — Plan & Architecture
 
+> **SUPERSEDED (2026-06-30).** This planning document led to the FOSS/Enterprise
+> split implemented in `ARCHITECTURE_NOTES_foss_enterprise_split.md`. The
+> Enterprise repo (`DocuBrowse-Ent`) now contains all remote-access, branding,
+> SSO, and companion app code. FOSS is localhost-only (Phase 4 complete).
+
 Follow-up to `ARCHITECTURE_NOTES_transport_layer.md`. James's framing: most paying
 customers will be orgs, not individuals, and orgs already solve "remote access"
 via their own VPN. That changes what the paid tier actually needs to be.

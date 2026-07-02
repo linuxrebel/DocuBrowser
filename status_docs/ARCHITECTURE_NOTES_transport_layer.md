@@ -1,5 +1,10 @@
 # Transport/Access-Layer Split — Reading Notes
 
+> **SUPERSEDED (2026-06-30).** This was an early exploration document. The
+> decisions made here evolved into the FOSS/Enterprise split documented in
+> `ARCHITECTURE_NOTES_foss_enterprise_split.md`. FOSS is now localhost-only
+> (Phase 4 complete); all remote-access code lives in the Enterprise repo.
+
 Context: while debugging the browser-opener extension (2026-06-14), we hit a
 hard wall — browsers fundamentally don't let a remote page open a file in the
 client's OS default app. That pushed us toward a native companion app
