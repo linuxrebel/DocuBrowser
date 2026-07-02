@@ -188,13 +188,8 @@ doc_dir      = /mnt/data/Documents      # directory to index
 db_path      = /path/to/DocuBrowse/du-docs.db
 port         = 8643
 work_dir     = /path/to/DocuBrowse
-allow_remote = false                    # bind 127.0.0.1 only (see below)
 EOF
 ```
-
-`allow_remote` (bool) controls whether the server binds to all interfaces for
-LAN access. With `false` (the default) it binds `127.0.0.1` only. See
-**Remote (LAN) access** below before enabling it.
 
 If no config file exists, built-in defaults are used (`port = 8643`, database
 next to `docubrowser.py`) — except `doc_dir`, which has no default. Until you
@@ -203,35 +198,8 @@ configure one (via the Settings gear icon in the web UI, or by setting
 CLI commands that need a document directory (`rescan`, `report`, `scan`) exit
 with an error explaining how to set it.
 
----
-
-## Remote (LAN) access
-
-During an `install.sh` run the installer asks whether to allow remote (LAN)
-access. The default is **No**:
-
-- **No** (default) — the server binds `127.0.0.1` only and the firewall is left
-  untouched. Reachable only from the local machine.
-- **Yes** — the server binds `0.0.0.0`, the firewall is opened for the port
-  (firewalld `8643/tcp`, or `ufw` if that's what you run), and `allow_remote =
-  true` is written to `docubrowse.config`.
-
-To answer non-interactively, set the override before running the installer:
-```bash
-DOCUBROWSE_ALLOW_REMOTE=1 ./install.sh
-```
-
-> **WARNING:** DocuBrowse has **no authentication yet**. Only enable remote
-> access on trusted networks.
-
-To change this after install (current procedure):
-
-1. Edit `allow_remote` in `docubrowse.config`.
-2. Open or close the firewall for the port accordingly.
-3. `docubrowser restart`
-
-(A `docubrowser remote on|off` convenience command is planned but not yet
-available.)
+The server is localhost-only — it binds the loopback subnet (`127.0.0.0/8`)
+and rejects all non-loopback connections at the socket level.
 
 ---
 

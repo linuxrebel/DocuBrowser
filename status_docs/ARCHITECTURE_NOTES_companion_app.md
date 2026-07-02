@@ -1,5 +1,12 @@
 # Companion App — Architecture Notes
 
+> **SUPERSEDED (2026-06-30).** The companion app and all remote-access code
+> now live exclusively in the Enterprise repo (`DocuBrowse-Ent`). This
+> document records the original design; see
+> `ARCHITECTURE_NOTES_foss_enterprise_split.md` for the current architecture.
+> FOSS is localhost-only (Phase 4 complete); `/api/download`, CORS, TLS,
+> and branding have been removed from the FOSS codebase.
+
 Tauri v2 native client for accessing a remote DocuBrowse server. Replaces the
 abandoned browser-extension approach (see `DECISIONS.md` — Firefox `downloads.open()`
 hard wall). The server (`doc_search.py`) remains the single source of truth;
@@ -374,12 +381,11 @@ docubrowse-client/
 
 ### Repository structure (decided 2026-06-19)
 
-- **FOSS repo** (`DocuBrowser`, public): server, browser UI, API docs.
+- **FOSS repo** (`DocuBrowser`, public): localhost-only server, browser UI, API docs.
 - **Enterprise repo** (`DocuBrowse-Ent`, private): `access_enterprise/`,
-  `docubrowse-client/`, `DECISIONS.md`.
-- Both enterprise directories are in `.gitignore` in the public repo.
-  Files remain on disk for development but are not tracked publicly.
-- **Git history scrub needed** before public release.
+  `docubrowse-client/`, `DECISIONS.md`. FOSS repo as git submodule at `core/`.
+- All enterprise code and files have been removed from the FOSS repo (Phase 4).
+- **Git history scrub needed** before public release (Phase 5).
 
 ---
 

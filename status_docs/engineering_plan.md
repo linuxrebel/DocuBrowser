@@ -87,7 +87,7 @@
 - Port conflict detection (errno 98)
 - Graceful degradation when Ollama unavailable
 
-**CORS**: Enabled for future frontend separation
+**Localhost-only**: Server binds loopback subnet; rejects all non-loopback connections
 
 ### 1.4 Frontend UI
 
