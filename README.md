@@ -571,7 +571,8 @@ DocuBrowse/
 ├── README.md               # This file
 ├── LICENSE                 # GPL-3.0
 ├── status_docs/            # Project planning and decision logs
-│   └── project_status.md   # Current version, session history
+│   ├── project_status.md   # Current version, session history
+│   └── DECISIONS.md        # Deferred decisions and known issues
 └── test_pdfs_live/         # 100 sample PDFs for testing
 ```
 
@@ -660,6 +661,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Multiple top-level doc directories | Fully supported — configure any number of additional scan directories in the General panel (`scan_dirs.txt`); `scan`/`rescan` automatically scan all of them into the single shared database |
 | Moved/renamed files | Not detected as moves — old path is removed (interactively or via `scan-missing`), new path is picked up on next rescan as a fresh entry; true duplicates are caught by `duplist`/`dupclean` |
 | No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure |
+| English only | Keyword search, tag generation, and synopsis prompts assume English content; multi-language support is planned (see `status_docs/DECISIONS.md`) |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 
 ---
@@ -905,10 +907,11 @@ with full context, load these files at the start:
 |------|---------|
 | `.claude/CLAUDE.md` | Project rules, key files, hard-won lessons |
 | `status_docs/project_status.md` | Version, session history, what's in progress |
+| `status_docs/DECISIONS.md` | Deferred decisions, known issues, rationale |
 
 ```bash
-# Print both for copy/paste into any AI assistant
-cat .claude/CLAUDE.md status_docs/project_status.md
+# Print all three for copy/paste into any AI assistant
+cat .claude/CLAUDE.md status_docs/project_status.md status_docs/DECISIONS.md
 ```
 
 ---
