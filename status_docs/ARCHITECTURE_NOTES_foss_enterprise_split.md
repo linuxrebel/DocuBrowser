@@ -1,7 +1,7 @@
 # FOSS / Enterprise Split — Remote Capabilities Architecture
 
 **Date:** 2026-06-29
-**Status:** In progress — Phases 1–4 complete, Phase 5 (git history scrub) next
+**Status:** In progress — Phases 1–5 complete — FOSS repo history is clean
 **Author:** James Sparenberg + Claude (architecture session)
 
 ---

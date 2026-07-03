@@ -887,7 +887,31 @@ by `ARCHITECTURE_NOTES_foss_enterprise_split.md`.
 
 **Released:** v0.8.4, tagged and published on GitHub (2026-07-02).
 
-### Next: Phase 5 — Git History Scrub
+### Phase 5 Complete: Git History Scrub (2026-07-02)
 
-Clean any development artifacts that were previously committed from the
-repo history before public open-source release.
+Used `git filter-repo` to remove all enterprise artifacts from the FOSS
+repo's entire commit history:
+
+**Paths removed from history:**
+- `access_enterprise/` — enterprise server code
+- `docubrowse-client/` — Tauri companion app
+- `browser-extension/` — abandoned browser extension attempt
+- `branding.json.example` — enterprise branding
+- `tls.json`, `certs/` — TLS configuration
+
+**Branches deleted from GitHub:**
+- `app-dev` — companion app development
+- `browser-extension-attempt` — abandoned extension work
+
+**Result:** 214 commits rewritten, zero enterprise paths in history.
+All tags (v0.1.0 through v0.8.4) force-pushed with new hashes.
+Backup preserved at `DocuBrowse-backup-pre-scrub`.
+
+**Note:** GitHub warned about a 73MB `DocuBrowse-v0.8.3.tar.gz` in history —
+a release tarball that was accidentally committed. Should be scrubbed in a
+follow-up pass.
+
+### All FOSS/Enterprise split phases complete
+
+Phases 1–5 done. Remaining FOSS backlog: logo/icon (design task),
+server packaging (decision pending).
