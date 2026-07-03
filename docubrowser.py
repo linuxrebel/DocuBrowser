@@ -21,8 +21,6 @@ Commands:
   purge       Scan index for PII and remove matching documents
   duplist     List duplicate documents (exact SHA256 + optional near-dup)
   dupclean    Interactively review and remove duplicate documents
-  backup      Back up runtime data (database, config, blacklists)
-  restore     Restore runtime data from a backup
 """
 
 import argparse
@@ -1653,59 +1651,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan_missing.add_argument("--dry-run", action="store_true", dest="dry_run",
                                  help="Show what would be removed without changing the DB")
 
-    # backup / restore
-    p_backup = sub.add_parser(
-        "backup",
-        help="Back up runtime data (database, config, blacklists)",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=textwrap.dedent("""\
-            Creates a timestamped tarball of all runtime data files.
-            Keeps up to 3 backups; oldest is pruned automatically.
-            A fresh install + restore yields a fully working system.
-
-            Examples:
-              backup                        back up to default location
-              backup --backup-dir ~/backups  back up to custom directory
-        """),
-    )
-    p_backup.add_argument("--db", metavar="PATH", help="Database / data directory path")
-    p_backup.add_argument("--backup-dir", metavar="PATH",
-                          help="Override backup storage directory")
-
-    p_restore = sub.add_parser(
-        "restore",
-        help="Restore runtime data from a backup",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=textwrap.dedent("""\
-            Lists available backups and lets you choose which to restore.
-            Defaults to the newest backup.  Stop the server before restoring.
-
-            Examples:
-              restore                        restore from default backup location
-              restore --backup-dir ~/backups  restore from custom directory
-        """),
-    )
-    p_restore.add_argument("--db", metavar="PATH", help="Database / data directory path")
-    p_restore.add_argument("--backup-dir", metavar="PATH",
-                           help="Override backup storage directory")
-
     return parser
-
-
-def cmd_backup(config: dict, args):
-    """Create a backup of runtime data."""
-    from backup_restore import do_backup, _resolve_data_dir, _resolve_backup_dir
-    data_dir   = _resolve_data_dir(args.db)
-    backup_dir = _resolve_backup_dir(getattr(args, "backup_dir", None))
-    do_backup(data_dir, backup_dir)
-
-
-def cmd_restore(config: dict, args):
-    """Restore runtime data from a backup."""
-    from backup_restore import do_restore, _resolve_data_dir, _resolve_backup_dir
-    data_dir   = _resolve_data_dir(args.db)
-    backup_dir = _resolve_backup_dir(getattr(args, "backup_dir", None))
-    do_restore(data_dir, backup_dir)
 
 
 COMMANDS = {
@@ -1725,8 +1671,6 @@ COMMANDS = {
     "duplist":   cmd_duplist,
     "dupclean":  cmd_dupclean,
     "scan-missing": cmd_scan_missing,
-    "backup":    cmd_backup,
-    "restore":   cmd_restore,
 }
 
 
