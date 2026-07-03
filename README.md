@@ -571,8 +571,7 @@ DocuBrowse/
 ├── README.md               # This file
 ├── LICENSE                 # GPL-3.0
 ├── status_docs/            # Project planning and decision logs
-│   ├── project_status.md   # Current version, session history
-│   └── DECISIONS.md        # Deferred decisions and known issues
+│   └── project_status.md   # Current version, session history
 └── test_pdfs_live/         # 100 sample PDFs for testing
 ```
 
@@ -660,7 +659,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Scanned PDFs not searchable | Listed in ocr_list_pdfs.txt; OCR deferred |
 | Multiple top-level doc directories | Fully supported — configure any number of additional scan directories in the General panel (`scan_dirs.txt`); `scan`/`rescan` automatically scan all of them into the single shared database |
 | Moved/renamed files | Not detected as moves — old path is removed (interactively or via `scan-missing`), new path is picked up on next rescan as a fresh entry; true duplicates are caught by `duplist`/`dupclean` |
-| No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure. Remote (LAN) access is opt-in and warned at install time — enabling it exposes read/delete to the whole network |
+| No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 
 ---
@@ -906,11 +905,10 @@ with full context, load these files at the start:
 |------|---------|
 | `.claude/CLAUDE.md` | Project rules, key files, hard-won lessons |
 | `status_docs/project_status.md` | Version, session history, what's in progress |
-| `status_docs/DECISIONS.md` | Deferred decisions, known problem files, rationale |
 
 ```bash
-# Print all three for copy/paste into any AI assistant
-cat .claude/CLAUDE.md status_docs/project_status.md status_docs/DECISIONS.md
+# Print both for copy/paste into any AI assistant
+cat .claude/CLAUDE.md status_docs/project_status.md
 ```
 
 ---
@@ -927,4 +925,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.8.3.1** — Fast, local, AI-powered document search.
+**DocuBrowse v0.8.4** — Fast, local, AI-powered document search.

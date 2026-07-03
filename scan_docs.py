@@ -29,6 +29,10 @@ from pathlib import Path
 from docubrowse_db import get_db, delete_documents
 
 
+# HTtrack-mirrored sites save pages as extensionless files (e.g. "index"
+# instead of "index.html").  These are picked up by the no-extension
+# classifier below (_classify_noext) which detects HTML via tag heuristics
+# and routes them through _extract_text_file.
 DEFAULT_EXTENSIONS = [".pdf", ".docx", ".pptx", ".xlsx",
                       ".epub", ".mobi", ".azw", ".azw3",
                       ".txt", ".md", ".html",
@@ -128,6 +132,77 @@ def _load_scan_dirs(db_path: Path) -> set:
         if line and not line.startswith("#"):
             dirs.add(str(Path(line).expanduser().resolve()))
     return dirs
+
+
+def _classify_noext(file_path: Path) -> str:
+    """Classify a file with no extension by reading its first 8192 bytes.
+
+    Returns a synthetic extension string ('pdf', 'docx', 'html', 'text', etc.)
+    or 'skip' if the file is a binary format we don't handle (ELF, images, etc.).
+
+    Must be module-level (not nested) — called inside ProcessPoolExecutor workers
+    which require picklable callables.
+    """
+    try:
+        with open(file_path, "rb") as fh:
+            head = fh.read(8192)
+    except OSError:
+        return "skip"
+
+    if not head:
+        return "skip"
+
+    # ── Magic-number signatures ──
+    if head[:5] == b"%PDF-":
+        return "pdf"
+
+    # ZIP-based Office / EPUB containers
+    if head[:4] == b"PK\x03\x04":
+        # Check for Office XML or EPUB content-type markers in the first 8 KB
+        chunk = head[:8192]
+        if b"word/" in chunk or b"word\\" in chunk:
+            return "docx"
+        if b"ppt/" in chunk or b"ppt\\" in chunk:
+            return "pptx"
+        if b"xl/" in chunk or b"xl\\" in chunk:
+            return "xlsx"
+        if b"EPUB" in chunk or b"epub" in chunk:
+            return "epub"
+        return "skip"  # unknown ZIP archive
+
+    # Binary formats we can't extract text from — skip early
+    if head[:4] == b"\x7fELF":            # ELF executable
+        return "skip"
+    if head[:8] == b"\x89PNG\r\n\x1a\n":  # PNG image
+        return "skip"
+    if head[:2] == b"\xff\xd8":            # JPEG image
+        return "skip"
+    if head[:6] in (b"GIF87a", b"GIF89a"):  # GIF image
+        return "skip"
+
+    # ── HTML heuristics ──
+    # Check the first portion for common HTML indicators
+    try:
+        text_head = head[:4096].decode("utf-8", errors="replace").lower()
+    except Exception:
+        return "skip"
+
+    html_markers = ("<!doctype html", "<html", "<head", "<body",
+                    "<div", "<table", "<meta", "<link", "<script")
+    if any(marker in text_head for marker in html_markers):
+        return "html"
+
+    # ── Fallback: is it readable text? ──
+    try:
+        sample = head[:4096].decode("utf-8")
+        # If >90% of characters are printable ASCII/whitespace, treat as text
+        printable = sum(1 for c in sample if c.isprintable() or c in "\n\r\t")
+        if len(sample) > 0 and printable / len(sample) > 0.90:
+            return "text"
+    except UnicodeDecodeError:
+        pass
+
+    return "skip"
 
 
 def _under_any(path: Path, dirs: set) -> bool:
@@ -330,25 +405,37 @@ def _extract_file(args: tuple) -> dict:
     try:
         ext = file_path.suffix.lower()
 
-        if ext == ".pdf":
+        # No-extension files: classify by magic bytes / content heuristics
+        detected_ext = ""
+        if not ext:
+            detected_ext = _classify_noext(file_path)
+            if detected_ext == "skip":
+                base["error"] = "unrecognised binary format (no extension)"
+                return base
+
+        effective_ext = ext or f".{detected_ext}"
+
+        if effective_ext == ".pdf":
             import contextlib, io
             from pdf_extractor import extract_pdf, generate_keywords
             # pdfminer/pdfplumber emit harmless color-space warnings to stderr;
             # suppress them in the worker process so they never reach the terminal.
             with contextlib.redirect_stderr(io.StringIO()):
                 result = extract_pdf(str(file_path))
-        elif ext == ".docx":
+        elif effective_ext == ".docx":
             from docx_extractor import extract_docx
             result = extract_docx(str(file_path))
-        elif ext == ".pptx":
+        elif effective_ext == ".pptx":
             from pptx_extractor import extract_pptx
             result = extract_pptx(str(file_path))
-        elif ext == ".xlsx":
+        elif effective_ext == ".xlsx":
             from xlsx_extractor import extract_xlsx
             result = extract_xlsx(str(file_path))
-        elif ext in (".epub", ".mobi", ".azw", ".azw3"):
+        elif effective_ext in (".epub", ".mobi", ".azw", ".azw3"):
             from ebook_extractor import extract_ebook
             result = extract_ebook(str(file_path))
+        elif detected_ext == "html":
+            result = _extract_text_file(file_path, detected_ext="html")
         else:
             result = _extract_text_file(file_path)
 
@@ -363,7 +450,9 @@ def _extract_file(args: tuple) -> dict:
 
         # Auto-generate tags
         tags = set()
-        tags.add(ext.lstrip("."))                             # extension
+        tag_ext = detected_ext if detected_ext else ext.lstrip(".")
+        if tag_ext:
+            tags.add(tag_ext)                                 # extension
         for parent in file_path.parents:                     # folder names
             # Stop at doc_dir; also stop if the file isn't under doc_dir at all
             # (mismatched --doc-dir) so we don't tag with filesystem-root dir
@@ -374,10 +463,10 @@ def _extract_file(args: tuple) -> dict:
             if len(name) > 2:
                 tags.add(name)
 
-        if ext in _CODE_EXTENSIONS:
+        if effective_ext in _CODE_EXTENSIONS:
             tags.add("code")
 
-        if ext in (".pdf", ".docx", ".pptx", ".xlsx", ".epub", ".mobi", ".azw", ".azw3"):
+        if effective_ext in (".pdf", ".docx", ".pptx", ".xlsx", ".epub", ".mobi", ".azw", ".azw3"):
             from pdf_extractor import generate_keywords
             keywords = generate_keywords(
                 result.get("text", ""), result.get("title", ""), max_keywords=5
@@ -388,8 +477,8 @@ def _extract_file(args: tuple) -> dict:
             **base,
             "success":     True,
             "size_bytes":  size_bytes,
-            "file_ext":    ext,
-            "doc_type":    result.get("doc_type", ext.lstrip(".")),
+            "file_ext":    effective_ext,
+            "doc_type":    result.get("doc_type", effective_ext.lstrip(".")),
             "title":       result.get("title") or file_path.stem,
             "author":      result.get("author"),
             "subject":     result.get("subject"),
@@ -410,8 +499,13 @@ def _extract_file(args: tuple) -> dict:
         signal.alarm(0)   # always cancel the alarm
 
 
-def _extract_text_file(file_path: Path) -> dict:
-    """Extract plain text from .txt / .md / .html files."""
+def _extract_text_file(file_path: Path, detected_ext: str = "") -> dict:
+    """Extract plain text from .txt / .md / .html files.
+
+    *detected_ext* overrides the suffix for no-extension files classified
+    by _classify_noext() — e.g. "html" routes an extensionless httrack page
+    through the HTML tag-stripping path.
+    """
     result = {
         "title": file_path.stem,
         "author": None,
@@ -429,7 +523,7 @@ def _extract_text_file(file_path: Path) -> dict:
         # tag-stripping below.
         with open(file_path, encoding="utf-8", errors="replace") as fh:
             text = fh.read(200_000)
-        if file_path.suffix.lower() == ".html":
+        if file_path.suffix.lower() == ".html" or detected_ext == "html":
             import re, html as html_mod
             text = re.sub(r"<script[^>]*>.*?</script>", "", text,
                           flags=re.DOTALL | re.IGNORECASE)
@@ -587,7 +681,7 @@ def scan_directory(
 
     all_files = sorted(
         f for f in doc_dir.rglob("*")
-        if f.is_file() and f.suffix.lower() in extensions
+        if f.is_file() and (f.suffix.lower() in extensions or not f.suffix)
     )
 
     # Drop anything under an ignored directory before the indexing check.

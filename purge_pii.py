@@ -74,7 +74,7 @@ def _valid_aba(m) -> bool:
     # 61-72, or 80. Reject anything outside that.
     prefix = int(digits[:2])
     valid_ranges = (
-        (0, 12), (21, 32), (61, 72), (80, 80),
+        (1, 12), (21, 32), (61, 72), (80, 80),
     )
     if not any(lo <= prefix <= hi for lo, hi in valid_ranges):
         return False
@@ -168,7 +168,7 @@ _PII_PATTERNS = [
     # account numbers, so context is the only discriminator.
     ("Bank Account Number",
      re.compile(
-         r'\b(?:(?:bank\s+)?account(?:\s+(?:no|number|#))?|acct)[:\s#]+(?<!\d)\d{4,17}(?!\d)',
+         r'\b(?:(?:bank\s+)?account|acct)(?:\s+(?:no|number|#))?[:\s#]+(?<!\d)\d{4,17}(?!\d)',
          re.IGNORECASE),
      None),
 ]
