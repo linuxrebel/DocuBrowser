@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DocuBrowse</title>
+<link rel="icon" type="image/x-icon" href="icons/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=DM+Sans:wght@400;500;600&display=swap');
 
@@ -42,8 +46,8 @@
     position:sticky; top:0; background:var(--header-bg); z-index:100;
     backdrop-filter:blur(12px);
   }
-  .logo { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:1.1rem; color:var(--accent); white-space:nowrap; }
-  .logo span { color:var(--text-dim); font-weight:300; }
+  .logo { white-space:nowrap; line-height:0; }
+  .logo img { height:2rem; width:auto; vertical-align:middle; }
   .search-wrap { flex:1; max-width:600px; position:relative; }
   .search-wrap svg { position:absolute; left:12px; top:50%; transform:translateY(-50%); width:18px; height:18px; stroke:var(--text-dim); }
   .search-input {
@@ -289,7 +293,7 @@
 </head>
 <body>
 <div class="header">
-  <div class="logo">docu<span>/</span>browse</div>
+  <div class="logo"><img src="icons/docubrowse.svg" alt="DocuBrowse"></div>
   <div class="search-wrap">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input class="search-input" id="searchInput" type="text" placeholder="Search documents… e.g. 'quarterly report' or 'budget analysis'" autofocus>

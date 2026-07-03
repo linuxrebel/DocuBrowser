@@ -448,6 +448,17 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.handle_browse(query)
             elif path == '/api/status':
                 self.handle_status()
+            elif path == '/favicon.ico':
+                self.serve_file('icons/favicon.ico')
+            elif path.startswith('/icons/'):
+                # Serve icon assets — restrict to known safe extensions
+                fname = path[len('/icons/'):]
+                if '/' in fname or '..' in fname:
+                    self.error_response(403, "Forbidden")
+                elif fname.endswith(('.png', '.svg', '.ico')):
+                    self.serve_file(f'icons/{fname}')
+                else:
+                    self.error_response(404, "Not found")
             else:
                 self.error_response(404, "Not found")
         except Exception:
@@ -1400,6 +1411,12 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 self.send_header('Content-Type', 'text/css; charset=utf-8')
             elif filename.endswith('.js'):
                 self.send_header('Content-Type', 'application/javascript; charset=utf-8')
+            elif filename.endswith('.png'):
+                self.send_header('Content-Type', 'image/png')
+            elif filename.endswith('.svg'):
+                self.send_header('Content-Type', 'image/svg+xml')
+            elif filename.endswith('.ico'):
+                self.send_header('Content-Type', 'image/x-icon')
             else:
                 self.send_header('Content-Type', 'application/octet-stream')
 
