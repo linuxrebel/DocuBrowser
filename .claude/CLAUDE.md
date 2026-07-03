@@ -19,7 +19,7 @@ unguarded stat() call in sort key, NameError from conditionally-defined variable
 ## Project Context
 - Repo: /home/james/git/AI/DocuBrowse
 - Main entry point: docubrowser.py
-- Decisions log: DECISIONS.md lives in the enterprise repo (DocuBrowse-Ent); not in this FOSS repo
+- Decisions log: status_docs/DECISIONS.md
 - Status doc: status_docs/project_status.md
 
 ## Key Files
