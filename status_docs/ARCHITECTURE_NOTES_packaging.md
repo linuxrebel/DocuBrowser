@@ -276,8 +276,18 @@ Current `ensure_ollama.py` tries to install Ollama on Linux. For packaging:
 1. **Icons** — design logo, export to .ico / .icns / .png / .svg
 2. **Rename .docubrowse → .docubrowser** — update install.sh, uninstall.sh,
    README, INSTALL.md, Admin Guide (small patch, do first)
-3. **Test xdg-open / os.startfile on Windows** — verify the "Open" button
-   in doc_search.py works cross-platform, or add platform dispatch
+3. **Cross-platform file/URL open** — replace `gio open`/`xdg-open` in
+   `doc_search.py` with the pattern from `/home/james/bin/reddit_gallery.py`:
+   - Windows: `os.startfile(path)` (bypasses `webbrowser.open()` which can
+     silently no-op on Store Python / odd browser registrations). Fallback
+     to `webbrowser.open()`.
+   - WSL: detect via `platform.uname().release` or `/proc/version` containing
+     "microsoft". Use `cmd.exe /c start "" <path>` with all stdio detached
+     (`subprocess.DEVNULL`) to avoid WSL interop quirks. Empty `""` is a
+     required window-title placeholder for `start`.
+   - Linux/macOS: `webbrowser.open()` (handles xdg-open/open internally).
+   This eliminates the current manual desktop-session env reconstruction
+   (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, etc.) in `handle_open`.
 4. **Config location** — DECIDED: follow OS conventions per platform:
    - Linux: `~/.config/docubrowser.config`
    - macOS: `~/Library/Application Support/DocuBrowser/docubrowser.config`
