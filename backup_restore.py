@@ -53,10 +53,8 @@ def _require_elevated() -> None:
 
 MAX_BACKUPS = 3
 
-# Preferred backup location; falls back to user-writable path if /opt is
-# not available (e.g. non-root user without prior setup).
-_PREFERRED_BACKUP_DIR = Path("/opt/docubrowser/backup")
-_FALLBACK_BACKUP_DIR  = Path.home() / ".local/share/docubrowser/backup"
+# Canonical backup location (root is required, so /opt is always writable).
+BACKUP_DIR = Path("/opt/docubrowser/backups")
 
 # Files to back up, relative to the data directory (where du-docs.db lives).
 # All are optional — a fresh install may not have all of them yet.
@@ -74,43 +72,18 @@ BACKUP_FILES = [
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _resolve_backup_dir(override: str | None) -> Path:
-    """Pick the backup directory: explicit override > /opt > ~/.local/share."""
-    if override:
-        d = Path(override)
-    elif _PREFERRED_BACKUP_DIR.parent.exists():
-        # /opt/docubrowser exists (or /opt is writable) — use preferred
-        d = _PREFERRED_BACKUP_DIR
-    else:
-        d = _FALLBACK_BACKUP_DIR
+    """Pick the backup directory: explicit override or /opt/docubrowser/backups."""
+    d = Path(override) if override else BACKUP_DIR
 
     try:
         d.mkdir(parents=True, exist_ok=True)
     except PermissionError:
-        if d == _PREFERRED_BACKUP_DIR:
-            d = _FALLBACK_BACKUP_DIR
-        else:
-            print(f"ERROR: Cannot create backup directory: {d}")
-            sys.exit(1)
-
-    # Second attempt (fallback) or writable check on first choice
-    if not d.exists():
-        try:
-            d.mkdir(parents=True, exist_ok=True)
-        except PermissionError:
-            print(f"ERROR: Cannot create backup directory: {d}")
-            sys.exit(1)
+        print(f"ERROR: Cannot create backup directory: {d}")
+        sys.exit(1)
 
     if not os.access(d, os.W_OK):
-        if d == _PREFERRED_BACKUP_DIR:
-            d = _FALLBACK_BACKUP_DIR
-            try:
-                d.mkdir(parents=True, exist_ok=True)
-            except PermissionError:
-                print(f"ERROR: Cannot create backup directory: {d}")
-                sys.exit(1)
-        if not os.access(d, os.W_OK):
-            print(f"ERROR: Backup directory is not writable: {d}")
-            sys.exit(1)
+        print(f"ERROR: Backup directory is not writable: {d}")
+        sys.exit(1)
 
     return d
 
@@ -362,8 +335,7 @@ def build_parser() -> argparse.ArgumentParser:
                         "(default: directory containing this script)")
     p.add_argument("--backup-dir", metavar="PATH",
                    help="Override backup storage directory "
-                        f"(default: {_PREFERRED_BACKUP_DIR} or "
-                        f"{_FALLBACK_BACKUP_DIR})")
+                        f"(default: {BACKUP_DIR})")
     return p
 
 
