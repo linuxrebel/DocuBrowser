@@ -18,11 +18,35 @@ Usage:
 """
 
 import argparse
+import ctypes
 import os
+import platform
 import sys
 import tarfile
 from datetime import datetime
 from pathlib import Path
+
+
+# ── Privilege check ───────────────────────────────────────────────────────────
+
+def _require_elevated() -> None:
+    """Exit with an error if the process lacks root (Linux/macOS/FreeBSD) or
+    Administrator (Windows) privileges."""
+    if platform.system() == "Windows":
+        try:
+            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except AttributeError:
+            is_admin = False
+        if not is_admin:
+            print("ERROR: This script must be run as Administrator.")
+            print("       Right-click your terminal and choose 'Run as administrator'.")
+            sys.exit(1)
+    elif hasattr(os, "geteuid"):
+        # Works on Linux, Darwin, FreeBSD, Cygwin, etc.
+        if os.geteuid() != 0:
+            print("ERROR: This script must be run as root.")
+            print("       Use:  sudo ./backup_restore.py ...")
+            sys.exit(1)
 
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
@@ -346,6 +370,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main():
     parser = build_parser()
     args = parser.parse_args()
+
+    _require_elevated()
 
     data_dir   = _resolve_data_dir(args.db)
     backup_dir = _resolve_backup_dir(args.backup_dir)
