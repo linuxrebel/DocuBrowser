@@ -139,15 +139,11 @@ meaningful vectors.
 This connects directly to D-1 (multi-language support). The modular RAG
 architecture makes language a configuration choice rather than a code change.
 
-**FOSS scope:** Embed product docs (README, INSTALL.md, Admin Guide,
-troubleshooting sections) and expose an interactive assistant in the UI.
-Proves the pattern works and is useful out of the box.
-
-**Enterprise scope:** Extend to customer-provided knowledge bases, role-based
-access, conversation history, larger/multilingual model support, and
-multi-language deployments. Organizations embed their own internal docs,
-runbooks, and procedures — the assistant becomes a domain expert for their
-specific environment.
+**Enterprise only.** This feature lives entirely in the Enterprise repo.
+Customer-provided knowledge bases, role-based access, conversation history,
+larger/multilingual model support, and multi-language deployments.
+Organizations embed their own internal docs, runbooks, and procedures — the
+assistant becomes a domain expert for their specific environment.
 
 **Implementation considerations:**
 - Embedding infrastructure already exists (nomic-embed-text + vector store)
