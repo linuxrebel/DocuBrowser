@@ -37,14 +37,34 @@ from pathlib import Path
 from urllib.request import urlopen
 from urllib.error import URLError
 
+# ─── Paths ───────────────────────────────────────────────────────────────────
+# APP_DIR  = where the code lives (scripts, HTML, icons).  Always the
+#            directory containing this file — read-only in packaged installs.
+# DATA_DIR = where runtime data lives (DB, config, blacklists).  Equals
+#            APP_DIR when running from a writable checkout (dev mode), or
+#            ~/.docubrowser/ when APP_DIR is read-only (RPM/DEB install).
+
+APP_DIR      = Path(__file__).resolve().parent
+USER_DATA    = Path.home() / ".docubrowser"
+
+
+def _default_data_dir() -> Path:
+    """APP_DIR if writable (dev mode), else ~/.docubrowser/ (packaged)."""
+    if os.access(APP_DIR, os.W_OK):
+        return APP_DIR
+    USER_DATA.mkdir(parents=True, exist_ok=True)
+    return USER_DATA
+
+
 # ─── Defaults ────────────────────────────────────────────────────────────────
 
 DEFAULT_PORT    = 8643
-DEFAULT_DB      = Path(__file__).parent / "du-docs.db"
+DEFAULT_DB      = _default_data_dir() / "du-docs.db"
 DEFAULT_DOC_DIR = ""  # no default — user must configure via Settings (gear icon) or docubrowse.config
 SERVER_SCRIPT   = "doc_search.py"  # Enterprise overrides to its own server
 CONFIG_PATHS    = [
-    Path(__file__).parent / "docubrowse.config",
+    USER_DATA / "docubrowse.config",          # packaged install
+    APP_DIR   / "docubrowse.config",          # dev / standalone
 ]
 
 
@@ -101,7 +121,7 @@ def load_config() -> dict:
         "doc_dir": DEFAULT_DOC_DIR,
         "db_path": str(DEFAULT_DB),
         "port":    DEFAULT_PORT,
-        "work_dir": str(Path(__file__).parent),
+        "work_dir": str(_default_data_dir()),
     }
 
     for cfg_path in CONFIG_PATHS:
@@ -198,9 +218,9 @@ def ensure_ollama() -> bool:
     nomic-embed-text:latest model — installing/starting/pulling as needed.
     Returns True if all prerequisites are met, False otherwise.
     """
-    script = Path(__file__).parent / "ensure_ollama.py"
+    script = APP_DIR / "ensure_ollama.py"
     if not script.exists():
-        print(f"ERROR: ensure_ollama.py not found in {Path(__file__).parent}")
+        print(f"ERROR: ensure_ollama.py not found in {APP_DIR}")
         print("Ollama prerequisites cannot be verified.")
         return False
     ret = subprocess.run([sys.executable, str(script)])
@@ -352,7 +372,7 @@ def cmd_start(config: dict, args):
     _kill_port(port)
 
     # Launch server as detached subprocess
-    server_script = Path(__file__).parent / SERVER_SCRIPT
+    server_script = APP_DIR / SERVER_SCRIPT
     if not server_script.exists():
         print(f"ERROR: Server script not found: {server_script}")
         sys.exit(1)
@@ -620,14 +640,14 @@ def cmd_rescan(config: dict, args):
         if not ensure_ollama():
             sys.exit(1)
 
-    scanner = Path(__file__).parent / "scan_docs.py"
+    scanner = APP_DIR / "scan_docs.py"
     if not scanner.exists():
         print(f"ERROR: scan_docs.py not found: {scanner}")
         sys.exit(1)
 
     # Print hardware summary so users know what parallelism is active
     try:
-        sys.path.insert(0, str(Path(__file__).parent))
+        sys.path.insert(0, str(APP_DIR))
         from hardware_utils import print_hardware_summary
         print_hardware_summary(workers, args.embed_workers)
     except Exception:
@@ -781,7 +801,7 @@ def _offer_purge(db_path: str):
                  if matches found, offer to proceed live.
     """
     try:
-        sys.path.insert(0, str(Path(__file__).parent))
+        sys.path.insert(0, str(APP_DIR))
         from purge_pii import run_purge
     except ImportError:
         return  # purge_pii.py missing — silently skip
@@ -830,7 +850,7 @@ def cmd_purge(config: dict, args):
         sys.exit(1)
 
     try:
-        sys.path.insert(0, str(Path(__file__).parent))
+        sys.path.insert(0, str(APP_DIR))
         from purge_pii import run_purge
     except ImportError as exc:
         print(f"ERROR: Could not load purge_pii.py: {exc}")
@@ -851,7 +871,7 @@ def cmd_ignore(config: dict, args):
     """
     db_path = Path(args.db or config["db_path"])
 
-    sys.path.insert(0, str(Path(__file__).parent))
+    sys.path.insert(0, str(APP_DIR))
     from scan_docs import IGNORE_DIRS_FILENAME, _load_ignore_dirs, purge_path_prefix
 
     ig_path = db_path.parent / IGNORE_DIRS_FILENAME
@@ -988,7 +1008,7 @@ def cmd_scan_file(config: dict, args):
     print(f"Database: {db_path}")
     print()
 
-    sys.path.insert(0, str(Path(__file__).parent))
+    sys.path.insert(0, str(APP_DIR))
     from scan_docs import scan_single_file
 
     result = scan_single_file(str(file_path), db_path, doc_dir=doc_dir)
@@ -1026,7 +1046,7 @@ def cmd_duplist(config: dict, args):
         print(f"ERROR: Database not found: {db_path}")
         sys.exit(1)
 
-    sys.path.insert(0, str(Path(__file__).parent))
+    sys.path.insert(0, str(APP_DIR))
     from dup_detect import find_exact_dups, find_near_dups, fmt_size, group_label
 
     total_docs = _db_count(db_path)
@@ -1084,7 +1104,7 @@ def cmd_dupclean(config: dict, args):
         print(f"ERROR: Database not found: {db_path}")
         sys.exit(1)
 
-    sys.path.insert(0, str(Path(__file__).parent))
+    sys.path.insert(0, str(APP_DIR))
     from dup_detect import find_exact_dups, find_near_dups, fmt_size, group_label
 
     total_docs = _db_count(db_path)
@@ -1324,7 +1344,7 @@ def _kill_port(port: int, verbose: bool = False) -> bool:
 
 
 def _run_embed(db_path: str, embed_workers: int = 6):
-    embedder = Path(__file__).parent / "embed_docs.py"
+    embedder = APP_DIR / "embed_docs.py"
     if not embedder.exists():
         print(f"ERROR: embed_docs.py not found: {embedder}")
         sys.exit(1)
@@ -1424,7 +1444,7 @@ def build_parser() -> argparse.ArgumentParser:
                           help="Skip embedding generation after scan")
     # Hardware-aware defaults
     try:
-        sys.path.insert(0, str(Path(__file__).parent))
+        sys.path.insert(0, str(APP_DIR))
         from hardware_utils import recommended_scan_workers, recommended_embed_workers
         _default_scan_workers  = recommended_scan_workers()
         _default_embed_workers = recommended_embed_workers()

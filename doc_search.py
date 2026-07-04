@@ -28,11 +28,28 @@ from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 
+# ─── Paths ───────────────────────────────────────────────────────────────────
+# APP_DIR  = code directory (scripts, HTML, icons) — always read-only safe.
+# USER_DATA = ~/.docubrowser/ — per-user runtime data (DB, config, blacklists).
+# _default_data_dir() returns APP_DIR when writable (dev), else USER_DATA.
+
+APP_DIR   = Path(__file__).resolve().parent
+USER_DATA = Path.home() / ".docubrowser"
+
+
+def _default_data_dir() -> Path:
+    """APP_DIR if writable (dev mode), else ~/.docubrowser/ (packaged)."""
+    if os.access(APP_DIR, os.W_OK):
+        return APP_DIR
+    USER_DATA.mkdir(parents=True, exist_ok=True)
+    return USER_DATA
+
+
 from docubrowse_db import get_db, check_missing_path, delete_document
 
 # Lazy-loaded scan_docs helpers (avoids sys.path.insert per request).
 # scan_docs.py lives in the same directory as this file.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(APP_DIR))
 from scan_docs import (                     # noqa: E402
     _load_ignore_dirs, _load_scan_dirs,
     IGNORE_DIRS_FILENAME, SCAN_DIRS_FILENAME,
@@ -1305,12 +1322,12 @@ class DocSearchHandler(BaseHTTPRequestHandler):
     def handle_config(self):
         """GET /api/config - Return current configuration."""
         cfg_paths = [
-            Path("/etc/docubrowse.config"),
-            Path(__file__).parent / "docubrowse.config",
+            USER_DATA / "docubrowse.config",    # packaged install
+            APP_DIR   / "docubrowse.config",    # dev / standalone
         ]
         config = {
             "docPath":      "",
-            "workDir":      str(Path(__file__).parent),
+            "workDir":      str(_default_data_dir()),
             "port":         DEFAULT_PORT,
             "installed":    False,
             "configSource": None,
@@ -1363,7 +1380,9 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.error_response(400, "workDir is required")
             return
 
-        cfg_path = Path(__file__).parent / "docubrowse.config"
+        data_dir = _default_data_dir()
+        data_dir.mkdir(parents=True, exist_ok=True)
+        cfg_path = data_dir / "docubrowse.config"
         try:
             lines = [
                 "# docubrowse.config — written by the Settings UI\n",
@@ -1381,7 +1400,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
     def serve_file(self, filename):
         """Serve a file from the current directory."""
-        filepath = Path(__file__).parent / filename
+        filepath = APP_DIR / filename
 
         if not filepath.exists():
             self.error_response(404, f"File not found: {filename}")
