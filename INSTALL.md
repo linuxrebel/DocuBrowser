@@ -1,6 +1,6 @@
-# DocuBrowse — Installation Guide
+# DocuBrowse v0.9.0 — Installation Guide
 
-This guide covers a fresh install on a Linux system (Fedora/RHEL/Debian/Ubuntu).
+This guide covers a fresh install on a Linux system (Fedora/RHEL/Debian/Ubuntu/Mint).
 DocuBrowse runs entirely locally — no cloud accounts or API keys required.
 
 ---
@@ -19,6 +19,7 @@ DocuBrowse runs entirely locally — no cloud accounts or API keys required.
 | ebooklib | any | EPUB extraction |
 | beautifulsoup4 | any | HTML stripping for EPUB/MOBI |
 | mobi | any | MOBI / AZW3 extraction |
+| psutil | any | hardware detection, cross-platform process management |
 | Ollama | latest | semantic search embeddings + synopsis generation |
 | SQLite | 3.35+ | bundled with Python |
 | nomic-embed-text | latest | embedding model (pulled automatically) |
@@ -29,35 +30,41 @@ GPU (NVIDIA/AMD) accelerates embedding generation but is not required.
 
 ---
 
-## Recommended install — `install.sh`
+## Recommended install — packages
 
-The easiest way to install DocuBrowse is the bundled `install.sh`, which runs a
-full set of pre-flight checks, reports **everything** that's missing at once, and
-changes nothing on your system until all checks pass.
+DocuBrowse ships as RPM, DEB, and tarball packages. Download the appropriate
+package from the [Releases](https://github.com/linuxrebel/DocuBrowser/releases)
+page.
 
-Pre-flight checks cover: `python3` >= 3.9 (with working `venv`/`ensurepip`),
-`rsync`, `curl`, `tar`, Calibre, and Ollama — plus `getent`, `useradd`,
-`groupadd`, and `systemctl` for system-mode installs.
-
-It has two modes:
-
-**User install** (run as a normal user):
+**Fedora / RHEL:**
 ```bash
-./install.sh
+sudo dnf install ./docubrowser-foss-0.9.0-7.noarch.rpm
 ```
-- Installs to `~/.docubrowse` with its own virtualenv.
-- CLI wrapper at `~/.local/bin/docubrowser` (ensure `~/.local/bin` is on your `PATH`).
-- No systemd integration.
-- Start it with: `docubrowser start`
 
-**System install** (run with sudo):
+**Debian / Ubuntu / Mint:**
 ```bash
+sudo apt install ./docubrowser-foss_0.9.0-7_all.deb
+```
+
+**Any Linux (tarball):**
+```bash
+tar xzf docubrowser-foss-0.9.0-7.tar.gz
+cd docubrowser-foss-0.9.0-7
 sudo ./install.sh
 ```
-- Installs to `/opt/docubrowse`, running as a dedicated `docubrowse` system user.
-- Installs a systemd unit `docubrowser.service` (installed but **not** auto-enabled).
-- CLI wrapper at `/usr/local/bin/docubrowser`.
-- Manage it with: `systemctl start docubrowser`
+
+All three methods install to `/opt/docubrowser/` with a Python virtualenv. The
+RPM and DEB automatically create the virtualenv and install Python dependencies
+in a post-install script. The tarball `install.sh` runs pre-flight checks
+(python3 >= 3.9, venv, ensurepip, xdg-terminal-exec) and reports everything
+missing before making changes.
+
+After installation:
+
+- CLI wrappers: `/usr/bin/docubrowser` and `/usr/bin/docuback`
+- Desktop menu entry: appears under Office
+- Start with: `docubrowser start`
+- Backup/restore: `docuback --backup` / `docuback --restore`
 
 An installed system is driven by the `docubrowser` command (not `./docubrowser.py`).
 
@@ -76,8 +83,8 @@ cd DocuBrowser
 Or unpack the release tarball:
 
 ```bash
-tar xzf docubrowse-v0.8.3.tar.gz
-cd docubrowse-v0.8.3
+tar xzf docubrowser-foss-0.9.0-7.tar.gz
+cd docubrowser-foss-0.9.0-7
 ```
 
 ---
@@ -92,7 +99,7 @@ pip install -r requirements.txt
 If you prefer to install packages explicitly, the full set is:
 ```bash
 pip install pdfplumber pypdf python-docx python-pptx openpyxl \
-            ebooklib beautifulsoup4 mobi numpy
+            ebooklib beautifulsoup4 mobi numpy psutil
 ```
 
 - `numpy` is required by semantic search.
@@ -101,7 +108,7 @@ pip install pdfplumber pypdf python-docx python-pptx openpyxl \
 Verify:
 
 ```bash
-python3 -c "import pdfplumber, pypdf, docx, pptx, openpyxl, ebooklib, mobi, numpy; print('OK')"
+python3 -c "import pdfplumber, pypdf, docx, pptx, openpyxl, ebooklib, mobi, numpy, psutil; print('OK')"
 ```
 
 **Calibre** (system package — provides `ebook-meta` and `ebook-convert`):
@@ -255,10 +262,9 @@ tail -f ~/.local/share/docubrowser/docubrowser.log
 
 ## Making docubrowser.py globally accessible
 
-> If you installed via `install.sh`, this is already done for you — the
-> `docubrowser` wrapper is installed at `~/.local/bin/docubrowser` (user mode)
-> or `/usr/local/bin/docubrowser` (system mode). The steps below are for manual
-> / dev checkouts only.
+> If you installed via RPM, DEB, or tarball, this is already done for you — the
+> `docubrowser` wrapper is installed at `/usr/bin/docubrowser`. The steps below
+> are for manual / dev checkouts only.
 
 ```bash
 # Option A: symlink into your PATH
@@ -318,19 +324,22 @@ git pull origin main
 
 ## Uninstalling
 
-If you installed via `install.sh`, use `uninstall.sh` instead — it mirrors
-install.sh's mode detection (user vs. system) and removes the install
-directory, systemd unit, CLI wrapper, pid/log files, and (optionally, with a
-separate confirmation) the dedicated `docubrowse` system user/group:
-
+**RPM:**
 ```bash
-cd DocuBrowse
-./uninstall.sh
+sudo dnf remove docubrowser-foss
 ```
 
-It asks for confirmation before removing anything, and is safe to run from
-either a user-mode (`$HOME/.docubrowse`) or root/system-mode (`/opt/docubrowse`)
-install.
+**DEB:**
+```bash
+sudo apt remove docubrowser-foss
+```
+
+**Tarball:**
+```bash
+sudo ./uninstall.sh
+```
+
+All methods preserve user data in `~/.docubrowser/`.
 
 ### Manual / dev-checkout uninstall
 

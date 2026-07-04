@@ -1,7 +1,7 @@
-# DocuBrowse v0.8.3.1 — Administrator Guide
+# DocuBrowse v0.9.0 — Administrator Guide
 
-**Date:** 2026-06-27
-**Version:** v0.8.3
+**Date:** 2026-07-04
+**Version:** v0.9.0
 **License:** GPL-3.0-or-later
 
 ---
@@ -61,9 +61,7 @@
 
 This guide is for administrators, power users, and self-hosters responsible for installing, configuring, and maintaining a DocuBrowse instance. It assumes comfort with the Linux command line, package management, and basic systemd concepts.
 
-DocuBrowse turns a local collection of documents — PDFs, ebooks, Word documents, spreadsheets, presentations, plain text, and Markdown — into a searchable index accessible through a web browser at `https://localhost:8643` (or `http://` if TLS is not configured). It uses SQLite with FTS5 for keyword search and Ollama with local AI models for semantic search and on-demand document synopsis generation.
-
-> **Note:** When TLS is configured (see Section 5), the server uses HTTPS with a self-signed certificate. The CLI launcher auto-detects the scheme for health checks and displayed URLs.
+DocuBrowse turns a local collection of documents — PDFs, ebooks, Word documents, spreadsheets, presentations, plain text, and Markdown — into a searchable index accessible through a web browser at `http://localhost:8643`. It uses SQLite with FTS5 for keyword search and Ollama with local AI models for semantic search and on-demand document synopsis generation.
 
 Everything runs on your own machine. No internet connection is required after initial setup, no accounts, and no per-query costs.
 
@@ -73,7 +71,7 @@ Everything runs on your own machine. No internet connection is required after in
 
 ### Operating System
 
-Linux (Fedora, RHEL, Debian, Ubuntu, and derivatives). Not supported on macOS or Windows.
+Linux (Fedora, RHEL, Debian, Ubuntu, Mint, and derivatives). Experimental Windows support is in progress — the codebase has cross-platform guards but Windows packaging is not yet available.
 
 ### Hardware Minimums
 
@@ -108,57 +106,57 @@ Linux (Fedora, RHEL, Debian, Ubuntu, and derivatives). Not supported on macOS or
 | `beautifulsoup4` | HTML stripping for EPUB/MOBI content |
 | `mobi` | MOBI and AZW3 extraction |
 | `numpy` | Vector math for semantic search |
+| `psutil` | Hardware detection, cross-platform process management |
 
 ---
 
 ## 3. Installation
 
-### 3.1 Clone or Download
+### 3.1 Recommended Install via Packages
+
+DocuBrowse ships as RPM, DEB, and tarball packages. Download the appropriate
+package from the [Releases](https://github.com/linuxrebel/DocuBrowser/releases) page.
+
+**Fedora / RHEL:**
+```bash
+sudo dnf install ./docubrowser-foss-0.9.0-7.noarch.rpm
+```
+
+**Debian / Ubuntu / Mint:**
+```bash
+sudo apt install ./docubrowser-foss_0.9.0-7_all.deb
+```
+
+**Any Linux (tarball):**
+```bash
+tar xzf docubrowser-foss-0.9.0-7.tar.gz
+cd docubrowser-foss-0.9.0-7
+sudo ./install.sh
+```
+
+All three methods install to `/opt/docubrowser/` with a Python virtualenv.
+The RPM and DEB automatically create the virtualenv and install Python
+dependencies in a post-install script. The tarball `install.sh` runs
+pre-flight checks (python3 >= 3.9, venv, ensurepip, xdg-terminal-exec) and
+reports everything missing before making changes.
+
+After installation:
+
+- CLI wrappers: `/usr/bin/docubrowser` and `/usr/bin/docuback`
+- Desktop menu entry: appears under Office
+- Start with: `docubrowser start`
+- Backup/restore: `docuback --backup` / `docuback --restore`
+
+After a package install, use the `docubrowser` command (without `./` or `.py`).
+
+### 3.2 Manual / Dev-Checkout Install
+
+Clone the repository for development or manual install:
 
 ```bash
 git clone https://github.com/linuxrebel/DocuBrowser.git
 cd DocuBrowser
 ```
-
-Or unpack a release tarball:
-
-```bash
-tar xzf docubrowse-v0.8.3.tar.gz
-cd docubrowse-v0.8.3
-```
-
-### 3.2 Recommended Install via install.sh
-
-The bundled `install.sh` is the easiest path. It runs pre-flight checks for all prerequisites and reports everything missing before changing anything on your system.
-
-**User install** (no root required, no systemd):
-
-```bash
-./install.sh
-```
-
-- Installs to `~/.docubrowse` with its own Python virtualenv
-- CLI wrapper installed at `~/.local/bin/docubrowser` — ensure `~/.local/bin` is on your `PATH`
-- Start with: `docubrowser start`
-
-**System install** (dedicated `docubrowse` user, systemd unit):
-
-```bash
-sudo ./install.sh
-```
-
-- Installs to `/opt/docubrowse` as the `docubrowse` system user
-- Installs `docubrowser.service` systemd unit (not auto-enabled — enable manually)
-- CLI wrapper at `/usr/local/bin/docubrowser`
-- Manage with: `systemctl start docubrowser`
-
-To answer the LAN access prompt non-interactively:
-
-```bash
-DOCUBROWSE_ALLOW_REMOTE=1 sudo ./install.sh   # enable LAN access
-```
-
-After an `install.sh` install, use the `docubrowser` command (without `./` or `.py`).
 
 
 ### 3.3 Manual Python Dependency Install
@@ -256,24 +254,22 @@ DocuBrowse Status
   Config:   ./docubrowse.config
   Database: /path/to/du-docs.db
   Port:     8643
-  Server:   ● RUNNING  https://localhost:8643
+  Server:   ● RUNNING  http://localhost:8643
   Documents:  1,234
   Embedded:   1,234
   Tags:       456
 ```
 
-The URL scheme (`https` or `http`) is auto-detected based on whether TLS is configured.
-
 Verify the API directly:
 
 ```bash
-curl -k "https://localhost:8643/api/stats"
-curl -k "https://localhost:8643/api/search?q=test"
+curl "http://localhost:8643/api/stats"
+curl "http://localhost:8643/api/search?q=test"
 ```
 
 ### 3.9 Making docubrowser Globally Accessible
 
-If you installed via `install.sh`, the CLI wrapper is already in place. For a manual/dev checkout:
+If you installed via a package (RPM, DEB, or tarball), the CLI wrapper is already in place. For a manual/dev checkout:
 
 ```bash
 # Option A: symlink
@@ -325,7 +321,7 @@ docubrowser start --db /path/to/du-docs.db
 
 Before starting, `start` verifies that Ollama is installed, running, and has both required models — installing, starting, or pulling as needed. If a systemd unit (`docubrowser.service`) is installed and loaded, `start` delegates to `systemctl start docubrowser.service` instead of launching a direct subprocess.
 
-The server binds to `127.0.0.1` (localhost only) by default. See [Section 11](#11-remote-lan-access) to enable LAN access.
+The server binds to `127.0.0.1` (localhost only) by default. See [Section 11](#11-remote-lan-access) for LAN access configuration.
 
 ### 4.3 stop
 
@@ -431,7 +427,7 @@ Open the DocuBrowse web UI in your default browser.
 docubrowser open
 ```
 
-Requires the server to be running. Opens the server URL in your default browser (auto-detects `https` or `http`).
+Requires the server to be running. Opens `http://localhost:<port>` in your default browser.
 
 ### 4.11 stopall
 
@@ -634,7 +630,7 @@ This file is distinct from `scan_blacklist.txt`: `scan_blacklist.txt` covers ext
 
 ## 6. Running as a System Service
 
-A systemd unit file is included at `systemd/docubrowser.service`. A system install via `sudo ./install.sh` places it at `/etc/systemd/system/docubrowser.service` (not auto-enabled).
+A systemd unit file is included at `systemd/docubrowser.service`. Package installs (RPM, DEB, tarball) place it at `/etc/systemd/system/docubrowser.service` (not auto-enabled).
 
 **Unit file overview:**
 
@@ -695,7 +691,7 @@ DocuBrowse writes all server output (stdout and stderr) to a single log file. Th
 
 | Location | When used |
 |----------|-----------|
-| `/var/log/docubrowser/docubrowser.log` | System install via `install.sh`, or when systemd's `LogsDirectory` creates the directory |
+| `/var/log/docubrowser/docubrowser.log` | Package install (RPM/DEB/tarball), or when systemd's `LogsDirectory` creates the directory |
 | `~/.local/var/log/docubrowser.log` | User install or any unprivileged run |
 
 The active log path is shown by `docubrowser status` and in startup output.
@@ -925,20 +921,6 @@ By default, DocuBrowse binds to `127.0.0.1` (localhost only) and is not reachabl
 
 ### Enabling Remote Access
 
-During `install.sh`, the installer asks whether to allow LAN access (default: No). When enabled:
-
-- Server binds to `0.0.0.0`
-- Firewall is opened for the port (`firewalld --add-port=8643/tcp` or `ufw allow 8643/tcp`)
-- `allow_remote = true` is written to `docubrowse.config`
-
-Non-interactively:
-
-```bash
-DOCUBROWSE_ALLOW_REMOTE=1 sudo ./install.sh
-```
-
-### Changing After Install
-
 Edit `docubrowse.config`:
 
 ```ini
@@ -988,19 +970,22 @@ Check the status to confirm the new version is running:
 
 ```bash
 docubrowser status
-curl -k "https://localhost:8643/api/stats"
+curl "http://localhost:8643/api/stats"
 ```
 
-If Python dependencies have changed (check `requirements.txt`):
+If Python dependencies have changed (check `requirements.txt`), the virtualenv
+in `/opt/docubrowser/` is automatically updated on RPM/DEB upgrade. For tarball
+or dev-checkout installs:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-For system installs managed by `install.sh`, the reinstall path is:
+For package upgrades, download the new package and install over the existing one:
 
 ```bash
-sudo ./install.sh   # re-runs pre-flight checks and updates the install
+sudo dnf install ./docubrowser-foss-<version>.noarch.rpm        # Fedora/RHEL
+sudo apt install ./docubrowser-foss_<version>_all.deb            # Debian/Ubuntu/Mint
 ```
 
 No separate migration commands are needed. The schema auto-migrates at next startup.
@@ -1009,20 +994,24 @@ No separate migration commands are needed. The schema auto-migrates at next star
 
 ## 13. Uninstalling
 
-### Via uninstall.sh (recommended for install.sh installs)
+### Package Uninstall
 
+**RPM:**
 ```bash
-./uninstall.sh          # user install
-sudo ./uninstall.sh     # system install
+sudo dnf remove docubrowser-foss
 ```
 
-`uninstall.sh` mirrors `install.sh`'s mode detection. It:
-- Stops and disables the systemd unit (system mode)
-- Removes the CLI wrapper and install directory
-- Cleans up PID and log files
-- Optionally removes the `docubrowse` system user/group (system mode, separate confirmation)
+**DEB:**
+```bash
+sudo apt remove docubrowser-foss
+```
 
-It prompts for confirmation before removing anything.
+**Tarball:**
+```bash
+sudo ./uninstall.sh
+```
+
+All methods preserve user data in `~/.docubrowser/`.
 
 ### Manual / Dev-Checkout Uninstall
 
@@ -1157,5 +1146,5 @@ pdfinfo /path/to/file.pdf | grep -i objects
 
 ---
 
-*DocuBrowse v0.8.3.1 — Administrator Guide — 2026-06-28*
+*DocuBrowse v0.9.0 — Administrator Guide — 2026-07-04*
 *Copyright (C) 2026 James Sparenberg — GPL-3.0-or-later*
