@@ -26,6 +26,11 @@ import tarfile
 from datetime import datetime
 from pathlib import Path
 
+try:
+    import pwd as _pwd          # Unix only — needed for SUDO_USER home lookup
+except ImportError:
+    _pwd = None                 # Windows: sudo/chown not applicable
+
 
 # ── Privilege check ───────────────────────────────────────────────────────────
 
@@ -88,6 +93,25 @@ def _resolve_backup_dir(override: str | None) -> Path:
     return d
 
 
+def _real_user_info() -> tuple[Path, int, int]:
+    """Return (home_dir, uid, gid) for the real (non-root) user.
+
+    When running under sudo, ``Path.home()`` returns /root.  We need the
+    invoking user's home so we can find/restore *their* ~/.docubrowser/.
+    Falls back to the current user when not running under sudo.
+    """
+    sudo_user = os.environ.get("SUDO_USER")
+    if sudo_user and _pwd:
+        try:
+            pw = _pwd.getpwnam(sudo_user)
+            return Path(pw.pw_dir), pw.pw_uid, pw.pw_gid
+        except KeyError:
+            pass  # fall through to current user
+    uid = os.getuid() if hasattr(os, "getuid") else 0
+    gid = os.getgid() if hasattr(os, "getgid") else 0
+    return Path.home(), uid, gid
+
+
 def _resolve_data_dir(db_path: str | None) -> Path:
     """Determine the data directory from the --db flag or default location."""
     if db_path:
@@ -99,12 +123,25 @@ def _resolve_data_dir(db_path: str | None) -> Path:
         print(f"ERROR: Path not found: {db_path}")
         sys.exit(1)
 
-    # Default: ~/.docubrowser/ if it contains a DB (packaged install),
-    # else directory containing this script (dev mode).
-    user_data = Path.home() / ".docubrowser"
+    app_dir = Path(__file__).resolve().parent
+    home, uid, gid = _real_user_info()
+    user_data = home / ".docubrowser"
+
+    # Running under sudo means we're in a packaged install (backup dir is
+    # root-owned).  The real user's data lives in *their* ~/.docubrowser/,
+    # not in /opt/docubrowser/ or /root/.docubrowser/.
+    if os.environ.get("SUDO_USER"):
+        user_data.mkdir(parents=True, exist_ok=True)
+        if hasattr(os, "chown"):
+            os.chown(user_data, uid, gid)
+        return user_data
+
+    # Not under sudo — prefer ~/.docubrowser/ if it already has a DB,
+    # otherwise fall back to the script's directory (dev mode).
     if (user_data / "du-docs.db").exists():
         return user_data
-    return Path(__file__).resolve().parent
+
+    return app_dir
 
 
 def _list_backups(backup_dir: Path) -> list[Path]:
@@ -190,9 +227,10 @@ def do_backup(data_dir: Path, backup_dir: Path) -> Path:
 
 def _server_is_running() -> bool:
     """Check if the DocuBrowse server appears to be running."""
+    home, _, _ = _real_user_info()
     pid_candidates = [
         Path("/var/run/docubrowser/docubrowser.pid"),
-        Path.home() / ".local/run/docubrowser.pid",
+        home / ".local/run/docubrowser.pid",
     ]
     for pid_file in pid_candidates:
         if not pid_file.exists():
@@ -303,6 +341,17 @@ def do_restore(data_dir: Path, backup_dir: Path) -> None:
         except TypeError:
             # Python < 3.12 — no filter parameter
             tar.extractall(path=str(data_dir))
+
+    # Fix ownership — extraction under sudo creates root-owned files in the
+    # real user's home.  Chown everything to the invoking user so the server
+    # (which runs unprivileged) can read/write its own data directory.
+    if os.environ.get("SUDO_USER") and hasattr(os, "chown"):
+        _, uid, gid = _real_user_info()
+        os.chown(data_dir, uid, gid)
+        for name in members:
+            restored = data_dir / name
+            if restored.exists():
+                os.chown(restored, uid, gid)
 
     print()
     for name in members:
