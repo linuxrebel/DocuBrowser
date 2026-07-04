@@ -1,6 +1,6 @@
 Name:           docubrowser-foss
 Version:        0.9.0
-Release:        1
+Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
 URL:            https://github.com/linuxrebel/DocuBrowser
