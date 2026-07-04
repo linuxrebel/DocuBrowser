@@ -148,7 +148,7 @@ Version: ${VERSION}-${RELEASE}
 Section: utils
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.9)
+Depends: python3 (>= 3.9), xdg-terminal-exec
 Recommends: calibre
 Maintainer: James Sparenberg <james@sparenbergs.us>
 Description: Self-hosted document search and indexing server
