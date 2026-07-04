@@ -125,6 +125,13 @@ exec /opt/docubrowser/venv/bin/python3 /opt/docubrowser/backup_restore.py "$@"
 WRAPPER
 chmod 755 /usr/bin/docuback
 
+# ── Desktop menu entry ─────────────────────────────────────────────────────
+if [[ -f "$SRC_DIR/docubrowser.desktop" ]]; then
+    echo "==> Installing desktop menu entry"
+    install -d -m 755 /usr/share/applications
+    install -m 644 "$SRC_DIR/docubrowser.desktop" /usr/share/applications/
+fi
+
 # ── Create backup directory ────────────────────────────────────────────────
 mkdir -p "$INSTALL_DIR/backups"
 

@@ -83,6 +83,10 @@ exec /opt/docubrowser/venv/bin/python3 /opt/docubrowser/backup_restore.py "$@"
 WRAPPER
 chmod 755 %{buildroot}/usr/bin/docuback
 
+# ── Desktop menu entry ──────────────────────────────────────────────────────
+install -d -m 755 %{buildroot}/usr/share/applications
+install -m 644 docubrowser.desktop %{buildroot}/usr/share/applications/
+
 
 %post
 # ── Create virtualenv and install Python dependencies ────────────────────────
@@ -166,6 +170,9 @@ fi
 # CLI wrappers
 /usr/bin/docubrowser
 /usr/bin/docuback
+
+# Desktop menu entry
+/usr/share/applications/docubrowser.desktop
 
 
 %changelog

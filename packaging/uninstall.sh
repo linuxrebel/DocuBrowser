@@ -52,9 +52,10 @@ for home_dir in /home/*; do
     done
 done
 
-# ── Remove CLI wrappers ────────────────────────────────────────────────────
-echo "==> Removing CLI wrappers"
+# ── Remove CLI wrappers and desktop entry ──────────────────────────────────
+echo "==> Removing CLI wrappers and desktop entry"
 rm -f /usr/bin/docubrowser /usr/bin/docuback
+rm -f /usr/share/applications/docubrowser.desktop
 
 # ── Remove install directory ───────────────────────────────────────────────
 if [[ -d "$INSTALL_DIR" ]]; then
