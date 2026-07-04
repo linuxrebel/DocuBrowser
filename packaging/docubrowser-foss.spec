@@ -169,7 +169,7 @@ fi
 
 
 %changelog
-* Thu Jul 03 2026 James Sparenberg <james@sparenbergs.us> - 0.9.0-1
+* Fri Jul 03 2026 James Sparenberg <james@sparenbergs.us> - 0.9.0-1
 - Initial FOSS package release
 - Document search and indexing with AI-powered features
 - Web UI with dark/light theme, tag management, synopsis
