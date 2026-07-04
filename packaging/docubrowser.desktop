@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=DocuBrowse
+Comment=Self-hosted document search and indexing server
+Exec=bash -c 'docubrowser --help; exec bash'
+Icon=/opt/docubrowser/icons/icon-256.png
+Terminal=true
+Type=Application
+Categories=Utility;FileTools;
+Keywords=document;search;index;pdf;

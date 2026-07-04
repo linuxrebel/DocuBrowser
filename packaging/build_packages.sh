@@ -70,6 +70,9 @@ done
 cp -a icons "$STAGE_DIR/" 2>/dev/null || echo "WARNING: icons/ not found."
 cp -a EndUser_docs "$STAGE_DIR/" 2>/dev/null || echo "WARNING: EndUser_docs/ not found."
 
+# Desktop entry
+cp packaging/docubrowser.desktop "$STAGE_DIR/" 2>/dev/null || echo "WARNING: docubrowser.desktop not found."
+
 # ── Build source tarball ─────────────────────────────────────────────────────
 TARBALL="$NAME-$VERSION.tar.gz"
 (cd "$STAGING" && tar czf "$REPO_ROOT/$TARBALL" "$NAME-$VERSION")
@@ -132,6 +135,10 @@ WRAPPER
 exec /opt/docubrowser/venv/bin/python3 /opt/docubrowser/backup_restore.py "$@"
 WRAPPER
     chmod 755 "$DEB_PKG/usr/bin/docuback"
+
+    # Desktop menu entry
+    mkdir -p "$DEB_PKG/usr/share/applications"
+    cp "$STAGE_DIR/docubrowser.desktop" "$DEB_PKG/usr/share/applications/"
 
     # DEBIAN control
     mkdir -p "$DEB_PKG/DEBIAN"
