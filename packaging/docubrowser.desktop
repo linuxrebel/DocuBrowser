@@ -5,5 +5,5 @@ Exec=xdg-terminal-exec bash -c 'docubrowser --help; exec bash'
 Icon=/opt/docubrowser/icons/icon-256.png
 Terminal=false
 Type=Application
-Categories=Utility;FileTools;
+Categories=Office;
 Keywords=document;search;index;pdf;
