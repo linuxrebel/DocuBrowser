@@ -199,6 +199,30 @@ else
     echo "         or build on a Debian/Ubuntu system to create .deb packages."
 fi
 
+# ── Installable tarball ─────────────────────────────────────────────────────
+echo ""
+echo "==> Building installable tarball ..."
+
+TGZ_NAME="docubrowser-foss-${VERSION}-${RELEASE}"
+TGZ_DIR="$(mktemp -d)"
+TGZ_STAGE="$TGZ_DIR/$TGZ_NAME"
+mkdir -p "$TGZ_STAGE"
+
+# App files (same as RPM/DEB)
+cp -a "$STAGE_DIR"/* "$TGZ_STAGE/"
+
+# Install/uninstall scripts
+install -m 755 packaging/install.sh   "$TGZ_STAGE/"
+install -m 755 packaging/uninstall.sh "$TGZ_STAGE/"
+
+# Build the tarball
+(cd "$TGZ_DIR" && tar czf "$REPO_ROOT/dist/${TGZ_NAME}.tar.gz" "$TGZ_NAME")
+rm -rf "$TGZ_DIR"
+
+echo ""
+echo "Tarball in dist/:"
+ls -1 "$REPO_ROOT/dist/"*.tar.gz 2>/dev/null
+
 # ── Cleanup ──────────────────────────────────────────────────────────────────
 rm -f "$REPO_ROOT/$TARBALL"
 
