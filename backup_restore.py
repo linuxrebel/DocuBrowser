@@ -99,7 +99,11 @@ def _resolve_data_dir(db_path: str | None) -> Path:
         print(f"ERROR: Path not found: {db_path}")
         sys.exit(1)
 
-    # Default: directory containing this script (where du-docs.db lives)
+    # Default: ~/.docubrowser/ if it contains a DB (packaged install),
+    # else directory containing this script (dev mode).
+    user_data = Path.home() / ".docubrowser"
+    if (user_data / "du-docs.db").exists():
+        return user_data
     return Path(__file__).resolve().parent
 
 
