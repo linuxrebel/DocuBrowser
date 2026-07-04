@@ -1,51 +1,37 @@
 # DocuBrowse Packaging — Architecture Notes
 
-**Status:** Planning  
-**Date:** 2026-07-02  
+**Status:** v0.9.0 RPM complete, DEB pending dpkg tools  
+**Date:** 2026-07-03  
 
 ---
 
 ## Overview
 
-Package DocuBrowse for four targets: Linux RPM, Linux DEB, Windows (MSI), and
-macOS (PKG/DMG). All packages install in user mode — system-mode installs
-(systemd, /opt) move to Enterprise.
+Package DocuBrowse FOSS for Linux (RPM + DEB). Windows and macOS are deferred.
 
 ### Design principles
 
-1. **Server only** — packages install DocuBrowse Python code and its Python
-   dependencies. Ollama and Calibre are documented prerequisites.
-2. **User-mode install** — `~/.docubrowser/` on Linux/macOS,
-   `%LOCALAPPDATA%\DocuBrowser\` on Windows. No root/admin required for
-   basic operation.
-3. **Ollama prerequisite check** — on first launch (all platforms), check for
-   a running Ollama instance. If not found, display a message directing the
-   user to https://ollama.com with platform-appropriate install instructions.
-   Do not attempt to install Ollama automatically.
-4. **Tray/menu bar app** — Windows and macOS get a system tray icon for
-   start/stop/open-browser. Linux packages provide CLI only (matching
-   current behavior).
+1. **Server only** — packages install DocuBrowse Python code. Ollama and
+   Calibre are documented prerequisites (not bundled).
+2. **System install, user data** — code installs to `/opt/docubrowser/`
+   (read-only, root-owned). Runtime data (DB, config, blacklists) lives in
+   `~/.docubrowser/` per user. Auto-detected: if the script's directory
+   is writable (dev checkout), data stays there; if not (packaged install),
+   data goes to `~/.docubrowser/`.
+3. **No systemd for FOSS** — the FOSS version runs as a user app via
+   `docubrowser start/stop`. Enterprise will integrate with systemd.
+4. **Ollama prerequisite check** — on first launch, check for a running
+   Ollama instance. If not found, display a message directing the user to
+   https://ollama.com. Do not attempt to install Ollama automatically.
+5. **CLI only on Linux** — no tray/menu bar app for FOSS.
 
 ---
 
 ## Naming consistency
 
-The install directory is being renamed from `.docubrowse` to `.docubrowser`
-across all platforms for consistency with the CLI command name `docubrowser`.
-
-### Files to update (pre-packaging)
-
-| File | Change |
-|------|--------|
-| `install.sh` | `INSTALL_DIR="$HOME/.docubrowser"` (was `.docubrowse`) |
-| `uninstall.sh` | Match new path |
-| `README.md` | All `~/.docubrowse` references → `~/.docubrowser` |
-| `INSTALL.md` | Same |
-| `EndUser_docs/Admin_Guide.md` | Same |
-| `docubrowser.py` | Config search path if any reference `.docubrowse` |
-
-System-mode paths (`/opt/docubrowse`) also rename to `/opt/docubrowser`, but
-system-mode is moving to Enterprise so this is low priority.
+DONE. All paths use `docubrowser` (not `docubrowse`). Install directory is
+`/opt/docubrowser/` (packaged) or the repo checkout directory (dev mode).
+User data directory is `~/.docubrowser/`.
 
 ---
 
@@ -68,58 +54,72 @@ as a service, else show install URL).
 
 ### Build tool
 
-**fpm** (Effing Package Management) — single definition builds both .rpm and
-.deb. Avoids maintaining separate spec files and debian/ directories.
+**rpmbuild** (native) for RPM, **dpkg-deb** for DEB. Build script:
+`packaging/build_packages.sh`. Spec file: `packaging/docubrowser-foss.spec`.
 
 ### Install layout
 
 ```
-~/.docubrowser/
-├── venv/                  # Python virtual environment
-│   └── ...
-├── app/                   # DocuBrowse source files (copied from repo)
-│   ├── docubrowser.py
-│   ├── doc_search.py
-│   ├── scan_docs.py
-│   ├── ...
-│   └── requirements.txt
-└── data/                  # Runtime data (db, blacklists, config)
-    ├── du-docs.db
-    ├── docubrowse.config
-    ├── scan_blacklist.txt
-    └── ...
+/opt/docubrowser/              # Application code (root-owned, read-only)
+├── docubrowser.py             # CLI launcher
+├── doc_search.py              # HTTP search server
+├── scan_docs.py               # PDF/text extraction
+├── embed_docs.py              # Ollama embedding
+├── *.py                       # All other Python modules
+├── index.html, settings.html  # Web UI
+├── icons/                     # Application icons
+├── EndUser_docs/              # User documentation
+├── requirements.txt
+├── venv/                      # Python virtualenv (created by %post)
+├── backups/                   # Backup storage (created by %post)
+└── LICENSE, README.md, INSTALL.md
 
-~/.local/bin/docubrowser   # CLI wrapper (shell script)
+~/.docubrowser/                # Per-user runtime data (auto-created)
+├── du-docs.db                 # SQLite index (auto-created on first run)
+├── docubrowse.config          # User configuration
+├── scan_blacklist.txt         # Failed-extraction skip list
+├── pii_blacklist.txt          # PII-purged files
+├── scan_dirs.txt              # Scan directories
+└── ignore_dirs.txt            # Ignore patterns
+
+/usr/bin/docubrowser           # CLI wrapper → venv python3 docubrowser.py
+/usr/bin/docuback              # Backup wrapper → venv python3 backup_restore.py
 ```
+
+**APP_DIR / DATA_DIR split:** Code detects whether `/opt/docubrowser/` is
+writable. In packaged installs (read-only), runtime data goes to
+`~/.docubrowser/`. In dev mode (writable repo checkout), data stays in the
+repo directory for backward compatibility.
 
 ### Package metadata
 
-- Name: `docubrowser`
-- Version: from git tag
+- Name: `docubrowser-foss`
+- Version: `0.9.0` (from git tag)
 - Architecture: `noarch` (pure Python)
-- Dependencies: `python3 >= 3.10` (RPM: `python3`, DEB: `python3`)
+- Dependencies: `python3 >= 3.9`
 - Recommends: `calibre` (soft dep — only needed for e-books)
 - No dependency on Ollama (not in distro repos)
 
-### Post-install script
+### Post-install script (%post)
 
-1. Create venv at `~/.docubrowser/venv/`
+1. Create venv at `/opt/docubrowser/venv/`
 2. `pip install -r requirements.txt` inside venv
-3. Install CLI wrapper at `~/.local/bin/docubrowser`
-4. Print message: check Ollama is installed, point to ollama.com if not
+3. Create `/opt/docubrowser/backups/`
+4. Print usage summary (commands, web UI URL, prerequisites)
 
-### Open questions — Linux
+### Pre-uninstall (%preun)
 
-- **fpm vs native packaging:** fpm is simpler but some distros/users prefer
-  native rpmbuild/debuild. Decision: start with fpm, add native later if
-  demand exists.
-- **User-mode RPM/DEB:** RPMs and DEBs traditionally install system-wide.
-  A user-mode package that installs to `$HOME` is unconventional. Alternative:
-  package installs to `/opt/docubrowser` but runs as the invoking user (no
-  dedicated system user). Or: ship a `.tar.gz` + `install.sh` for user mode
-  and reserve RPM/DEB for system mode (Enterprise).
-- **Config file location:** DECIDED — `~/.config/docubrowser.config` (Linux),
-  OS-conventional paths on Windows/macOS. See prereqs section.
+Stops any running DocuBrowse processes (server, scan) via PID files.
+
+### Post-uninstall (%postun)
+
+On full removal (not upgrade): removes venv and `__pycache__`.
+User data in `~/.docubrowser/` is preserved.
+
+### No systemd for FOSS
+
+FOSS runs as a user application, not a system service. Users start/stop
+via `docubrowser start` / `docubrowser stop`. Enterprise uses systemd.
 
 ---
 
@@ -273,25 +273,11 @@ Current `ensure_ollama.py` tries to install Ollama on Linux. For packaging:
 
 ## Prereqs before packaging work begins
 
-1. **Icons** — design logo, export to .ico / .icns / .png / .svg
-2. **Rename .docubrowse → .docubrowser** — update install.sh, uninstall.sh,
-   README, INSTALL.md, Admin Guide (small patch, do first)
-3. **Cross-platform file/URL open** — replace `gio open`/`xdg-open` in
-   `doc_search.py` with the pattern from `/home/james/bin/reddit_gallery.py`:
-   - Windows: `os.startfile(path)` (bypasses `webbrowser.open()` which can
-     silently no-op on Store Python / odd browser registrations). Fallback
-     to `webbrowser.open()`.
-   - WSL: detect via `platform.uname().release` or `/proc/version` containing
-     "microsoft". Use `cmd.exe /c start "" <path>` with all stdio detached
-     (`subprocess.DEVNULL`) to avoid WSL interop quirks. Empty `""` is a
-     required window-title placeholder for `start`.
-   - Linux/macOS: `webbrowser.open()` (handles xdg-open/open internally).
-   This eliminates the current manual desktop-session env reconstruction
-   (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, etc.) in `handle_open`.
-4. **Config location** — DECIDED: follow OS conventions per platform:
-   - Linux: `~/.config/docubrowser.config`
-   - macOS: `~/Library/Application Support/DocuBrowser/docubrowser.config`
-   - Windows: `%APPDATA%\DocuBrowser\docubrowser.config`
+1. **Icons** — DONE. PNG icons in `icons/` directory.
+2. **Rename .docubrowse → .docubrowser** — DONE.
+3. **Cross-platform file/URL open** — Future (Linux-only for now).
+4. **Config location** — DECIDED: `~/.docubrowser/docubrowse.config` (packaged),
+   or `APP_DIR/docubrowse.config` (dev mode). Windows/macOS TBD.
 
 ---
 
@@ -300,26 +286,27 @@ Current `ensure_ollama.py` tries to install Ollama on Linux. For packaging:
 ```
 Source (git tag)
     │
-    ├── Linux ──→ fpm ──→ .rpm + .deb ──→ GitHub Release
+    ├── Linux ──→ rpmbuild / dpkg-deb ──→ .rpm + .deb ──→ GitHub Release
     │
     ├── Windows ──→ PyInstaller ──→ Inno Setup ──→ .exe installer ──→ GitHub Release
     │
     └── macOS ──→ PyInstaller ──→ create-dmg ──→ .dmg ──→ GitHub Release
 ```
 
-All builds triggered from the same git tag. CI (GitHub Actions) can build
-Linux and macOS. Windows may need a self-hosted runner or manual build
-until CI is set up.
+Linux builds via `packaging/build_packages.sh`. Never commit release
+tarballs to git — they go on the GitHub Releases page only.
+
+Windows and macOS builds are future work.
 
 ---
 
 ## Timeline estimate
 
-| Phase | Work | Depends on |
-|-------|------|-----------|
-| 0 | Icons, .docubrowser rename, config location decision | Nothing |
-| 1 | Linux RPM + DEB via fpm | Phase 0 |
-| 2 | Tray app (`docubrowser_tray.py`) | Phase 0 (icons) |
-| 3 | Windows installer (PyInstaller + Inno Setup) | Phase 2 |
-| 4 | macOS bundle (PyInstaller + DMG) | Phase 2 |
-| 5 | CI/CD for automated builds | Phases 1-4 |
+| Phase | Work | Status |
+|-------|------|--------|
+| 0 | Icons, .docubrowser rename, config location | DONE |
+| 1 | Linux RPM + DEB (rpmbuild / dpkg-deb) | RPM DONE, DEB pending dpkg tools |
+| 2 | Tray app (`docubrowser_tray.py`) | Future |
+| 3 | Windows installer (PyInstaller + Inno Setup) | Future |
+| 4 | macOS bundle (PyInstaller + DMG) | Future |
+| 5 | CI/CD for automated builds | Future |
