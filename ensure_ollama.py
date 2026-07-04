@@ -51,6 +51,8 @@ def platform() -> str:
         return 'linux'
     if sys.platform == 'darwin':
         return 'macos'
+    if sys.platform == 'win32':
+        return 'windows'
     return 'unknown'
 
 
@@ -101,6 +103,14 @@ def install_ollama():
             print('               then: brew install ollama', file=sys.stderr)
             print('    Option 2 — download directly: https://ollama.com/download', file=sys.stderr)
             sys.exit(1)
+
+    elif plat == 'windows':
+        print()
+        err('Ollama is not installed. Install it from:')
+        print('    https://ollama.com/download/windows', file=sys.stderr)
+        print()
+        print('  After installing, restart this command.', file=sys.stderr)
+        sys.exit(1)
 
     else:
         print()

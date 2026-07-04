@@ -27,6 +27,7 @@ from datetime import datetime
 from pathlib import Path
 
 from docubrowse_db import get_db, delete_documents
+from platform_paths import scan_log_paths
 
 
 # HTtrack-mirrored sites save pages as extensionless files (e.g. "index"
@@ -288,9 +289,16 @@ def _worker_init():
                    raises BrokenProcessPool on that future (caught in loop).
     SIGALRM is unreliable for C-heavy workloads (signal deferred until Python
     eval loop regains control, which never happens in tight C loops).
+
+    On Windows: ``resource`` module does not exist, so workers run without
+    memory/CPU caps.  Windows has its own OOM management.
     """
-    import resource
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    try:
+        import resource
+    except ImportError:
+        return   # Windows — no resource limits available
 
     # 6 GB virtual address space cap per worker.  When pdfplumber/pdfminer's
     # C extensions exceed this, malloc() fails.  Deep C code typically does
@@ -333,10 +341,7 @@ def _setup_scan_logger() -> tuple:
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
 
-    for log_path in [
-        Path("/var/log/docubrowser.log"),
-        Path.home() / ".local/share/docubrowser/docubrowser.log",
-    ]:
+    for log_path in scan_log_paths():
         try:
             log_path.parent.mkdir(parents=True, exist_ok=True)
             fh = logging.FileHandler(str(log_path), encoding="utf-8")
@@ -393,14 +398,18 @@ def _extract_file(args: tuple) -> dict:
 
     # Per-file SIGALRM timeout — prevents a corrupt/looping PDF from
     # blocking the worker indefinitely.  Scaled to the MAX_PAGES cap.
-    def _alarm_handler(signum, frame):
-        raise TimeoutError(
-            f"timed out after {FILE_TIMEOUT_SECS}s "
-            f"(>{_MAX_PAGES}-page budget @ {_SECS_PER_PAGE}s/page)"
-        )
-    signal.alarm(0)   # defensive cancel of any stale alarm
-    signal.signal(signal.SIGALRM, _alarm_handler)
-    signal.alarm(FILE_TIMEOUT_SECS)
+    # On Windows, SIGALRM does not exist — workers run without per-file
+    # timeouts (RLIMIT_AS doesn't exist either, but the OS handles OOM).
+    _has_alarm = hasattr(signal, 'SIGALRM')
+    if _has_alarm:
+        def _alarm_handler(signum, frame):
+            raise TimeoutError(
+                f"timed out after {FILE_TIMEOUT_SECS}s "
+                f"(>{_MAX_PAGES}-page budget @ {_SECS_PER_PAGE}s/page)"
+            )
+        signal.alarm(0)   # defensive cancel of any stale alarm
+        signal.signal(signal.SIGALRM, _alarm_handler)
+        signal.alarm(FILE_TIMEOUT_SECS)
 
     try:
         ext = file_path.suffix.lower()
@@ -496,7 +505,8 @@ def _extract_file(args: tuple) -> dict:
         base["error"] = str(exc)
         return base
     finally:
-        signal.alarm(0)   # always cancel the alarm
+        if _has_alarm:
+            signal.alarm(0)   # always cancel the alarm
 
 
 def _extract_text_file(file_path: Path, detected_ext: str = "") -> dict:

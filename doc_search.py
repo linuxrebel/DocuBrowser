@@ -6,6 +6,7 @@ DocuBrowse search server.
 HTTP server on port 8643 with merged keyword + semantic search.
 """
 
+import errno
 import ipaddress
 import json
 import logging
@@ -821,8 +822,13 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         The server process may have been started from a shell/session where
         these are missing or set to bogus values (e.g.
         DBUS_SESSION_BUS_ADDRESS=disabled:), in which case xdg-open silently
-        fails to launch anything even though it exits 0."""
+        fails to launch anything even though it exits 0.
+
+        On Windows this is a no-op — ``os.startfile()`` handles file opening
+        without any environment setup."""
         env = os.environ.copy()
+        if sys.platform == 'win32':
+            return env   # Windows: no DBus/XDG setup needed
         uid = os.getuid()
 
         runtime_dir = env.get('XDG_RUNTIME_DIR')
@@ -907,6 +913,15 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 mime = r.stdout.strip() or None
         except Exception:
             pass
+
+        # Windows: os.startfile() is the native opener — no subprocess needed.
+        if sys.platform == 'win32':
+            try:
+                os.startfile(str(p))
+                self.json_response({"ok": True, "path": path})
+            except OSError as exc:
+                self.json_response({"ok": False, "error": str(exc)})
+            return
 
         # Opener chain: try each available launcher in preference order.
         # We wait up to 1 s; if the process is still running at that point it
@@ -1498,7 +1513,7 @@ def main():
     try:
         httpd = DocuBrowseServer(server_address, DocSearchHandler)
     except OSError as e:
-        if e.errno == 98:  # Address already in use
+        if e.errno == errno.EADDRINUSE:  # Address already in use
             print(f"ERROR: Port {port} is already in use.")
             print(f"Please check if DocuBrowse is already running or choose another port.")
             print(f"\nTo stop the running instance:")

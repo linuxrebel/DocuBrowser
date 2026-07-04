@@ -47,6 +47,7 @@ install -m 644 purge_pii.py         %{buildroot}/opt/docubrowser/
 install -m 755 backup_restore.py    %{buildroot}/opt/docubrowser/
 install -m 644 ensure_ollama.py     %{buildroot}/opt/docubrowser/
 install -m 644 dup_detect.py        %{buildroot}/opt/docubrowser/
+install -m 644 platform_paths.py    %{buildroot}/opt/docubrowser/
 
 # Web UI
 install -m 644 index.html           %{buildroot}/opt/docubrowser/
