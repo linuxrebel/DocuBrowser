@@ -24,6 +24,7 @@ Commands:
 """
 
 import argparse
+import errno
 import json
 import os
 import shutil
@@ -36,6 +37,11 @@ import time
 from pathlib import Path
 from urllib.request import urlopen
 from urllib.error import URLError
+
+from platform_paths import (
+    IS_WINDOWS, pid_file, scan_pid_file, log_file,
+    kill_process_tree, kill_pid, find_procs_by_script, kill_port,
+)
 
 # ─── Paths ───────────────────────────────────────────────────────────────────
 # APP_DIR  = where the code lives (scripts, HTML, icons).  Always the
@@ -68,46 +74,11 @@ CONFIG_PATHS    = [
 ]
 
 
-def _pick_runtime_path(preferred: Path, fallback: Path) -> Path:
-    """
-    Return `preferred` if its parent directory exists (or can be created)
-    and is writable; otherwise return `fallback` (creating its parent dir).
-
-    Used so PID/log files land in standard system locations
-    (/var/run, /var/log) when the process has permission to create
-    them there, while still working for unprivileged/local installs by
-    falling back to a per-user directory under ~/.local/.
-    """
-    try:
-        preferred.parent.mkdir(parents=True, exist_ok=True)
-        if os.access(preferred.parent, os.W_OK):
-            return preferred
-    except (PermissionError, OSError):
-        pass
-    fallback.parent.mkdir(parents=True, exist_ok=True)
-    return fallback
-
-
-# Fallback locations for unprivileged/local (user-mode) installs.
-# Split per XDG-ish convention: runtime/pid files under ~/.local/run,
-# logs under ~/.local/var/log. NOTE: unlike /var/log (handled by system
-# logrotate), nothing currently rotates ~/.local/var/log/docubrowser.log —
-# this is a known gap to revisit (TODO: user-level log rotation).
-_LOCAL_RUN_DIR = Path.home() / ".local/run"
-_LOCAL_LOG_DIR = Path.home() / ".local/var/log"
-
-PID_FILE        = _pick_runtime_path(
-    Path("/var/run/docubrowser/docubrowser.pid"),
-    _LOCAL_RUN_DIR / "docubrowser.pid",
-)
-SCAN_PID_FILE   = _pick_runtime_path(
-    Path("/var/run/docubrowser/docubrowse_scan.pid"),
-    _LOCAL_RUN_DIR / "docubrowse_scan.pid",
-)   # PGID of running scan
-LOG_FILE        = _pick_runtime_path(
-    Path("/var/log/docubrowser/docubrowser.log"),
-    _LOCAL_LOG_DIR / "docubrowser.log",
-)
+# Runtime paths — resolved via platform_paths (Linux: /var/run + fallback,
+# Windows: %LOCALAPPDATA%\DocuBrowse).
+PID_FILE      = pid_file()
+SCAN_PID_FILE = scan_pid_file()    # PGID of running scan
+LOG_FILE      = log_file()
 
 # ─── Config loader ────────────────────────────────────────────────────────────
 
@@ -428,13 +399,13 @@ def cmd_stop(config: dict, args):
             time.sleep(0.5)
             try:
                 os.kill(pid, 0)  # Still alive?
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):
                 break
         else:
-            print(f"Server did not stop gracefully; sending SIGKILL.")
+            print(f"Server did not stop gracefully; force-killing.")
             try:
-                os.kill(pid, signal.SIGKILL)
-            except ProcessLookupError:
+                kill_pid(pid, force=True)
+            except (ProcessLookupError, PermissionError):
                 pass
     except ProcessLookupError:
         pass
@@ -465,39 +436,17 @@ def cmd_restart(config: dict, args):
 
 
 def _pkill_script(script_name: str) -> bool:
-    """SIGTERM any process running <script_name> under a Python interpreter,
-    matching on /proc/<pid>/cmdline (argv) instead of `pkill -f <name>`. The
-    latter matches the substring anywhere on the command line, so it would also
-    kill incidental processes like `vim scan_docs.py` or `grep scan_docs.py`.
+    """SIGTERM any process running *script_name* under a Python interpreter.
+    Cross-platform: uses psutil when available, falls back to /proc on Linux.
     Returns True if at least one process was signalled."""
+    pids = find_procs_by_script(script_name)
     killed = False
-    my_pid = os.getpid()
-    try:
-        entries = os.listdir('/proc')
-    except OSError:
-        return False
-    for entry in entries:
-        if not entry.isdigit():
-            continue
-        pid = int(entry)
-        if pid == my_pid:
-            continue
+    for pid in pids:
         try:
-            with open(f'/proc/{pid}/cmdline', 'rb') as fh:
-                argv = [a.decode('utf-8', 'replace')
-                        for a in fh.read().split(b'\x00') if a]
-        except (FileNotFoundError, ProcessLookupError, PermissionError, OSError):
-            continue
-        if not argv:
-            continue
-        is_python = os.path.basename(argv[0]).lower().startswith('python')
-        runs_script = any(a.endswith(script_name) for a in argv[1:])
-        if is_python and runs_script:
-            try:
-                os.kill(pid, signal.SIGTERM)
-                killed = True
-            except (ProcessLookupError, PermissionError):
-                pass
+            os.kill(pid, signal.SIGTERM)
+            killed = True
+        except (ProcessLookupError, PermissionError):
+            pass
     return killed
 
 
@@ -512,7 +461,7 @@ def _stop_running_scans(verbose: bool = True) -> bool:
     if SCAN_PID_FILE.exists():
         try:
             pgid = int(SCAN_PID_FILE.read_text().strip())
-            os.killpg(pgid, signal.SIGTERM)
+            kill_process_tree(pgid)
             if verbose:
                 print(f"Stopped running scan (process group {pgid}).")
             killed = True
@@ -1317,30 +1266,9 @@ def cmd_scan_missing(config: dict, args):
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
 def _kill_port(port: int, verbose: bool = False) -> bool:
-    """Kill any process listening on the given port. Returns True if killed."""
-    try:
-        result = subprocess.run(
-            ["lsof", "-ti", f"tcp:{port}"],
-            capture_output=True, text=True
-        )
-        pids = [int(p) for p in result.stdout.split() if p.strip().isdigit()]
-        for pid in pids:
-            try:
-                os.kill(pid, signal.SIGTERM)
-                if verbose:
-                    print(f"Sent SIGTERM to process {pid} on port {port}.")
-            except ProcessLookupError:
-                pass
-        return bool(pids)
-    except FileNotFoundError:
-        # lsof not available; try fuser. fuser -k exits 0 only if it found
-        # (and signalled) a process — surface that instead of always False.
-        try:
-            r = subprocess.run(["fuser", "-k", f"{port}/tcp"],
-                               capture_output=True)
-            return r.returncode == 0
-        except Exception:
-            return False
+    """Kill any process listening on the given port. Returns True if killed.
+    Cross-platform: prefers psutil, falls back to lsof/fuser on Linux."""
+    return kill_port(port, verbose=verbose)
 
 
 def _run_embed(db_path: str, embed_workers: int = 6):

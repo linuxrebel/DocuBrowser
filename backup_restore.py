@@ -58,8 +58,9 @@ def _require_elevated() -> None:
 
 MAX_BACKUPS = 3
 
-# Canonical backup location (root is required, so /opt is always writable).
-BACKUP_DIR = Path("/opt/docubrowser/backups")
+# Canonical backup location — resolved per-platform via platform_paths.
+from platform_paths import backup_dir as _default_backup_dir
+BACKUP_DIR = _default_backup_dir()
 
 # Files to back up, relative to the data directory (where du-docs.db lives).
 # All are optional — a fresh install may not have all of them yet.
