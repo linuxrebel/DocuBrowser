@@ -230,8 +230,22 @@ echo ""
 echo "Tarball in dist/:"
 ls -1 "$REPO_ROOT/dist/"*.tar.gz 2>/dev/null
 
-# ── Cleanup ──────────────────────────────────────────────────────────────────
+# ── Cleanup: remove source tarball ──────────────────────────────────────────
 rm -f "$REPO_ROOT/$TARBALL"
+
+# ── Prune dist/ to keep only the latest 2 releases per format ──────────────
+echo ""
+echo "==> Pruning dist/ (keeping latest 2 releases per format)"
+for ext in rpm deb tar.gz; do
+    # List files newest-first, skip the first 2, delete the rest
+    files=( $(ls -t "$REPO_ROOT/dist/"*."$ext" 2>/dev/null) )
+    if [[ "${#files[@]}" -gt 2 ]]; then
+        for old in "${files[@]:2}"; do
+            echo "    Removing old: $(basename "$old")"
+            rm -f "$old"
+        done
+    fi
+done
 
 echo ""
 echo "Done.  Packages are in dist/"
