@@ -1,4 +1,4 @@
-# DocuBrowse v0.8.3.1 — User Guide
+# DocuBrowse v0.9.0 — User Guide
 
 ---
 
@@ -30,7 +30,7 @@ DocuBrowse is a local document search tool that indexes the files on your machin
 
 You could search for "that contract about the lease renewal" and find the right document even if those exact words never appear in the file.
 
-**Supported file types:** PDF, EPUB, MOBI, AZW3, DOCX, HTML, TXT, Markdown.
+**Supported file types:** PDF, DOCX, PPTX, XLSX, EPUB, MOBI, AZW3, HTML, TXT, Markdown.
 
 **Key features:**
 

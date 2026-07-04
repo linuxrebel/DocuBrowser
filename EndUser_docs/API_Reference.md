@@ -1,6 +1,6 @@
-# DocuBrowse v0.8.3.1 — API Reference
+# DocuBrowse v0.9.0 — API Reference
 
-**Date:** 2026-06-27
+**Date:** 2026-07-04
 **Base URL:** `http://127.0.0.1:8643`
 **Content-Type:** `application/json` (all API requests and responses)
 

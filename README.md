@@ -1,10 +1,10 @@
-# DocuBrowse v0.8.4
+# DocuBrowse v0.9.0
 
 <a name="top"></a>
 
-> ⚠️ **Alpha — Active Development**
-> Functional and in daily use, but interfaces and commands may change between versions.
-> Check `status_docs/project_status.md` for current state before picking up dev work.
+> **Beta Release Candidate**
+> Functional, in daily use, and packaged for distribution (RPM, DEB, tarball).
+> Interfaces are stabilizing; breaking changes are avoided where possible.
 
 **DocuBrowse turns a messy pile of documents into something you can actually search.**
 Point it at your files — PDFs, ebooks, Word docs, notes, whatever — and it builds a smart
@@ -49,9 +49,11 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
   Semantic search embeddings are produced by a second local model (`nomic-embed-text:latest`)
 
 ### 📚 Document Indexing
-- **Formats**: PDF, DOCX, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
+- **Formats**: PDF, DOCX, PPTX, XLSX, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
 - **PDF intelligence**: pdfplumber (preferred) with pypdf fallback for bloated-object files; `layout=False` retry for complex layouts; scanned (image-only) PDFs detected and routed to `ocr_list_pdfs.txt`
 - **Word documents**: python-docx extracts paragraphs, tables, and core properties (title, author, subject)
+- **Presentations**: python-pptx extracts slide text, notes, and core properties
+- **Spreadsheets**: openpyxl extracts cell values and sheet names
 - **E-books**: ebooklib for EPUB; mobi package + Calibre fallback for MOBI/AZW3; DRM-encrypted AZW files indexed with metadata only (title/author visible, body not searchable)
 - **Metadata**: title, author, subject extracted from document metadata fields; auto-generated tags from directory structure and content keywords
 - **PII protection**: post-ingest scanner detects SSN, credit card, bank routing/account number, DOB, MRN, driver license, passport patterns; removes matching documents and permanently blacklists them
@@ -103,44 +105,40 @@ Click any thumbnail to view full size.
 
 ### Prerequisites
 - Python 3.10+
-- `pdfplumber`, `pypdf` — PDF extraction: `pip install pdfplumber pypdf`
-- `python-docx` — Word documents: `pip install python-docx`
-- `ebooklib`, `beautifulsoup4`, `mobi` — E-books: `pip install ebooklib beautifulsoup4 mobi`
+- `pdfplumber`, `pypdf` — PDF extraction
+- `python-docx` — Word documents
+- `python-pptx` — PowerPoint presentations
+- `openpyxl` — Excel spreadsheets
+- `ebooklib`, `beautifulsoup4`, `mobi` — E-books
+- `psutil` — cross-platform process and hardware detection
 - **Calibre** — E-book metadata and conversion (required for MOBI/AZW3/AZW indexing):
   `sudo dnf install calibre` or `sudo apt install calibre`
-  DRM-encrypted AZW files additionally require [DeDRM_tools](https://deepwiki.com/apprenticeharper/DeDRM_tools/1.1-installation-and-setup)
-- Ollama — installed automatically by `docubrowser.py start` if missing
+- Ollama — installed automatically by `docubrowser start` if missing
 - Modern browser (Chrome, Firefox, Safari, Edge)
 
 See [INSTALL.md](INSTALL.md) for a full step-by-step guide.
 
 ### Install (recommended)
 
-The bundled `install.sh` is the easiest way to get a working install. Download
-and extract a release tarball (or `git clone` the repo), then run one of:
+DocuBrowse ships as RPM, DEB, and tarball packages. Download the appropriate
+package from the [Releases](https://github.com/linuxrebel/DocuBrowser/releases) page.
 
 ```bash
-# USER install — no root, no systemd
-./install.sh
-#  → installs to ~/.docubrowse (its own venv)
-#  → CLI wrapper at ~/.local/bin/docubrowser
-#  → start it yourself with:  docubrowser start
+# Fedora / RHEL
+sudo dnf install ./docubrowser-foss-0.9.0-7.noarch.rpm
 
-# SYSTEM install — dedicated user + systemd unit
+# Debian / Ubuntu / Mint
+sudo apt install ./docubrowser-foss_0.9.0-7_all.deb
+
+# Any Linux (tarball)
+tar xzf docubrowser-foss-0.9.0-7.tar.gz
+cd docubrowser-foss-0.9.0-7
 sudo ./install.sh
-#  → installs to /opt/docubrowse as the 'docubrowse' system user
-#  → installs systemd unit docubrowser.service (NOT auto-enabled)
-#  → CLI wrapper at /usr/local/bin/docubrowser
-#  → manage with:  systemctl start docubrowser   (plus the docubrowser CLI)
 ```
 
-`install.sh` runs comprehensive pre-flight checks before touching anything —
-python3 ≥ 3.9 (with venv/ensurepip), rsync, curl, tar, plus calibre and ollama,
-and in system mode getent/useradd/groupadd/systemctl — and reports everything
-missing at once. Python dependencies are declared in `requirements.txt`
-(pdfplumber, pypdf, python-docx, python-pptx, openpyxl, ebooklib,
-beautifulsoup4, mobi, numpy) and installed automatically via
-`pip install -r requirements.txt`.
+All three methods install to `/opt/docubrowser/` with a Python virtualenv,
+CLI wrappers at `/usr/bin/docubrowser` and `/usr/bin/docuback`, a desktop
+menu entry under Office, and all Python dependencies from `requirements.txt`.
 
 Once installed, the CLI is the `docubrowser` command — drop the `./` and `.py`
 from every example below. For example, `docubrowser start` and
@@ -148,8 +146,8 @@ from every example below. For example, `docubrowser start` and
 rest of this README is the dev / cloned-repo path (running directly out of a
 checkout).
 
-To uninstall, run `./uninstall.sh` (or `sudo ./uninstall.sh` for a system
-install).
+To uninstall: `sudo dnf remove docubrowser-foss` (RPM),
+`sudo apt remove docubrowser-foss` (DEB), or `sudo ./uninstall.sh` (tarball).
 
 ### First Run (dev / cloned repo)
 
@@ -354,6 +352,7 @@ work_dir     = /home/user/DocuBrowse
 | `ensure_ollama.py` | Checks/installs Ollama binary, service, and required models |
 | `doc_search.py` | HTTP server; search API and UI |
 | `docubrowse_db.py` | SQLite schema and migrations |
+| `platform_paths.py` | Cross-platform path resolution and process management |
 | `scan_docs.py` | Document discovery, extraction, and DB writes |
 | `pdf_extractor.py` | PDF-specific extraction with pdfplumber/pypdf |
 | `docx_extractor.py` | Word document extraction (python-docx) |
@@ -558,6 +557,7 @@ DocuBrowse/
 ├── embed_docs.py           # Embedding generation pipeline
 ├── purge_pii.py            # PII scanner and purge tool
 ├── dup_detect.py           # Exact (SHA256) and near-duplicate detection
+├── platform_paths.py       # Cross-platform paths and process management
 ├── index.html              # Frontend UI (single-file, dark/light theme)
 ├── du-docs.db              # SQLite database (gitignored)
 ├── du-docs.db.example      # Empty schema for new installs
@@ -570,6 +570,14 @@ DocuBrowse/
 ├── INSTALL.md              # Step-by-step install guide
 ├── README.md               # This file
 ├── LICENSE                 # GPL-3.0
+├── packaging/              # RPM spec, DEB control, build script, install/uninstall
+│   ├── build_packages.sh   # Builds RPM, DEB, and tarball
+│   ├── docubrowser-foss.spec  # RPM spec
+│   ├── docubrowser.desktop # Desktop menu entry
+│   ├── install.sh          # Tarball installer
+│   └── uninstall.sh        # Tarball uninstaller
+├── systemd/
+│   └── docubrowser.service # systemd unit file
 ├── status_docs/            # Project planning and decision logs
 │   ├── project_status.md   # Current version, session history
 │   └── DECISIONS.md        # Deferred decisions and known issues
@@ -670,7 +678,32 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
-## v0.8.4 (2026-07-02)
+## v0.9.0 (2026-07-04)
+
+### Packaging and cross-platform preparation
+
+DocuBrowse is now packaged for distribution and has initial Windows compatibility.
+
+- **RPM, DEB, and tarball packages** — `build_packages.sh` produces all three
+  formats. Installs to `/opt/docubrowser/` with a Python virtualenv, CLI
+  wrappers at `/usr/bin/docubrowser` and `/usr/bin/docuback`, and a desktop
+  menu entry under Office.
+- **Cross-platform path abstraction** — new `platform_paths.py` centralizes
+  all runtime path selection (PID files, log files, backup directory) and
+  process management (kill, find-by-script, kill-port). Linux paths are
+  unchanged; Windows paths use `%LOCALAPPDATA%\DocuBrowse\`.
+- **Windows compatibility** — guarded all Unix-only constructs (`resource`,
+  `SIGALRM`, `os.killpg`, `/proc` access) behind platform checks. Process
+  management uses `psutil` with `/proc` fallback on Linux.
+- **Backup/restore** — `backup_restore.py` supports Windows privilege checks
+  (`IsUserAnAdmin`) and handles missing `pwd` module gracefully.
+- **Desktop menu entry** — `.desktop` file uses `xdg-terminal-exec` for
+  reliable terminal launching across all desktop environments; categorized
+  under Office.
+- **Systemd service file** — included for system-level deployments on Linux.
+- **dist/ pruning** — build script keeps only the latest 2 releases per format.
+
+### v0.8.4 (2026-07-02)
 
 ### Codebase cleanup and simplification
 
@@ -928,4 +961,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.8.4** — Fast, local, AI-powered document search.
+**DocuBrowse v0.9.0** — Fast, local, AI-powered document search.
