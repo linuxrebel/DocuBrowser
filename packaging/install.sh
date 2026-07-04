@@ -37,6 +37,10 @@ else
         PROBLEMS+=("python3 'ensurepip' missing — install python3-pip.")
 fi
 
+if ! command -v xdg-terminal-exec >/dev/null 2>&1; then
+    PROBLEMS+=("xdg-terminal-exec is not installed (needed for desktop menu entry).")
+fi
+
 if [[ "${#PROBLEMS[@]}" -gt 0 ]]; then
     echo "ERROR: cannot proceed — please resolve the following first:" >&2
     echo >&2

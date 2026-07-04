@@ -8,6 +8,7 @@ Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 
 Requires:       python3 >= 3.9
+Requires:       xdg-terminal-exec
 Recommends:     calibre
 
 %description
