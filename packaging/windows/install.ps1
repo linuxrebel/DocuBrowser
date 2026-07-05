@@ -149,14 +149,21 @@ Copy-Item -Path (Join-Path $PSScriptRoot "uninstall.ps1") -Destination $InstallD
 Write-Host " done" -ForegroundColor Green
 
 # ── Create Python virtualenv ──────────────────────────────────────────────────
-# Drop ErrorActionPreference to Continue for this call: Python 3.13 on Windows
-# emits a junction-point warning to stderr that Stop would treat as fatal.
-# Check the actual outcome (does Scripts\python.exe exist?) instead of exit code.
+# Remove any existing venv first — reinstalling over a live venv can leave
+# locked files that cause venv creation to fail silently.
 Write-Host "Creating virtual environment..." -NoNewline
+if (Test-Path $VenvDir) {
+    Remove-Item -Path $VenvDir -Recurse -Force
+}
+# Drop ErrorActionPreference to Continue: Python 3.13 on Windows emits a
+# junction-point warning to stderr that Stop would treat as fatal.
+# Capture output; show it only on failure so errors are diagnosable.
 $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-& $python -m venv $VenvDir 2>&1 | Out-Null
+$venvOut = & $python -m venv $VenvDir 2>&1
 $ErrorActionPreference = $prev
 if (-not (Test-Path (Join-Path $VenvDir "Scripts\python.exe"))) {
+    Write-Host ""
+    Write-Host $venvOut
     Fail "Failed to create Python virtual environment."
 }
 Write-Host " done" -ForegroundColor Green
