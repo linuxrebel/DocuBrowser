@@ -89,6 +89,11 @@ done
 # Optional: example database schema
 [[ -f "du-docs.db.example" ]] && cp "du-docs.db.example" "$DIST_DIR/app/"
 
+# Icons
+if [[ -d "icons" ]]; then
+    cp -r icons "$DIST_DIR/app/"
+fi
+
 # ── Installer files ───────────────────────────────────────────────────────────
 cp packaging/windows/Install.bat   "$DIST_DIR/"
 cp packaging/windows/install.ps1   "$DIST_DIR/"

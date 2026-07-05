@@ -1,7 +1,9 @@
 # DocuBrowse v0.9.0 — Installation Guide
 
-This guide covers a fresh install on a Linux system (Fedora/RHEL/Debian/Ubuntu/Mint).
-DocuBrowse runs entirely locally — no cloud accounts or API keys required.
+This guide covers a fresh install on Linux (Fedora/RHEL/Debian/Ubuntu/Mint) or
+Windows 10/11. macOS packaging is planned but not yet available (the codebase
+runs on macOS from a dev checkout). DocuBrowse runs entirely locally — no cloud
+accounts or API keys required.
 
 ---
 
@@ -32,9 +34,11 @@ GPU (NVIDIA/AMD) accelerates embedding generation but is not required.
 
 ## Recommended install — packages
 
-DocuBrowse ships as RPM, DEB, and tarball packages. Download the appropriate
-package from the [Releases](https://github.com/linuxrebel/DocuBrowser/releases)
+DocuBrowse ships as RPM, DEB, tarball, and Windows zip packages. Download the
+appropriate package from the [Releases](https://github.com/linuxrebel/DocuBrowser/releases)
 page.
+
+### Linux
 
 **Fedora / RHEL:**
 ```bash
@@ -68,8 +72,41 @@ After installation:
 
 An installed system is driven by the `docubrowser` command (not `./docubrowser.py`).
 
+### Windows
+
+**Prerequisites (install these first):**
+
+1. **Python 3.9+** — download from https://www.python.org/downloads/ and
+   ensure "Add Python to PATH" is checked during install. Do **not** use the
+   Microsoft Store version of Python.
+2. **Ollama** — download from https://ollama.com and install.
+
+**Install:**
+
+1. Download the `.zip` file from the Releases page
+2. Extract it to any location (e.g. your Downloads folder)
+3. Open the extracted folder and double-click **`Install.bat`**
+
+The installer creates a virtualenv, installs all Python dependencies, and adds
+a Start Menu shortcut under `DocuBrowse`. No admin privileges are required.
+Files are installed to `%USERPROFILE%\DocuBrowse`. You may need to log out and
+back in for the Start Menu shortcut to appear (a recent Windows behavior change).
+
+After installation, open a terminal and run:
+```
+docubrowser start
+docubrowser open
+```
+
+### macOS
+
+macOS packaging is not yet available. The codebase runs on macOS from a dev
+checkout — follow the manual steps below.
+
+---
+
 The manual, step-by-step instructions below remain valid as a **manual /
-dev-checkout** alternative.
+dev-checkout** alternative on any platform.
 
 ---
 
@@ -339,7 +376,12 @@ sudo apt remove docubrowser-foss
 sudo ./uninstall.sh
 ```
 
-All methods preserve user data in `~/.docubrowser/`.
+**Windows:**
+Double-click `Uninstall.bat` in the original extracted zip folder, or run it
+from the install directory at `%USERPROFILE%\DocuBrowse`. Removes the
+virtualenv, app files, and Start Menu shortcut.
+
+All methods preserve user data (database, config, blacklists).
 
 ### Manual / dev-checkout uninstall
 
