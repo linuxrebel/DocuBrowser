@@ -218,17 +218,17 @@ $lnk.TargetPath = "http://localhost:8643"
 $lnk.Save()
 
 # Terminal shortcut — opens cmd, runs docubrowser --help, stays open.
-# Use full path to the wrapper so it works before the user opens a new
-# shell to pick up the PATH change.
+# Full path inside the /k quotes so cmd.exe passes --help to the wrapper.
 $docuCmd               = Join-Path $BinDir "docubrowser.cmd"
 $lnk2                  = $wsh.CreateShortcut((Join-Path $startMenu "DocuBrowse Terminal.lnk"))
 $lnk2.TargetPath       = "cmd.exe"
-$lnk2.Arguments        = "/k `"$docuCmd`" --help"
+$lnk2.Arguments        = "/k `"$docuCmd --help`""
 $lnk2.WorkingDirectory = $env:USERPROFILE
 $lnk2.Description      = "DocuBrowse command-line interface"
 $lnk2.Save()
 
 Write-Host " done" -ForegroundColor Green
+Write-Host "  Start Menu: $startMenu" -ForegroundColor DarkGray
 
 # ── Register in Add/Remove Programs ──────────────────────────────────────────
 Write-Host "Registering uninstaller..." -NoNewline
