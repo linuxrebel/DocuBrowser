@@ -35,13 +35,13 @@ if [[ -n "${1:-}" ]]; then
 else
     # Auto-detect: highest existing release for this version + 1.
     # || true prevents set -e from aborting when no prior zips exist.
-    LATEST=$(ls dist/docubrowser-foss-"${VERSION}"-*-windows.zip 2>/dev/null \
-             | grep -oP "(?<=${VERSION//./\\.}-)\d+(?=-windows\\.zip)" \
+    LATEST=$(ls dist/docubrowser-foss-"${VERSION}".*-windows.zip 2>/dev/null \
+             | grep -oP "(?<=${VERSION//./\\.}\.)\d+(?=-windows\\.zip)" \
              | sort -n | tail -1 || true)
     RELEASE=$(( ${LATEST:-0} + 1 ))
 fi
 
-DIST_NAME="docubrowser-foss-${VERSION}-${RELEASE}-windows"
+DIST_NAME="docubrowser-foss-${VERSION}.${RELEASE}-windows"
 DIST_DIR="dist/${DIST_NAME}"
 ZIP_OUT="dist/${DIST_NAME}.zip"
 
@@ -125,8 +125,8 @@ rm -rf "$DIST_DIR"
 
 # ── Prune dist/ to keep only the latest 2 windows zips for this version ──────
 echo "==> Pruning dist/ (keeping latest 2 Windows releases)"
-ls -1 dist/docubrowser-foss-"${VERSION}"-*-windows.zip 2>/dev/null \
-    | sort -t- -k5 -n \
+ls -1 dist/docubrowser-foss-"${VERSION}".*-windows.zip 2>/dev/null \
+    | sort -t. -k4 -n \
     | head -n -2 \
     | xargs -r rm -f --
 
