@@ -43,6 +43,8 @@ from platform_paths import (
     kill_process_tree, kill_pid, find_procs_by_script, kill_port,
 )
 
+VERSION = "0.9.0"
+
 # ─── Paths ───────────────────────────────────────────────────────────────────
 # APP_DIR  = where the code lives (scripts, HTML, icons).  Always the
 #            directory containing this file — read-only in packaged installs.

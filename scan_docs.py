@@ -230,7 +230,7 @@ def purge_path_prefix(conn, prefix: str) -> int:
     number of documents removed.
     """
     prefix = str(Path(prefix).expanduser().resolve())
-    like_pattern = prefix.rstrip("/") + "/%"
+    like_pattern = prefix.rstrip("/\\") + os.sep + "%"
     rows = conn.execute(
         "SELECT id FROM documents WHERE path = ? OR path LIKE ?",
         (prefix, like_pattern),
