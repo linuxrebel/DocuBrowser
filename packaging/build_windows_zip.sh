@@ -18,7 +18,7 @@ set -euo pipefail
 # ── Extract version from docubrowser.py ──────────────────────────────────────
 VERSION=$(python3 -c "
 import re, sys
-m = re.search(r'''VERSION\s*=\s*[\"']([\d.]+)''', open('docubrowser.py').read())
+m = re.search(r'''VERSION\s*=\s*[\"']([\d.]+)''', open('docubrowser.py', encoding='utf-8').read())
 if not m:
     sys.exit('ERROR: VERSION not found in docubrowser.py')
 print(m.group(1))
@@ -92,12 +92,28 @@ fi
 
 # ── Build zip ─────────────────────────────────────────────────────────────────
 rm -f "$ZIP_OUT"
-(cd dist && zip -r "${DIST_NAME}.zip" "${DIST_NAME}/")
+if command -v zip &>/dev/null; then
+    (cd dist && zip -r "${DIST_NAME}.zip" "${DIST_NAME}/")
+elif command -v 7z &>/dev/null; then
+    (cd dist && 7z a -tzip "${DIST_NAME}.zip" "${DIST_NAME}/")
+else
+    # PowerShell fallback (Windows without zip/7z)
+    ABS_DIST=$(cd dist && pwd -W 2>/dev/null || pwd)
+    powershell.exe -NoProfile -Command \
+        "Compress-Archive -Path '${ABS_DIST}/${DIST_NAME}' -DestinationPath '${ABS_DIST}/${DIST_NAME}.zip' -Force"
+fi
 
 echo ""
 echo "==> Built: $ZIP_OUT"
 echo ""
 echo "    Zip contents:"
-unzip -l "$ZIP_OUT" | awk 'NR>3 && !/^---/' | head -40
+if command -v unzip &>/dev/null; then
+    unzip -l "$ZIP_OUT" | awk 'NR>3 && !/^---/' | head -40
+else
+    powershell.exe -NoProfile -Command \
+        "Add-Type -Assembly System.IO.Compression.FileSystem; \
+         [IO.Compression.ZipFile]::OpenRead('$(pwd -W 2>/dev/null || pwd)/${ZIP_OUT}').Entries | \
+         Select-Object -First 40 -ExpandProperty FullName"
+fi
 echo ""
 echo "    Upload to GitHub Releases as an asset on the v${VERSION} release."
