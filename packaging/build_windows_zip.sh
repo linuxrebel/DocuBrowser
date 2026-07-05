@@ -33,10 +33,11 @@ print(m.group(1))
 if [[ -n "${1:-}" ]]; then
     RELEASE="$1"
 else
-    # Auto-detect: highest existing release for this version + 1
+    # Auto-detect: highest existing release for this version + 1.
+    # || true prevents set -e from aborting when no prior zips exist.
     LATEST=$(ls dist/docubrowser-foss-"${VERSION}"-*-windows.zip 2>/dev/null \
-             | grep -oP '(?<=-'"${VERSION/./\\.}"'-)\d+(?=-windows\.zip)' \
-             | sort -n | tail -1)
+             | grep -oP "(?<=${VERSION//./\\.}-)\d+(?=-windows\\.zip)" \
+             | sort -n | tail -1 || true)
     RELEASE=$(( ${LATEST:-0} + 1 ))
 fi
 
