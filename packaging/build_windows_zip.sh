@@ -2,9 +2,14 @@
 # packaging/build_windows_zip.sh — Build Windows distribution zip
 #
 # Run from the repository root:
-#   bash packaging/build_windows_zip.sh
+#   bash packaging/build_windows_zip.sh [RELEASE]
 #
-# Output: dist/docubrowser-foss-<version>-windows.zip
+#   RELEASE  Build number (default: auto-detect from dist/).  Increment for
+#            each rebuild of the same version, e.g.:
+#              docubrowser-foss-0.9.0-1-windows.zip
+#              docubrowser-foss-0.9.0-2-windows.zip
+#
+# Output: dist/docubrowser-foss-<version>-<release>-windows.zip
 #
 # The zip extracts to a folder containing:
 #   Install.bat       <- double-click to install
@@ -24,11 +29,22 @@ if not m:
 print(m.group(1))
 ")
 
-DIST_NAME="docubrowser-foss-${VERSION}-windows"
+# ── Determine release number ──────────────────────────────────────────────────
+if [[ -n "${1:-}" ]]; then
+    RELEASE="$1"
+else
+    # Auto-detect: highest existing release for this version + 1
+    LATEST=$(ls dist/docubrowser-foss-"${VERSION}"-*-windows.zip 2>/dev/null \
+             | grep -oP '(?<=-'"${VERSION/./\\.}"'-)\d+(?=-windows\.zip)' \
+             | sort -n | tail -1)
+    RELEASE=$(( ${LATEST:-0} + 1 ))
+fi
+
+DIST_NAME="docubrowser-foss-${VERSION}-${RELEASE}-windows"
 DIST_DIR="dist/${DIST_NAME}"
 ZIP_OUT="dist/${DIST_NAME}.zip"
 
-echo "==> Building Windows package: $ZIP_OUT  (version $VERSION)"
+echo "==> Building Windows package: $ZIP_OUT  (version $VERSION, release $RELEASE)"
 
 # ── Clean previous build ──────────────────────────────────────────────────────
 mkdir -p dist
@@ -102,6 +118,13 @@ else
     powershell.exe -NoProfile -Command \
         "Compress-Archive -Path '${ABS_DIST}/${DIST_NAME}' -DestinationPath '${ABS_DIST}/${DIST_NAME}.zip' -Force"
 fi
+
+# ── Prune dist/ to keep only the latest 2 windows zips for this version ──────
+echo "==> Pruning dist/ (keeping latest 2 Windows releases)"
+ls -1 dist/docubrowser-foss-"${VERSION}"-*-windows.zip 2>/dev/null \
+    | sort -t- -k5 -n \
+    | head -n -2 \
+    | xargs -r rm -f --
 
 echo ""
 echo "==> Built: $ZIP_OUT"
