@@ -120,6 +120,9 @@ else
         "Compress-Archive -Path '${ABS_DIST}/${DIST_NAME}' -DestinationPath '${ABS_DIST}/${DIST_NAME}.zip' -Force"
 fi
 
+# ── Remove staging directory ──────────────────────────────────────────────────
+rm -rf "$DIST_DIR"
+
 # ── Prune dist/ to keep only the latest 2 windows zips for this version ──────
 echo "==> Pruning dist/ (keeping latest 2 Windows releases)"
 ls -1 dist/docubrowser-foss-"${VERSION}"-*-windows.zip 2>/dev/null \
