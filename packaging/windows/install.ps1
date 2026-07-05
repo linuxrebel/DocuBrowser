@@ -217,10 +217,13 @@ $lnk            = $wsh.CreateShortcut((Join-Path $startMenu "DocuBrowse Web UI.u
 $lnk.TargetPath = "http://localhost:8643"
 $lnk.Save()
 
-# Terminal shortcut — opens cmd with docubrowser on PATH
+# Terminal shortcut — opens cmd, runs docubrowser --help, stays open.
+# Use full path to the wrapper so it works before the user opens a new
+# shell to pick up the PATH change.
+$docuCmd               = Join-Path $BinDir "docubrowser.cmd"
 $lnk2                  = $wsh.CreateShortcut((Join-Path $startMenu "DocuBrowse Terminal.lnk"))
 $lnk2.TargetPath       = "cmd.exe"
-$lnk2.Arguments        = '/k "docubrowser status"'
+$lnk2.Arguments        = "/k `"$docuCmd`" --help"
 $lnk2.WorkingDirectory = $env:USERPROFILE
 $lnk2.Description      = "DocuBrowse command-line interface"
 $lnk2.Save()
