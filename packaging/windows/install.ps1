@@ -68,21 +68,48 @@ Write-Host ""
 # ── Preflight: Python 3.9+ ────────────────────────────────────────────────────
 Write-Host "Checking Python..." -NoNewline
 
-$python = $null
-foreach ($candidate in @('python', 'python3', 'py')) {
+# Build a list of candidate Python executables to try, in preference order:
+#   1. py.exe  — Python Launcher, installed to C:\Windows\ by python.org
+#                installer; always on PATH regardless of -NoProfile, never
+#                a Store stub.
+#   2. Explicit common install paths (python.org default locations).
+#   3. Anything named python/python3 on PATH, skipping Store App Execution
+#      Aliases (WindowsApps) which break venv via path virtualization.
+$pythonCandidates = [System.Collections.Generic.List[string]]::new()
+
+# py.exe (Python Launcher)
+try { $pythonCandidates.Add((Get-Command py -ErrorAction Stop).Source) } catch {}
+
+# Explicit python.org install locations
+$pyBases = @(
+    "$env:LOCALAPPDATA\Programs\Python",
+    "C:\Python",
+    "C:\Program Files\Python"
+)
+foreach ($base in $pyBases) {
+    if (Test-Path $base) {
+        Get-ChildItem $base -Filter "python.exe" -Recurse -Depth 2 -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notlike "*\WindowsApps\*" } |
+            ForEach-Object { $pythonCandidates.Add($_.FullName) }
+    }
+}
+
+# PATH fallback (skip Store stubs)
+foreach ($name in @('python', 'python3')) {
     try {
-        $src = (Get-Command $candidate -ErrorAction Stop).Source
-        # Skip Windows App Execution Aliases — these are Store stubs that live
-        # in Microsoft\WindowsApps and break venv due to path virtualization.
-        if ($src -like "*\Microsoft\WindowsApps\*") { continue }
-        if ($src -like "*\WindowsApps\*")           { continue }
+        $src = (Get-Command $name -ErrorAction Stop).Source
+        if ($src -notlike "*\WindowsApps\*") { $pythonCandidates.Add($src) }
+    } catch {}
+}
+
+$python = $null
+foreach ($src in $pythonCandidates) {
+    try {
         $output = & $src --version 2>&1
         if ($output -match 'Python (\d+)\.(\d+)') {
-            $major = [int]$Matches[1]
-            $minor = [int]$Matches[2]
+            $major = [int]$Matches[1]; $minor = [int]$Matches[2]
             if ($major -gt 3 -or ($major -eq 3 -and $minor -ge 9)) {
-                $python = $src
-                break
+                $python = $src; break
             }
         }
     } catch {}
@@ -92,8 +119,8 @@ if (-not $python) {
     Write-Host " NOT FOUND" -ForegroundColor Red
     Fail ("Python 3.9 or newer is required but was not found.`n" +
           "`n" +
-          "  Download : https://www.python.org/downloads/`n" +
-          "  Or run   : winget install Python.Python.3.13`n" +
+          "  Download from: https://www.python.org/downloads/`n" +
+          "  Make sure to check 'Add Python to PATH' during install.`n" +
           "`n" +
           "  Re-run Install.bat after installing Python.")
 }
