@@ -207,27 +207,43 @@ if ($userPath -notlike "*$BinDir*") {
 # ── Start Menu shortcuts ──────────────────────────────────────────────────────
 Write-Host "Creating Start Menu entries..." -NoNewline
 $startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\DocuBrowse"
+
+# Remove stale files from previous installs before writing fresh ones.
+if (Test-Path $startMenu) { Remove-Item -Path $startMenu -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $startMenu | Out-Null
 
 $wsh = New-Object -ComObject WScript.Shell
 
-# Web UI shortcut — .url extension makes WScript.Shell create an IWshURLShortcut
-# (not IWshShortcut); required for http:// targets to work correctly.
+# Web UI shortcut
 $lnk            = $wsh.CreateShortcut((Join-Path $startMenu "DocuBrowse Web UI.url"))
 $lnk.TargetPath = "http://localhost:8643"
 $lnk.Save()
 
-# Terminal launcher — plain .bat in the Start Menu folder.
-# Runs docubrowser --help then leaves the terminal open.
+# Terminal launcher — write a .bat to bin\ then point a .lnk at it.
+# .bat files are invisible in Start Menu All Apps; .lnk files are shown.
+$termBat = Join-Path $BinDir "docubrowser-terminal.bat"
 @"
 @echo off
 title DocuBrowse
 call "%USERPROFILE%\DocuBrowse\bin\docubrowser.cmd" --help
 cmd /k
-"@ | Set-Content -Path (Join-Path $startMenu "DocuBrowse Terminal.bat") -Encoding Ascii
+"@ | Set-Content -Path $termBat -Encoding Ascii
+
+$lnk3                  = $wsh.CreateShortcut((Join-Path $startMenu "DocuBrowse Terminal.lnk"))
+$lnk3.TargetPath       = $termBat
+$lnk3.WorkingDirectory = $env:USERPROFILE
+$lnk3.Description      = "DocuBrowse command-line interface"
+$lnk3.Save()
+
+# Notify the shell so Start Menu picks up the new entries immediately.
+$code = @'
+[DllImport("shell32.dll")] public static extern void SHChangeNotify(uint e, uint f, IntPtr a, IntPtr b);
+'@
+$shell = Add-Type -MemberDefinition $code -Name ShellNotify -Namespace WinAPI -PassThru -ErrorAction SilentlyContinue
+if ($shell) { $shell::SHChangeNotify(0x08000000, 0x0000, [IntPtr]::Zero, [IntPtr]::Zero) }
 
 Write-Host " done" -ForegroundColor Green
-Write-Host "  Start Menu: $startMenu" -ForegroundColor DarkGray
+Write-Host "  $startMenu" -ForegroundColor DarkGray
 
 # ── Register in Add/Remove Programs ──────────────────────────────────────────
 Write-Host "Registering uninstaller..." -NoNewline
