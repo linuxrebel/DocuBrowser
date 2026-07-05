@@ -160,6 +160,31 @@ assistant becomes a domain expert for their specific environment.
 - Ollama client utility: extract OOM recovery, connection handling, and
   context compaction patterns from coding_agent into a shared module.
 
+### D-8: Windows Unicode console encoding — permanent fix needed
+**Status:** ANSI colors resolved 2026-07-04; item 3 (check_missing_path) still open  
+**Priority:** Low  
+**Added:** 2026-07-04
+
+**Background:** Windows console defaults to cp1252, which cannot encode the Unicode
+symbols used throughout DocuBrowse output (─, ●, ✓, ✗, ⚠, █, ░, etc.).  Any
+`print()` call with these characters raises `UnicodeEncodeError` and crashes the
+process unless `PYTHONUTF8=1` is set in the environment.
+
+**Fixes applied (2026-07-04):**
+- `platform_paths.py` — calls `sys.stdout/stderr.reconfigure(encoding='utf-8')`
+  at module level on Windows, and sets `os.environ["PYTHONUTF8"] = "1"` so all
+  subprocesses inherit it.  Also calls `colorama.init()` unconditionally (no-op
+  on Linux/macOS; translates ANSI codes to Win32 console calls on Windows).
+- `embed_docs.py` / `purge_pii.py` — same `colorama.init()` added directly since
+  they can be run standalone without importing `platform_paths`.
+- `colorama` added to `requirements.txt`.
+
+**Remaining open item:**
+3. **`check_missing_path()`** uses Unix "unmounted device" detection (`os.stat("/")`,
+   device ID comparison) that doesn't apply to Windows drive letters.  The function
+   degrades gracefully (returns "missing" on OSError) but won't correctly classify
+   disconnected Windows network shares as "unmounted".
+
 ### D-6: Dotfile handling in no-extension classifier
 **Status:** Open  
 **Priority:** Low  

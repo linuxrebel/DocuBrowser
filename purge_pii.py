@@ -22,6 +22,12 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+try:
+    import colorama
+    colorama.init()
+except ImportError:
+    pass
+
 from docubrowse_db import get_db, delete_document
 
 

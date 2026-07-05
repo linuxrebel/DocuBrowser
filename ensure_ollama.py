@@ -22,6 +22,13 @@ import time
 from urllib.error import URLError
 from urllib.request import urlopen
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass
+
 # (model name, approx download size, what it's used for)
 REQUIRED_MODELS = [
     ('nomic-embed-text:latest', '~274 MB', 'semantic search embeddings (ingestion)'),

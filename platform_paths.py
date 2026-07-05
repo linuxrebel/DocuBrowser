@@ -24,7 +24,26 @@ import signal
 import sys
 from pathlib import Path
 
+try:
+    import colorama
+    colorama.init()
+except ImportError:
+    pass
+
 IS_WINDOWS = sys.platform == "win32"
+
+# On Windows the default console encoding (cp1252) cannot encode the Unicode
+# symbols used throughout (─, ●, ✓, ✗, ⚠, █, …).  Reconfigure stdout/stderr
+# to UTF-8 here so any script that imports platform_paths works without
+# PYTHONUTF8=1.  Also propagate to subprocesses (ensure_ollama.py, etc.) via
+# the environment variable, which Python reads at interpreter startup.
+if IS_WINDOWS:
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass  # Python < 3.7; shouldn't be reached in practice
+    os.environ.setdefault("PYTHONUTF8", "1")
 
 # ── User data directory ────────────────────────────────────────────────────
 

@@ -30,6 +30,22 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 
+# embed_docs.py can be run standalone (not via docubrowser.py), so it sets its
+# own Windows encoding rather than relying on the platform_paths side-effect.
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass
+    os.environ.setdefault("PYTHONUTF8", "1")
+
+try:
+    import colorama
+    colorama.init()
+except ImportError:
+    pass
+
 OLLAMA_HOST     = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
 BATCH_SIZE      = 25

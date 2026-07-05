@@ -11,3 +11,5 @@ ebooklib            # EPUB parsing
 beautifulsoup4      # HTML/EPUB text extraction (imported as `bs4`)
 mobi                # MOBI/AZW3 extraction (with Calibre fallback)
 numpy               # cached embedding matrix for semantic search + dup detection
+psutil              # hardware-aware worker counts, process tree kill, port scanning
+colorama            # ANSI color codes on Windows (no-op on Linux/macOS)
