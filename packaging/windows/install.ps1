@@ -206,7 +206,7 @@ if ($userPath -notlike "*$BinDir*") {
 
 # ── Start Menu shortcuts ──────────────────────────────────────────────────────
 Write-Host "Creating Start Menu entries..." -NoNewline
-$startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\DocuBrowse"
+$startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Docubrowser"
 
 # Remove stale files from previous installs before writing fresh ones.
 if (Test-Path $startMenu) { Remove-Item -Path $startMenu -Recurse -Force }
@@ -229,10 +229,12 @@ call "%USERPROFILE%\DocuBrowse\bin\docubrowser.cmd" --help
 cmd /k
 "@ | Set-Content -Path $termBat -Encoding Ascii
 
-$lnk3                  = $wsh.CreateShortcut((Join-Path $startMenu "DocuBrowse Terminal.lnk"))
+$lnk3                  = $wsh.CreateShortcut((Join-Path $startMenu "Docubrowser Terminal.lnk"))
 $lnk3.TargetPath       = $termBat
 $lnk3.WorkingDirectory = $env:USERPROFILE
 $lnk3.Description      = "DocuBrowse command-line interface"
+$iconIco = Join-Path $AppDir "icons\icon-48.ico"
+if (Test-Path $iconIco) { $lnk3.IconLocation = "$iconIco,0" }
 $lnk3.Save()
 
 # Notify the shell so Start Menu picks up the new entries immediately.

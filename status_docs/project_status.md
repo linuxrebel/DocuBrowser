@@ -1,8 +1,8 @@
 # DocuBrowse Project Status
 
-**Version**: v0.8.4  
-**Status**: 🟢 **STABLE — daily use, active development**  
-**Last Updated**: 2026-07-02  
+**Version**: v0.9.0  
+**Status**: 🟢 **STABLE — daily use, packaged for distribution**  
+**Last Updated**: 2026-07-05  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---

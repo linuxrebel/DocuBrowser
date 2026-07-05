@@ -2,9 +2,8 @@
 
 <a name="top"></a>
 
-> **Beta Release Candidate**
-> Functional, in daily use, and packaged for distribution (RPM, DEB, tarball).
-> Interfaces are stabilizing; breaking changes are avoided where possible.
+Packaged for Linux (RPM, DEB, tarball) and Windows (zip).
+macOS packaging is planned. Interfaces are stable; breaking changes are avoided where possible.
 
 **DocuBrowse turns a messy pile of documents into something you can actually search.**
 Point it at your files — PDFs, ebooks, Word docs, notes, whatever — and it builds a smart
@@ -120,8 +119,9 @@ See [INSTALL.md](INSTALL.md) for a full step-by-step guide.
 
 ### Install (recommended)
 
-DocuBrowse ships as RPM, DEB, and tarball packages. Download the appropriate
-package from the [Releases](https://github.com/linuxrebel/DocuBrowser/releases) page.
+DocuBrowse ships as RPM, DEB, tarball, and Windows zip packages. Download the
+appropriate package from the [Releases](https://github.com/linuxrebel/DocuBrowser/releases)
+page. macOS packaging is planned.
 
 ```bash
 # Fedora / RHEL
@@ -136,7 +136,12 @@ cd docubrowser-foss-0.9.0-7
 sudo ./install.sh
 ```
 
-All three methods install to `/opt/docubrowser/` with a Python virtualenv,
+**Windows:** Extract the zip, then double-click `Install.bat`. Requires
+Python 3.9+ and Ollama to be pre-installed. Installs to
+`%USERPROFILE%\DocuBrowse` with a Start Menu shortcut — no admin required.
+You may need to log out and back in for the shortcut to appear.
+
+All Linux methods install to `/opt/docubrowser/` with a Python virtualenv,
 CLI wrappers at `/usr/bin/docubrowser` and `/usr/bin/docuback`, a desktop
 menu entry under Office, and all Python dependencies from `requirements.txt`.
 
@@ -147,7 +152,8 @@ rest of this README is the dev / cloned-repo path (running directly out of a
 checkout).
 
 To uninstall: `sudo dnf remove docubrowser-foss` (RPM),
-`sudo apt remove docubrowser-foss` (DEB), or `sudo ./uninstall.sh` (tarball).
+`sudo apt remove docubrowser-foss` (DEB), `sudo ./uninstall.sh` (tarball),
+or double-click `Uninstall.bat` (Windows).
 
 ### First Run (dev / cloned repo)
 
@@ -570,12 +576,18 @@ DocuBrowse/
 ├── INSTALL.md              # Step-by-step install guide
 ├── README.md               # This file
 ├── LICENSE                 # GPL-3.0
-├── packaging/              # RPM spec, DEB control, build script, install/uninstall
-│   ├── build_packages.sh   # Builds RPM, DEB, and tarball
+├── packaging/              # RPM spec, DEB control, build scripts, installers
+│   ├── build_packages.sh   # Builds RPM, DEB, and tarball (Linux)
+│   ├── build_windows_zip.sh # Builds Windows zip
 │   ├── docubrowser-foss.spec  # RPM spec
-│   ├── docubrowser.desktop # Desktop menu entry
-│   ├── install.sh          # Tarball installer
-│   └── uninstall.sh        # Tarball uninstaller
+│   ├── docubrowser.desktop # Desktop menu entry (Linux)
+│   ├── install.sh          # Tarball installer (Linux)
+│   ├── uninstall.sh        # Tarball uninstaller (Linux)
+│   └── windows/            # Windows installer/uninstaller scripts
+│       ├── Install.bat     # Double-click to install
+│       ├── Uninstall.bat   # Double-click to uninstall
+│       ├── install.ps1     # PowerShell installer
+│       └── uninstall.ps1   # PowerShell uninstaller
 ├── systemd/
 │   └── docubrowser.service # systemd unit file
 ├── status_docs/            # Project planning and decision logs
@@ -678,20 +690,25 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
-## v0.9.0 (2026-07-04)
+## v0.9.0 (2026-07-05)
 
-### Packaging and cross-platform preparation
+### Native packaging and Windows support
 
-DocuBrowse is now packaged for distribution and has initial Windows compatibility.
+DocuBrowse is now packaged for Linux and Windows with native installers.
 
-- **RPM, DEB, and tarball packages** — `build_packages.sh` produces all three
-  formats. Installs to `/opt/docubrowser/` with a Python virtualenv, CLI
+- **RPM, DEB, tarball, and Windows zip packages** — `build_packages.sh`
+  produces Linux packages; `build_windows_zip.sh` produces the Windows zip.
+  Linux installs to `/opt/docubrowser/` with a Python virtualenv, CLI
   wrappers at `/usr/bin/docubrowser` and `/usr/bin/docuback`, and a desktop
-  menu entry under Office.
+  menu entry under Office. Windows installs to `%USERPROFILE%\DocuBrowse`
+  with a Start Menu shortcut (no admin required).
+- **Windows installer** — `Install.bat` / `install.ps1` detects Python,
+  creates a virtualenv, installs dependencies, and creates a Start Menu
+  shortcut. `Uninstall.bat` reverses everything.
 - **Cross-platform path abstraction** — new `platform_paths.py` centralizes
   all runtime path selection (PID files, log files, backup directory) and
   process management (kill, find-by-script, kill-port). Linux paths are
-  unchanged; Windows paths use `%LOCALAPPDATA%\DocuBrowse\`.
+  unchanged; Windows paths use `%USERPROFILE%\DocuBrowse\`.
 - **Windows compatibility** — guarded all Unix-only constructs (`resource`,
   `SIGALRM`, `os.killpg`, `/proc` access) behind platform checks. Process
   management uses `psutil` with `/proc` fallback on Linux.
@@ -702,6 +719,8 @@ DocuBrowse is now packaged for distribution and has initial Windows compatibilit
   under Office.
 - **Systemd service file** — included for system-level deployments on Linux.
 - **dist/ pruning** — build script keeps only the latest 2 releases per format.
+- **macOS** — packaging is planned but not yet available. The codebase runs
+  on macOS from a dev checkout.
 
 ### v0.8.4 (2026-07-02)
 

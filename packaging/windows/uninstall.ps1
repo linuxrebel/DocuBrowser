@@ -46,7 +46,7 @@ if ($userPath -like "*$BinDir*") {
 }
 
 # ── Remove Start Menu entries ─────────────────────────────────────────────────
-$startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\DocuBrowse"
+$startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Docubrowser"
 if (Test-Path $startMenu) {
     Remove-Item -Path $startMenu -Recurse -Force
     Write-Host "  Removed Start Menu entries" -ForegroundColor Green

@@ -1,6 +1,6 @@
 # DocuBrowse v0.9.0 — Administrator Guide
 
-**Date:** 2026-07-04
+**Date:** 2026-07-05
 **Version:** v0.9.0
 **License:** GPL-3.0-or-later
 
@@ -71,7 +71,7 @@ Everything runs on your own machine. No internet connection is required after in
 
 ### Operating System
 
-Linux (Fedora, RHEL, Debian, Ubuntu, Mint, and derivatives). Experimental Windows support is in progress — the codebase has cross-platform guards but Windows packaging is not yet available.
+Linux (Fedora, RHEL, Debian, Ubuntu, Mint, and derivatives) and Windows 10/11. macOS support is planned — the codebase runs on macOS from a dev checkout but native packaging is not yet available.
 
 ### Hardware Minimums
 
@@ -134,18 +134,32 @@ cd docubrowser-foss-0.9.0-7
 sudo ./install.sh
 ```
 
-All three methods install to `/opt/docubrowser/` with a Python virtualenv.
+All three Linux methods install to `/opt/docubrowser/` with a Python virtualenv.
 The RPM and DEB automatically create the virtualenv and install Python
 dependencies in a post-install script. The tarball `install.sh` runs
 pre-flight checks (python3 >= 3.9, venv, ensurepip, xdg-terminal-exec) and
 reports everything missing before making changes.
 
-After installation:
+After Linux installation:
 
 - CLI wrappers: `/usr/bin/docubrowser` and `/usr/bin/docuback`
 - Desktop menu entry: appears under Office
 - Start with: `docubrowser start`
 - Backup/restore: `docuback --backup` / `docuback --restore`
+
+**Windows:**
+
+Prerequisites: install Python 3.9+ (https://www.python.org/downloads/ — check
+"Add Python to PATH"; do **not** use the Microsoft Store version) and Ollama
+(https://ollama.com) before running the installer.
+
+1. Download the `.zip` from the Releases page
+2. Extract and double-click `Install.bat`
+
+Installs to `%USERPROFILE%\DocuBrowse` with a Start Menu shortcut. No admin
+required. You may need to log out and back in for the Start Menu shortcut to
+appear (a recent Windows behavior change). After install, open a terminal and
+run `docubrowser start`.
 
 After a package install, use the `docubrowser` command (without `./` or `.py`).
 
@@ -864,13 +878,15 @@ DocuBrowse includes a post-ingest PII scanner that detects sensitive personal in
 | Type | Validation |
 |------|-----------|
 | Social Security Number (SSN) | Pattern match + SSA allocation rules |
-| Credit card number | Pattern match + length + Luhn algorithm |
+| Credit card number | Pattern match + length + issuer prefix + Luhn algorithm |
+| Bank routing number | Pattern match + ABA checksum + Federal Reserve prefix |
+| Bank account number | Keyword-context gated (4–17 digits near "account"/"acct") |
 | Passport number | Pattern match |
 | Date of birth (DOB) | Pattern match |
 | Medical Record Number (MRN) | Pattern match |
 | Driver license number | Pattern match |
 
-Validation is deliberately strict: SSNs are checked against SSA allocation rules, credit cards by length, issuer prefix, and Luhn checksum. This reduces false positives and avoids deleting documents over incidental number groups.
+Validation is deliberately strict: SSNs are checked against SSA allocation rules, credit cards by length, issuer prefix, and Luhn checksum, bank routing numbers by ABA checksum and Federal Reserve district prefix. This reduces false positives and avoids deleting documents over incidental number groups.
 
 ### Running the PII Scanner
 
@@ -988,6 +1004,9 @@ sudo dnf install ./docubrowser-foss-<version>.noarch.rpm        # Fedora/RHEL
 sudo apt install ./docubrowser-foss_<version>_all.deb            # Debian/Ubuntu/Mint
 ```
 
+On Windows, extract the new zip and run `Install.bat` again — it overwrites the
+previous installation while preserving your data.
+
 No separate migration commands are needed. The schema auto-migrates at next startup.
 
 ---
@@ -1011,7 +1030,12 @@ sudo apt remove docubrowser-foss
 sudo ./uninstall.sh
 ```
 
-All methods preserve user data in `~/.docubrowser/`.
+**Windows:**
+Double-click `Uninstall.bat` in the original extracted zip folder, or navigate
+to `%USERPROFILE%\DocuBrowse` and run it from there. Removes the virtualenv,
+app files, and Start Menu shortcut.
+
+All methods preserve user data (database, config, blacklists).
 
 ### Manual / Dev-Checkout Uninstall
 
@@ -1146,5 +1170,5 @@ pdfinfo /path/to/file.pdf | grep -i objects
 
 ---
 
-*DocuBrowse v0.9.0 — Administrator Guide — 2026-07-04*
+*DocuBrowse v0.9.0 — Administrator Guide — 2026-07-05*
 *Copyright (C) 2026 James Sparenberg — GPL-3.0-or-later*
