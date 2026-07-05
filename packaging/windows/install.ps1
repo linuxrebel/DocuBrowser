@@ -71,7 +71,11 @@ Write-Host "Checking Python..." -NoNewline
 $python = $null
 foreach ($candidate in @('python', 'python3', 'py')) {
     try {
-        $src    = (Get-Command $candidate -ErrorAction Stop).Source
+        $src = (Get-Command $candidate -ErrorAction Stop).Source
+        # Skip Windows App Execution Aliases — these are Store stubs that live
+        # in Microsoft\WindowsApps and break venv due to path virtualization.
+        if ($src -like "*\Microsoft\WindowsApps\*") { continue }
+        if ($src -like "*\WindowsApps\*")           { continue }
         $output = & $src --version 2>&1
         if ($output -match 'Python (\d+)\.(\d+)') {
             $major = [int]$Matches[1]
@@ -94,18 +98,6 @@ if (-not $python) {
           "  Re-run Install.bat after installing Python.")
 }
 
-# Microsoft Store Python uses app-container virtualization that redirects
-# %LOCALAPPDATA% writes to a sandbox, breaking venv creation.
-if ($python -like "*WindowsApps*" -or $python -like "*PythonSoftwareFoundation*") {
-    Write-Host " STORE VERSION" -ForegroundColor Red
-    Fail ("Microsoft Store Python is not compatible with this installer.`n" +
-          "`n" +
-          "  Please install Python from python.org or run:`n" +
-          "    winget install Python.Python.3.13`n" +
-          "`n" +
-          "  (Make sure to check 'Add Python to PATH' during install)`n" +
-          "  Then open a new terminal and re-run Install.bat.")
-}
 
 $pyver = ((& $python --version 2>&1) -replace 'Python ','').Trim()
 Write-Host " OK ($pyver)" -ForegroundColor Green
