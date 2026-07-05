@@ -4,7 +4,7 @@
     DocuBrowse FOSS Windows Uninstaller
 
 .DESCRIPTION
-    Removes DocuBrowse from %LOCALAPPDATA%\DocuBrowse\.
+    Removes DocuBrowse from %USERPROFILE%\DocuBrowse\.
     Your document database (du-docs.db) is NOT removed.
 
 .NOTES
@@ -14,7 +14,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 
-$InstallDir = Join-Path $env:LOCALAPPDATA "DocuBrowse"
+$InstallDir = Join-Path $env:USERPROFILE "DocuBrowse"
 $BinDir     = Join-Path $InstallDir "bin"
 
 Write-Host ""
