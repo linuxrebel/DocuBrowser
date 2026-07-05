@@ -21,7 +21,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $Version    = "0.9.0"
-$InstallDir = Join-Path $env:LOCALAPPDATA "DocuBrowse"
+$InstallDir = Join-Path $env:USERPROFILE "DocuBrowse"
 $AppDir     = Join-Path $InstallDir "app"
 $VenvDir    = Join-Path $InstallDir "venv"
 $BinDir     = Join-Path $InstallDir "bin"
@@ -71,12 +71,7 @@ Write-Host "Checking Python..." -NoNewline
 $python = $null
 foreach ($candidate in @('py', 'python', 'python3')) {
     try {
-        $src = (Get-Command $candidate -ErrorAction Stop).Source
-        if ($src -like "*\WindowsApps\*") {
-            Write-Host ""
-            Write-Host "  (skipping Store stub: $src)" -ForegroundColor DarkGray
-            continue
-        }
+        $src    = (Get-Command $candidate -ErrorAction Stop).Source
         $output = & $src --version 2>&1
         if ($output -match 'Python (\d+)\.(\d+)') {
             $major = [int]$Matches[1]; $minor = [int]$Matches[2]
@@ -89,20 +84,10 @@ foreach ($candidate in @('py', 'python', 'python3')) {
 
 if (-not $python) {
     Write-Host " NOT FOUND" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "  Searched: py, python, python3" -ForegroundColor DarkGray
-    Write-Host "  'python' on your PATH resolves to:" -ForegroundColor DarkGray
-    try {
-        $found = (Get-Command python -ErrorAction Stop).Source
-        Write-Host "    $found" -ForegroundColor DarkGray
-    } catch {
-        Write-Host "    (not found on PATH)" -ForegroundColor DarkGray
-    }
-    Write-Host ""
     Fail ("Python 3.9 or newer is required but was not found.`n" +
           "`n" +
           "  Download from: https://www.python.org/downloads/`n" +
-          "  Make sure to check 'Add Python to PATH' during install.`n" +
+          "  Check 'Add Python to PATH' during install.`n" +
           "`n" +
           "  Re-run Install.bat after installing Python.")
 }
@@ -192,17 +177,18 @@ if ($LASTEXITCODE -ne 0) { Fail "pip install failed -- check your internet conne
 Write-Host "  Dependencies installed." -ForegroundColor Green
 
 # ── CLI wrapper scripts ───────────────────────────────────────────────────────
-# Use %LOCALAPPDATA% (not hardcoded paths) so the wrappers work for the current user.
+# Use %USERPROFILE% so the wrappers work for the current user regardless of
+# whether Python's AppData virtualisation is active.
 Write-Host "Creating CLI wrappers..." -NoNewline
 
 @"
 @echo off
-"%LOCALAPPDATA%\DocuBrowse\venv\Scripts\python.exe" "%LOCALAPPDATA%\DocuBrowse\app\docubrowser.py" %*
+"%USERPROFILE%\DocuBrowse\venv\Scripts\python.exe" "%USERPROFILE%\DocuBrowse\app\docubrowser.py" %*
 "@ | Set-Content -Path (Join-Path $BinDir "docubrowser.cmd") -Encoding Ascii
 
 @"
 @echo off
-"%LOCALAPPDATA%\DocuBrowse\venv\Scripts\python.exe" "%LOCALAPPDATA%\DocuBrowse\app\backup_restore.py" %*
+"%USERPROFILE%\DocuBrowse\venv\Scripts\python.exe" "%USERPROFILE%\DocuBrowse\app\backup_restore.py" %*
 "@ | Set-Content -Path (Join-Path $BinDir "docuback.cmd") -Encoding Ascii
 
 Write-Host " done" -ForegroundColor Green
