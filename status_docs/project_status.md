@@ -2,7 +2,7 @@
 
 **Version**: v0.9.0  
 **Status**: 🟢 **STABLE — daily use, packaged for distribution**  
-**Last Updated**: 2026-07-05  
+**Last Updated**: 2026-07-06  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
@@ -782,7 +782,7 @@ As of end of session, the desktop client is fully functional:
 - OAuth-gated Server Settings button in desktop client
 - Desktop Settings screen (client-local preferences)
 - Mobile web app (responsive PWA)
-- Packaging: macOS .dmg, Windows .msi, Linux .deb/.rpm/AppImage, server installers
+- Packaging: Windows .msi, Linux AppImage, server installers (macOS .dmg done 2026-07-06; .deb/.rpm/Windows zip done in v0.9.0)
 - App icon/logo — vibrant multi-color, works favicon through letterhead
 - Fresh install flow — verify embeddings auto-generated or prompted
 - Git history scrub before public release
@@ -915,3 +915,74 @@ follow-up pass.
 
 Phases 1–5 done. Remaining FOSS backlog: logo/icon (design task),
 server packaging (decision pending).
+
+---
+
+## Session: 2026-07-06 — macOS .dmg Packaging
+
+macOS is now a first-class install target, completing the v0.9.0 packaging
+story (Linux RPM/DEB/tarball, Windows zip, macOS dmg).
+
+**New files** (committed to `development` as "feat: add macOS .dmg packaging"):
+- `packaging/macos/build_macos_dmg.sh` — builds
+  `dist/docubrowser-foss-<version>-<release>-macos.dmg` with hdiutil.
+  Same conventions as the other build scripts: VERSION extracted from
+  docubrowser.py, release auto-detected from dist/, canonical APP_FILES list,
+  icons/ + EndUser_docs/ included, dist/ pruned to latest 2 macOS dmgs.
+  Uses only macOS built-ins (hdiutil; sed -E instead of GNU grep -P).
+- `packaging/macos/Install.command` — double-clickable installer. Preflight
+  (python3 ≥ 3.9, venv, ensurepip), installs to `~/Applications/DocuBrowse/`
+  with a venv (no sudo for the app), CLI wrappers to `/usr/local/bin/`
+  (sudo; falls back to `~/bin/` with a PATH hint if declined/failed), and a
+  `DocuBrowse.app` bundle that osascript-launches Terminal running
+  `start && open`. The .app icon is generated from `icons/icon-512.png` at
+  install time via sips + iconutil. bash-3.2 compatible (macOS system bash —
+  no `${var,,}`).
+- `packaging/macos/Uninstall.command` — removes the install dir (incl. the
+  .app) and only those CLI wrappers that reference DocuBrowse; preserves
+  `~/.docubrowser/`. Also copied into the install dir so it survives dmg eject.
+
+**Verified**: dmg builds end-to-end on this Mac; icns generation tested 3×;
+auto-cd from any cwd; release auto-increment and pruning work. QA agent
+review: no critical/high findings; applied its fixes (icon conversion
+guarded under `set -e`, repo-root auto-cd, best-effort `stopall` before
+overwrite-reinstall, first-run + Terminal-automation notes in post-install
+text).
+
+**Python 3.9 compatibility fix** (committed as "fix: Python 3.9
+compatibility — make PEP 604 union annotations lazy"): first real install
+test on this Mac (CLT Python 3.9.6) crashed at import —
+`def read_pid() -> int | None:` raises TypeError below 3.10.
+docubrowser.py, dup_detect.py, hardware_utils.py, and backup_restore.py
+now start with `from __future__ import annotations`, honoring the 3.9
+floor every installer advertises (also affects RHEL 9 / Debian 11).
+Verified: all modules py_compile + import + `--help` on 3.9.6; QA agent
+review clean (nothing in the codebase introspects annotations at runtime).
+
+**Naming convention settled — dash before release number** (committed as
+"fix: dash before release number in Windows/macOS package names"): James's
+standing preference is `docubrowser-foss-0.9.0-3-macos.dmg` /
+`...-0.9.0-3-windows.zip`, matching the Linux packages (`0.9.0-7.noarch.rpm`).
+The 2026-07-04 switch to a dot (d501d40) is reverted; root cause of the
+original dash-era prune misbehavior was a wrong sort field (`-k5` instead
+of `-k4`), now fixed. Do not switch back to the dot.
+
+**Deferred / known gaps** (from QA review):
+- No code signing / notarization — users must right-click → Open the
+  .command scripts on a downloaded dmg (Gatekeeper). Documented in
+  README/INSTALL; signing would need an Apple Developer ID.
+- ~~First double-click of DocuBrowse.app on a fresh install hits
+  "ERROR: Database not found"~~ **Fixed** (committed as "fix: create empty
+  database on first start instead of erroring"): `cmd_start` now calls
+  `ensure_db()` when the DB is missing, prints next-step guidance, and
+  starts the server — the web UI's configure-a-directory banner takes it
+  from there. Falls back to a clear error if the location is unwritable.
+  QA-verified live against an empty DB (stats/search/letters/banner all OK).
+  Remaining Linux-only edges (noted by QA, deferred): systemd unit's
+  hardcoded db_path can differ from the config's; running `start` as root
+  with the User=james unit would create a root-owned DB. Also noted:
+  doc_search.py `SERVER_VERSION` is stale ("0.8.1" at v0.9.0).
+- Xcode CLT python3 stub on a factory-fresh Mac gives a misleading
+  preflight message (three GUI dialogs, "have ?"); fails safely.
+- Uninstall kills the scan PID directly rather than the process group
+  (parity with uninstall.sh) — orphaned scan workers could survive.

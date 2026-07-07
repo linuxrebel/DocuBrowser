@@ -1,8 +1,7 @@
 # DocuBrowse v0.9.0 — Installation Guide
 
-This guide covers a fresh install on Linux (Fedora/RHEL/Debian/Ubuntu/Mint) or
-Windows 10/11. macOS packaging is planned but not yet available (the codebase
-runs on macOS from a dev checkout). DocuBrowse runs entirely locally — no cloud
+This guide covers a fresh install on Linux (Fedora/RHEL/Debian/Ubuntu/Mint),
+Windows 10/11, or macOS. DocuBrowse runs entirely locally — no cloud
 accounts or API keys required.
 
 ---
@@ -34,9 +33,9 @@ GPU (NVIDIA/AMD) accelerates embedding generation but is not required.
 
 ## Recommended install — packages
 
-DocuBrowse ships as RPM, DEB, tarball, and Windows zip packages. Download the
-appropriate package from the [Releases](https://github.com/linuxrebel/DocuBrowser/releases)
-page.
+DocuBrowse ships as RPM, DEB, tarball, Windows zip, and macOS dmg packages.
+Download the appropriate package from the
+[Releases](https://github.com/linuxrebel/DocuBrowser/releases) page.
 
 ### Linux
 
@@ -100,8 +99,34 @@ docubrowser open
 
 ### macOS
 
-macOS packaging is not yet available. The codebase runs on macOS from a dev
-checkout — follow the manual steps below.
+**Prerequisite:** Python 3.9+ (macOS's bundled `python3` works if the Xcode
+Command Line Tools are installed; otherwise install from
+https://www.python.org/downloads/). Ollama (https://ollama.com) is required
+for AI features — `docubrowser start` pulls the models automatically once
+Ollama is installed.
+
+**Install:**
+
+1. Download the `.dmg` file from the Releases page and open it
+2. Double-click **`Install.command`** (right-click → Open the first time —
+   the scripts are unsigned)
+
+The installer creates a Python virtualenv, installs all dependencies, and
+sets up:
+
+- App files in `~/Applications/DocuBrowse/` (no sudo required)
+- CLI wrappers at `/usr/local/bin/docubrowser` and `/usr/local/bin/docuback`
+  (sudo prompted; falls back to `~/bin/` if declined)
+- A `DocuBrowse.app` launcher in `~/Applications/DocuBrowse/` that starts
+  the server and opens the web UI in Terminal (macOS asks once to allow it
+  to control Terminal — click Allow)
+
+After installation, index your documents and start the server:
+```
+docubrowser rescan --doc-dir /path/to/your/documents
+docubrowser start
+docubrowser open
+```
 
 ---
 
@@ -380,6 +405,11 @@ sudo ./uninstall.sh
 Double-click `Uninstall.bat` in the original extracted zip folder, or run it
 from the install directory at `%USERPROFILE%\DocuBrowse`. Removes the
 virtualenv, app files, and Start Menu shortcut.
+
+**macOS:**
+Double-click `Uninstall.command` on the dmg, or in
+`~/Applications/DocuBrowse/`. Removes the install directory (including
+`DocuBrowse.app`) and the CLI wrappers.
 
 All methods preserve user data (database, config, blacklists).
 
