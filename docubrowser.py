@@ -23,6 +23,10 @@ Commands:
   dupclean    Interactively review and remove duplicate documents
 """
 
+# Lazy annotations so `int | None` hints don't crash Python 3.9 (the floor
+# advertised by every installer; macOS CLT and RHEL 9 still ship 3.9).
+from __future__ import annotations
+
 import argparse
 import errno
 import json

@@ -8,6 +8,10 @@ Used to auto-tune worker counts based on available CPU cores and GPU.
 All functions are safe to call at module import time (no heavy imports).
 """
 
+# Lazy annotations so `dict | None` hints don't crash Python 3.9 (the floor
+# advertised by every installer; macOS CLT and RHEL 9 still ship 3.9).
+from __future__ import annotations
+
 import os
 import subprocess
 import time
