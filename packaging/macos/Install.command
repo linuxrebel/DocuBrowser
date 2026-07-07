@@ -255,3 +255,5 @@ fi
 echo "  To uninstall:  double-click Uninstall.command (on this dmg, or in"
 echo "                 $INSTALL_DIR)"
 echo
+echo "  You may now close this install window."
+echo
