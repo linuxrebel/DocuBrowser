@@ -10,7 +10,7 @@ accounts or API keys required.
 
 | Requirement | Version | Notes |
 |------------|---------|-------|
-| Python | 3.10+ | 3.12+ recommended |
+| Python | 3.9+ | 3.12+ recommended |
 | pdfplumber | any | PDF extraction (primary) |
 | pypdf | 3.x+ | PDF extraction (fallback for bloated-object PDFs) |
 | python-docx | any | Word document (.docx) extraction |

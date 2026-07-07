@@ -103,7 +103,7 @@ Click any thumbnail to view full size.
 [↑ Top](#top)
 
 ### Prerequisites
-- Python 3.10+
+- Python 3.9+
 - `pdfplumber`, `pypdf` — PDF extraction
 - `python-docx` — Word documents
 - `python-pptx` — PowerPoint presentations
