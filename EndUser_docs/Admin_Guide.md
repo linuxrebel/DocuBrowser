@@ -1,6 +1,6 @@
 # DocuBrowse v0.9.0 — Administrator Guide
 
-**Date:** 2026-07-05
+**Date:** 2026-07-06
 **Version:** v0.9.0
 **License:** GPL-3.0-or-later
 
@@ -114,8 +114,9 @@ Linux (Fedora, RHEL, Debian, Ubuntu, Mint, and derivatives), Windows 10/11, and 
 
 ### 3.1 Recommended Install via Packages
 
-DocuBrowse ships as RPM, DEB, and tarball packages. Download the appropriate
-package from the [Releases](https://github.com/linuxrebel/DocuBrowser/releases) page.
+DocuBrowse ships as RPM, DEB, tarball, Windows zip, and macOS dmg packages.
+Download the appropriate package from the
+[Releases](https://github.com/linuxrebel/DocuBrowser/releases) page.
 
 **Fedora / RHEL:**
 ```bash
@@ -160,6 +161,21 @@ Installs to `%USERPROFILE%\DocuBrowse` with a Start Menu shortcut. No admin
 required. You may need to log out and back in for the Start Menu shortcut to
 appear (a recent Windows behavior change). After install, open a terminal and
 run `docubrowser start`.
+
+**macOS:**
+
+Prerequisite: Python 3.9+ (the bundled `python3` works if the Xcode Command
+Line Tools are installed: `xcode-select --install`). Ollama is installed
+automatically by `docubrowser start` if missing.
+
+1. Download the `.dmg` from the Releases page
+2. Open the dmg, then double-click `Install.command` (right-click → Open the
+   first time — the scripts are unsigned)
+
+Installs to `~/Applications/DocuBrowse/` with a Python virtualenv. CLI wrappers
+are placed at `/usr/local/bin/docubrowser` and `/usr/local/bin/docuback` (sudo
+prompted; falls back to `~/bin/` if declined). A `DocuBrowse.app` launcher is
+created that starts the server and opens the web UI in Terminal.
 
 After a package install, use the `docubrowser` command (without `./` or `.py`).
 
@@ -1007,6 +1023,9 @@ sudo apt install ./docubrowser-foss_<version>_all.deb            # Debian/Ubuntu
 On Windows, extract the new zip and run `Install.bat` again — it overwrites the
 previous installation while preserving your data.
 
+On macOS, open the new dmg and run `Install.command` again — it overwrites the
+previous installation while preserving your data in `~/.docubrowser/`.
+
 No separate migration commands are needed. The schema auto-migrates at next startup.
 
 ---
@@ -1034,6 +1053,10 @@ sudo ./uninstall.sh
 Double-click `Uninstall.bat` in the original extracted zip folder, or navigate
 to `%USERPROFILE%\DocuBrowse` and run it from there. Removes the virtualenv,
 app files, and Start Menu shortcut.
+
+**macOS:**
+Double-click `Uninstall.command` on the dmg or in `~/Applications/DocuBrowse/`.
+Removes the install directory, CLI wrappers, and the `.app` bundle.
 
 All methods preserve user data (database, config, blacklists).
 
@@ -1170,5 +1193,5 @@ pdfinfo /path/to/file.pdf | grep -i objects
 
 ---
 
-*DocuBrowse v0.9.0 — Administrator Guide — 2026-07-05*
+*DocuBrowse v0.9.0 — Administrator Guide — 2026-07-06*
 *Copyright (C) 2026 James Sparenberg — GPL-3.0-or-later*
