@@ -319,11 +319,21 @@ def cmd_start(config: dict, args):
     if not ensure_ollama():
         sys.exit(1)
 
-    # Verify database exists
+    # First run: create an empty database instead of erroring — the web UI
+    # shows a banner guiding the user to configure a document directory.
     if not Path(db_path).exists():
-        print(f"ERROR: Database not found: {db_path}")
-        print("Run 'docubrowser rescan' to create and populate the database.")
-        sys.exit(1)
+        try:
+            from docubrowse_db import ensure_db
+            ensure_db(db_path)
+        except Exception as exc:
+            print(f"ERROR: Database not found and could not be created: {db_path}")
+            print(f"       ({exc})")
+            print("Check that the location is writable, or set db_path in "
+                  "docubrowse.config.")
+            sys.exit(1)
+        print(f"Created new empty database: {db_path}")
+        print("Next step: pick a document directory in the web UI (gear icon),")
+        print("then run 'docubrowser rescan' to index it.")
 
     # If a systemd unit is installed, prefer it — it owns the process,
     # PID file (/run/docubrowser), and log directory (/var/log/docubrowser).
