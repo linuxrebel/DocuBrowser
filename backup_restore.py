@@ -17,6 +17,10 @@ Usage:
     backup_restore.py           (interactive — asks which operation)
 """
 
+# Lazy annotations so `str | None` hints don't crash Python 3.9 (the floor
+# advertised by every installer; macOS CLT and RHEL 9 still ship 3.9).
+from __future__ import annotations
+
 import argparse
 import ctypes
 import os

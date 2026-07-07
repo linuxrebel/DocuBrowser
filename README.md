@@ -2,8 +2,8 @@
 
 <a name="top"></a>
 
-Packaged for Linux (RPM, DEB, tarball) and Windows (zip).
-macOS packaging is planned. Interfaces are stable; breaking changes are avoided where possible.
+Packaged for Linux (RPM, DEB, tarball), Windows (zip), and macOS (dmg).
+Interfaces are stable; breaking changes are avoided where possible.
 
 **DocuBrowse turns a messy pile of documents into something you can actually search.**
 Point it at your files — PDFs, ebooks, Word docs, notes, whatever — and it builds a smart
@@ -119,9 +119,9 @@ See [INSTALL.md](INSTALL.md) for a full step-by-step guide.
 
 ### Install (recommended)
 
-DocuBrowse ships as RPM, DEB, tarball, and Windows zip packages. Download the
-appropriate package from the [Releases](https://github.com/linuxrebel/DocuBrowser/releases)
-page. macOS packaging is planned.
+DocuBrowse ships as RPM, DEB, tarball, Windows zip, and macOS dmg packages.
+Download the appropriate package from the
+[Releases](https://github.com/linuxrebel/DocuBrowser/releases) page.
 
 ```bash
 # Fedora / RHEL
@@ -141,6 +141,13 @@ Python 3.9+ and Ollama to be pre-installed. Installs to
 `%USERPROFILE%\DocuBrowse` with a Start Menu shortcut — no admin required.
 You may need to log out and back in for the shortcut to appear.
 
+**macOS:** Open the dmg, then double-click `Install.command` (right-click →
+Open the first time — the scripts are unsigned). Requires Python 3.9+.
+Installs to `~/Applications/DocuBrowse/` with a Python virtualenv, CLI
+wrappers at `/usr/local/bin/docubrowser` and `/usr/local/bin/docuback`
+(sudo prompted; falls back to `~/bin/` if declined), and a `DocuBrowse.app`
+launcher that starts the server and opens the web UI in Terminal.
+
 All Linux methods install to `/opt/docubrowser/` with a Python virtualenv,
 CLI wrappers at `/usr/bin/docubrowser` and `/usr/bin/docuback`, a desktop
 menu entry under Office, and all Python dependencies from `requirements.txt`.
@@ -153,7 +160,8 @@ checkout).
 
 To uninstall: `sudo dnf remove docubrowser-foss` (RPM),
 `sudo apt remove docubrowser-foss` (DEB), `sudo ./uninstall.sh` (tarball),
-or double-click `Uninstall.bat` (Windows).
+double-click `Uninstall.bat` (Windows), or double-click `Uninstall.command`
+(macOS — on the dmg or in `~/Applications/DocuBrowse/`).
 
 ### First Run (dev / cloned repo)
 
@@ -583,11 +591,15 @@ DocuBrowse/
 │   ├── docubrowser.desktop # Desktop menu entry (Linux)
 │   ├── install.sh          # Tarball installer (Linux)
 │   ├── uninstall.sh        # Tarball uninstaller (Linux)
-│   └── windows/            # Windows installer/uninstaller scripts
-│       ├── Install.bat     # Double-click to install
-│       ├── Uninstall.bat   # Double-click to uninstall
-│       ├── install.ps1     # PowerShell installer
-│       └── uninstall.ps1   # PowerShell uninstaller
+│   ├── windows/            # Windows installer/uninstaller scripts
+│   │   ├── Install.bat     # Double-click to install
+│   │   ├── Uninstall.bat   # Double-click to uninstall
+│   │   ├── install.ps1     # PowerShell installer
+│   │   └── uninstall.ps1   # PowerShell uninstaller
+│   └── macos/              # macOS installer/uninstaller scripts
+│       ├── build_macos_dmg.sh   # Builds the macOS dmg
+│       ├── Install.command      # Double-click to install
+│       └── Uninstall.command    # Double-click to uninstall
 ├── systemd/
 │   └── docubrowser.service # systemd unit file
 ├── status_docs/            # Project planning and decision logs
@@ -719,8 +731,11 @@ DocuBrowse is now packaged for Linux and Windows with native installers.
   under Office.
 - **Systemd service file** — included for system-level deployments on Linux.
 - **dist/ pruning** — build script keeps only the latest 2 releases per format.
-- **macOS** — packaging is planned but not yet available. The codebase runs
-  on macOS from a dev checkout.
+- **macOS dmg installer** — `packaging/macos/build_macos_dmg.sh` produces a
+  dmg with double-clickable `Install.command` / `Uninstall.command` scripts.
+  Installs to `~/Applications/DocuBrowse/` (no sudo for the app itself) with
+  a Python virtualenv, CLI wrappers, and a `DocuBrowse.app` launcher whose
+  icon is generated from `icons/icon-512.png` via sips/iconutil.
 
 ### v0.8.4 (2026-07-02)
 

@@ -14,6 +14,10 @@ Each function returns a list of groups, where each group is a list of dicts:
     [{'id', 'name', 'path', 'size_bytes', 'title', 'author'}, ...]
 """
 
+# Lazy annotations so `str | None` hints don't crash Python 3.9 (the floor
+# advertised by every installer; macOS CLT and RHEL 9 still ship 3.9).
+from __future__ import annotations
+
 import hashlib
 import math
 import struct

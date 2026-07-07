@@ -71,7 +71,7 @@ Everything runs on your own machine. No internet connection is required after in
 
 ### Operating System
 
-Linux (Fedora, RHEL, Debian, Ubuntu, Mint, and derivatives) and Windows 10/11. macOS support is planned — the codebase runs on macOS from a dev checkout but native packaging is not yet available.
+Linux (Fedora, RHEL, Debian, Ubuntu, Mint, and derivatives), Windows 10/11, and macOS. Linux installs via RPM, DEB, or tarball; Windows via a zip with a double-click installer; macOS via a dmg with a double-click `Install.command` (installs to `~/Applications/DocuBrowse/`, no sudo required for the app itself).
 
 ### Hardware Minimums
 
