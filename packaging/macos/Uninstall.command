@@ -71,3 +71,5 @@ echo
 echo "DocuBrowse removed."
 echo "User data in ~/.docubrowser/ was preserved."
 echo "To remove all user data:  rm -rf ~/.docubrowser/"
+echo
+echo "You may now close this window."
