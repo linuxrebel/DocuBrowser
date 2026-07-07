@@ -5,11 +5,12 @@
 #   bash packaging/macos/build_macos_dmg.sh [RELEASE]
 #
 #   RELEASE  Build number (default: auto-detect from dist/).  Increment for
-#            each rebuild of the same version, e.g.:
-#              docubrowser-foss-0.9.0.1-macos.dmg
-#              docubrowser-foss-0.9.0.2-macos.dmg
+#            each rebuild of the same version.  Dash before the release
+#            number, matching the Linux packages (e.g. 0.9.0-7.noarch.rpm):
+#              docubrowser-foss-0.9.0-1-macos.dmg
+#              docubrowser-foss-0.9.0-2-macos.dmg
 #
-# Output: dist/docubrowser-foss-<version>.<release>-macos.dmg
+# Output: dist/docubrowser-foss-<version>-<release>-macos.dmg
 #
 # The mounted .dmg contains:
 #   Install.command     <- double-click to install (no sudo for the app itself)
@@ -45,13 +46,13 @@ else
     # Auto-detect: highest existing release for this version + 1.
     # sed -E (not grep -P) so this works with BSD tools on macOS.
     # || true prevents set -e from aborting when no prior dmgs exist.
-    LATEST=$(ls dist/docubrowser-foss-"${VERSION}".*-macos.dmg 2>/dev/null \
-             | sed -E "s/.*${VERSION//./\\.}\.([0-9]+)-macos\.dmg/\1/" \
+    LATEST=$(ls dist/docubrowser-foss-"${VERSION}"-*-macos.dmg 2>/dev/null \
+             | sed -E "s/.*${VERSION//./\\.}-([0-9]+)-macos\.dmg/\1/" \
              | sort -n | tail -1 || true)
     RELEASE=$(( ${LATEST:-0} + 1 ))
 fi
 
-DIST_NAME="docubrowser-foss-${VERSION}.${RELEASE}-macos"
+DIST_NAME="docubrowser-foss-${VERSION}-${RELEASE}-macos"
 DMG_OUT="dist/${DIST_NAME}.dmg"
 
 echo "==> Building macOS package: $DMG_OUT  (version $VERSION, release $RELEASE)"

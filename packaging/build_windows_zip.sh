@@ -5,7 +5,8 @@
 #   bash packaging/build_windows_zip.sh [RELEASE]
 #
 #   RELEASE  Build number (default: auto-detect from dist/).  Increment for
-#            each rebuild of the same version, e.g.:
+#            each rebuild of the same version.  Dash before the release
+#            number, matching the Linux packages (e.g. 0.9.0-7.noarch.rpm):
 #              docubrowser-foss-0.9.0-1-windows.zip
 #              docubrowser-foss-0.9.0-2-windows.zip
 #
@@ -34,14 +35,15 @@ if [[ -n "${1:-}" ]]; then
     RELEASE="$1"
 else
     # Auto-detect: highest existing release for this version + 1.
+    # sed -E (not grep -P) so this also works with BSD tools on macOS.
     # || true prevents set -e from aborting when no prior zips exist.
-    LATEST=$(ls dist/docubrowser-foss-"${VERSION}".*-windows.zip 2>/dev/null \
-             | grep -oP "(?<=${VERSION//./\\.}\.)\d+(?=-windows\\.zip)" \
+    LATEST=$(ls dist/docubrowser-foss-"${VERSION}"-*-windows.zip 2>/dev/null \
+             | sed -E "s/.*${VERSION//./\\.}-([0-9]+)-windows\.zip/\1/" \
              | sort -n | tail -1 || true)
     RELEASE=$(( ${LATEST:-0} + 1 ))
 fi
 
-DIST_NAME="docubrowser-foss-${VERSION}.${RELEASE}-windows"
+DIST_NAME="docubrowser-foss-${VERSION}-${RELEASE}-windows"
 DIST_DIR="dist/${DIST_NAME}"
 ZIP_OUT="dist/${DIST_NAME}.zip"
 
@@ -129,11 +131,14 @@ fi
 rm -rf "$DIST_DIR"
 
 # ── Prune dist/ to keep only the latest 2 windows zips for this version ──────
+# Release number is dash-field 4 of "dist/docubrowser-foss-<ver>-<rel>-windows.zip"
+# (the pre-dot-era prune sorted on -k5, one field off — that bug, not the dash
+# naming itself, is why this previously misbehaved).
 echo "==> Pruning dist/ (keeping latest 2 Windows releases)"
-ls -1 dist/docubrowser-foss-"${VERSION}".*-windows.zip 2>/dev/null \
-    | sort -t. -k4 -n \
+ls -1 dist/docubrowser-foss-"${VERSION}"-*-windows.zip 2>/dev/null \
+    | sort -t- -k4 -n \
     | head -n -2 \
-    | xargs -r rm -f --
+    | xargs rm -f --
 
 echo ""
 echo "==> Built: $ZIP_OUT"
