@@ -42,6 +42,8 @@ unguarded stat() call in sort key, NameError from conditionally-defined variable
 - **Never commit release tarballs to git.** They go on the GitHub Releases page only.
   Build with `git archive` (not `tar czf .`) to avoid including untracked files.
   Tarballs are gitignored and stored locally in `dist/`.
+- **All git commits must be authored as James's user** — do not configure or
+  override `user.name` / `user.email`. The system gitconfig is already correct.
 
 ## Known Pitfalls & Hard-Won Lessons
 
