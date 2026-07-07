@@ -86,7 +86,7 @@ Linux (Fedora, RHEL, Debian, Ubuntu, Mint, and derivatives), Windows 10/11, and 
 
 | Component | Version | Notes |
 |-----------|---------|-------|
-| Python | 3.10+ (3.12+ recommended) | Must include `venv` and `ensurepip` |
+| Python | 3.9+ (3.12+ recommended) | Must include `venv` and `ensurepip` |
 | SQLite | 3.35+ | Bundled with Python — no separate install needed |
 | Ollama | Latest | Local AI inference engine |
 | nomic-embed-text | Latest | Embedding model (~274 MB); pulled via Ollama |
