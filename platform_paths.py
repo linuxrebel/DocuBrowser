@@ -235,19 +235,27 @@ def kill_port(port: int, verbose: bool = False) -> bool:
     """Kill any process listening on *port*.  Returns True if killed."""
     try:
         import psutil
-        killed = False
-        for conn in psutil.net_connections(kind='tcp'):
-            if conn.laddr.port == port and conn.pid:
-                try:
-                    os.kill(conn.pid, signal.SIGTERM)
-                    if verbose:
-                        print(f"Sent SIGTERM to process {conn.pid} on port {port}.")
-                    killed = True
-                except (ProcessLookupError, PermissionError):
-                    pass
-        return killed
     except ImportError:
-        pass
+        psutil = None
+
+    if psutil is not None:
+        try:
+            killed = False
+            for conn in psutil.net_connections(kind='tcp'):
+                if conn.laddr.port == port and conn.pid:
+                    try:
+                        os.kill(conn.pid, signal.SIGTERM)
+                        if verbose:
+                            print(f"Sent SIGTERM to process {conn.pid} on port {port}.")
+                        killed = True
+                    except (ProcessLookupError, PermissionError):
+                        pass
+            return killed
+        except (psutil.AccessDenied, PermissionError):
+            # System-wide net_connections() needs root on macOS
+            # (proc_pidinfo is denied for other users' processes);
+            # fall back to lsof below.
+            pass
 
     # Fallback: lsof / fuser (Unix only)
     if IS_WINDOWS:
