@@ -1,4 +1,4 @@
-# DocuBrowse v0.9.0
+# DocuBrowse v0.9.1
 
 <a name="top"></a>
 
@@ -126,14 +126,14 @@ Download the appropriate package from the
 
 ```bash
 # Fedora / RHEL
-sudo dnf install ./docubrowser-foss-0.9.0-7.noarch.rpm
+sudo dnf install ./docubrowser-foss-0.9.1-1.noarch.rpm
 
 # Debian / Ubuntu / Mint
-sudo apt install ./docubrowser-foss_0.9.0-7_all.deb
+sudo apt install ./docubrowser-foss_0.9.1-1_all.deb
 
 # Any Linux (tarball)
-tar xzf docubrowser-foss-0.9.0-7.tar.gz
-cd docubrowser-foss-0.9.0-7
+tar xzf docubrowser-foss-0.9.1-1.tar.gz
+cd docubrowser-foss-0.9.1-1
 sudo ./install.sh
 ```
 
@@ -705,6 +705,20 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+## v0.9.1 (2026-07-09)
+
+### OpenDocument Format support
+
+- **ODF scanning** — `.odt` (text), `.ods` (spreadsheet), and `.odp`
+  (presentation) files are now indexed. Extraction uses only Python stdlib
+  (`zipfile` + `xml.etree.ElementTree`) — no extra dependency required.
+  Metadata (title, author, subject, description, keywords) is read from
+  `meta.xml`; body text is extracted from `content.xml` with full namespace
+  handling for paragraphs, headings, lists, tables, and slide frames.
+- **Version bump** — all packaging files updated to 0.9.1.
+
+---
+
 ## v0.9.0 (2026-07-05)
 
 ### Native packaging and Windows support
@@ -998,4 +1012,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.9.0** — Fast, local, AI-powered document search.
+**DocuBrowse v0.9.1** — Fast, local, AI-powered document search.
