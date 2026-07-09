@@ -48,11 +48,12 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
   Semantic search embeddings are produced by a second local model (`nomic-embed-text:latest`)
 
 ### 📚 Document Indexing
-- **Formats**: PDF, DOCX, PPTX, XLSX, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
+- **Formats**: PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
 - **PDF intelligence**: pdfplumber (preferred) with pypdf fallback for bloated-object files; `layout=False` retry for complex layouts; scanned (image-only) PDFs detected and routed to `ocr_list_pdfs.txt`
 - **Word documents**: python-docx extracts paragraphs, tables, and core properties (title, author, subject)
 - **Presentations**: python-pptx extracts slide text, notes, and core properties
 - **Spreadsheets**: openpyxl extracts cell values and sheet names
+- **OpenDocument**: ODF files (.odt, .ods, .odp) parsed via stdlib XML/ZIP — no extra dependency
 - **E-books**: ebooklib for EPUB; mobi package + Calibre fallback for MOBI/AZW3; DRM-encrypted AZW files indexed with metadata only (title/author visible, body not searchable)
 - **Metadata**: title, author, subject extracted from document metadata fields; auto-generated tags from directory structure and content keywords
 - **PII protection**: post-ingest scanner detects SSN, credit card, bank routing/account number, DOB, MRN, driver license, passport patterns; removes matching documents and permanently blacklists them
@@ -370,6 +371,7 @@ work_dir     = /home/user/DocuBrowse
 | `scan_docs.py` | Document discovery, extraction, and DB writes |
 | `pdf_extractor.py` | PDF-specific extraction with pdfplumber/pypdf |
 | `docx_extractor.py` | Word document extraction (python-docx) |
+| `odf_extractor.py` | OpenDocument (.odt, .ods, .odp) extraction (stdlib) |
 | `ebook_extractor.py` | EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre) |
 | `hardware_utils.py` | CPU/GPU/RAM detection, worker count formula |
 | `embed_docs.py` | Sends text to Ollama; stores 768-dim vectors |
@@ -566,6 +568,7 @@ DocuBrowse/
 ├── scan_docs.py            # Scanner: discovery, extraction, DB writes
 ├── pdf_extractor.py        # PDF extraction (pdfplumber + pypdf fallback)
 ├── docx_extractor.py       # Word document extraction (python-docx)
+├── odf_extractor.py        # OpenDocument (.odt/.ods/.odp) extraction (stdlib)
 ├── ebook_extractor.py      # EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre)
 ├── hardware_utils.py       # CPU/GPU/RAM detection, worker formula
 ├── embed_docs.py           # Embedding generation pipeline

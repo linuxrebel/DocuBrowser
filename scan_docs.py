@@ -35,6 +35,7 @@ from platform_paths import scan_log_paths
 # classifier below (_classify_noext) which detects HTML via tag heuristics
 # and routes them through _extract_text_file.
 DEFAULT_EXTENSIONS = [".pdf", ".docx", ".pptx", ".xlsx",
+                      ".odt", ".ods", ".odp",
                       ".epub", ".mobi", ".azw", ".azw3",
                       ".txt", ".md", ".html",
                       ".json", ".yml", ".yaml",
@@ -440,6 +441,9 @@ def _extract_file(args: tuple) -> dict:
         elif effective_ext == ".xlsx":
             from xlsx_extractor import extract_xlsx
             result = extract_xlsx(str(file_path))
+        elif effective_ext in (".odt", ".ods", ".odp"):
+            from odf_extractor import extract_odf
+            result = extract_odf(str(file_path))
         elif effective_ext in (".epub", ".mobi", ".azw", ".azw3"):
             from ebook_extractor import extract_ebook
             result = extract_ebook(str(file_path))
@@ -475,7 +479,7 @@ def _extract_file(args: tuple) -> dict:
         if effective_ext in _CODE_EXTENSIONS:
             tags.add("code")
 
-        if effective_ext in (".pdf", ".docx", ".pptx", ".xlsx", ".epub", ".mobi", ".azw", ".azw3"):
+        if effective_ext in (".pdf", ".docx", ".pptx", ".xlsx", ".odt", ".ods", ".odp", ".epub", ".mobi", ".azw", ".azw3"):
             from pdf_extractor import generate_keywords
             keywords = generate_keywords(
                 result.get("text", ""), result.get("title", ""), max_keywords=5

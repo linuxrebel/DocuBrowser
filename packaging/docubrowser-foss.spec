@@ -40,6 +40,7 @@ install -m 644 pdf_extractor.py     %{buildroot}/opt/docubrowser/
 install -m 644 docx_extractor.py    %{buildroot}/opt/docubrowser/
 install -m 644 pptx_extractor.py    %{buildroot}/opt/docubrowser/
 install -m 644 xlsx_extractor.py    %{buildroot}/opt/docubrowser/
+install -m 644 odf_extractor.py     %{buildroot}/opt/docubrowser/
 install -m 644 ebook_extractor.py   %{buildroot}/opt/docubrowser/
 install -m 644 hardware_utils.py    %{buildroot}/opt/docubrowser/
 install -m 644 docubrowse_db.py     %{buildroot}/opt/docubrowser/
