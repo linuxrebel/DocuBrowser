@@ -1,9 +1,12 @@
 # DocuBrowse — Decisions & Deferred Work
 
-Tracks open decisions, deferred features, and known issues for the FOSS repo.
-Items are numbered for cross-reference; resolved items keep their number.
+Tracks open decisions, deferred features, and known issues across both
+the FOSS and Enterprise repos. Items are numbered for cross-reference;
+resolved items keep their number.
 
 ---
+
+# FOSS
 
 ## Open
 
@@ -72,6 +75,67 @@ Decide on distribution format beyond the current `install.sh`:
 - Docker image
 - Flatpak / Snap
 
+### D-8: Windows Unicode console encoding — permanent fix needed
+**Status:** ANSI colors resolved 2026-07-04; item 3 (check_missing_path) still open  
+**Priority:** Low  
+**Added:** 2026-07-04
+
+**Background:** Windows console defaults to cp1252, which cannot encode the Unicode
+symbols used throughout DocuBrowse output (─, ●, ✓, ✗, ⚠, █, ░, etc.).  Any
+`print()` call with these characters raises `UnicodeEncodeError` and crashes the
+process unless `PYTHONUTF8=1` is set in the environment.
+
+**Fixes applied (2026-07-04):**
+- `platform_paths.py` — calls `sys.stdout/stderr.reconfigure(encoding='utf-8')`
+  at module level on Windows, and sets `os.environ["PYTHONUTF8"] = "1"` so all
+  subprocesses inherit it.  Also calls `colorama.init()` unconditionally (no-op
+  on Linux/macOS; translates ANSI codes to Win32 console calls on Windows).
+- `embed_docs.py` / `purge_pii.py` — same `colorama.init()` added directly since
+  they can be run standalone without importing `platform_paths`.
+- `colorama` added to `requirements.txt`.
+
+**Remaining open item:**
+3. **`check_missing_path()`** uses Unix "unmounted device" detection (`os.stat("/")`,
+   device ID comparison) that doesn't apply to Windows drive letters.  The function
+   degrades gracefully (returns "missing" on OSError) but won't correctly classify
+   disconnected Windows network shares as "unmounted".
+
+### D-6: Dotfile handling in no-extension classifier
+**Status:** Open  
+**Priority:** Low  
+**Added:** 2026-07-02
+
+The no-extension file classifier (`_classify_noext` in `scan_docs.py`) picks up
+dotfiles like `.bashrc`, `.env`, `.gitignore` since `Path.suffix` is empty for
+them. Most are harmless text files, but `.env` files may contain secrets. Options:
+skip all dotfiles, skip known-sensitive names, or rely on `ignore_dirs` / blacklist.
+
+---
+
+## Resolved
+
+### D-100: Fresh install — does embed auto-run after initial scan?
+**Status:** Resolved (yes) — 2026-06-27  
+`scan` command now embeds by default (same as `rescan`). `--no-embed` flag
+available for opt-out.
+
+### D-101: No-extension file classification
+**Status:** Done — 2026-07-02  
+Added `_classify_noext()` magic-byte classifier in `scan_docs.py`. Handles
+PDF, DOCX, XLSX, PPTX, EPUB, HTML, and plain text. Binary formats (ELF, images)
+are skipped.
+
+### D-102: PII bank routing/account precision
+**Status:** Done — 2026-07-02  
+Fixed ABA prefix range (1–12, not 0–12) and restructured bank account regex
+so the `no/number/#` qualifier applies to both "account" and "acct".
+
+---
+
+# Enterprise
+
+## Open
+
 ### D-7: RAG-powered interactive assistant
 **Status:** Open — architecture phase  
 **Priority:** High  
@@ -139,12 +203,6 @@ meaningful vectors.
 This connects directly to D-1 (multi-language support). The modular RAG
 architecture makes language a configuration choice rather than a code change.
 
-**Enterprise only.** This feature lives entirely in the Enterprise repo.
-Customer-provided knowledge bases, role-based access, conversation history,
-larger/multilingual model support, and multi-language deployments.
-Organizations embed their own internal docs, runbooks, and procedures — the
-assistant becomes a domain expert for their specific environment.
-
 **Implementation considerations:**
 - Embedding infrastructure already exists (nomic-embed-text + vector store)
 - Fork/extract coding_agent's conversational core; replace file tools with
@@ -159,58 +217,11 @@ assistant becomes a domain expert for their specific environment.
   splitting on markdown headers.
 - Ollama client utility: extract OOM recovery, connection handling, and
   context compaction patterns from coding_agent into a shared module.
-
-### D-8: Windows Unicode console encoding — permanent fix needed
-**Status:** ANSI colors resolved 2026-07-04; item 3 (check_missing_path) still open  
-**Priority:** Low  
-**Added:** 2026-07-04
-
-**Background:** Windows console defaults to cp1252, which cannot encode the Unicode
-symbols used throughout DocuBrowse output (─, ●, ✓, ✗, ⚠, █, ░, etc.).  Any
-`print()` call with these characters raises `UnicodeEncodeError` and crashes the
-process unless `PYTHONUTF8=1` is set in the environment.
-
-**Fixes applied (2026-07-04):**
-- `platform_paths.py` — calls `sys.stdout/stderr.reconfigure(encoding='utf-8')`
-  at module level on Windows, and sets `os.environ["PYTHONUTF8"] = "1"` so all
-  subprocesses inherit it.  Also calls `colorama.init()` unconditionally (no-op
-  on Linux/macOS; translates ANSI codes to Win32 console calls on Windows).
-- `embed_docs.py` / `purge_pii.py` — same `colorama.init()` added directly since
-  they can be run standalone without importing `platform_paths`.
-- `colorama` added to `requirements.txt`.
-
-**Remaining open item:**
-3. **`check_missing_path()`** uses Unix "unmounted device" detection (`os.stat("/")`,
-   device ID comparison) that doesn't apply to Windows drive letters.  The function
-   degrades gracefully (returns "missing" on OSError) but won't correctly classify
-   disconnected Windows network shares as "unmounted".
-
-### D-6: Dotfile handling in no-extension classifier
-**Status:** Open  
-**Priority:** Low  
-**Added:** 2026-07-02
-
-The no-extension file classifier (`_classify_noext` in `scan_docs.py`) picks up
-dotfiles like `.bashrc`, `.env`, `.gitignore` since `Path.suffix` is empty for
-them. Most are harmless text files, but `.env` files may contain secrets. Options:
-skip all dotfiles, skip known-sensitive names, or rely on `ignore_dirs` / blacklist.
+- Customer-provided knowledge bases, role-based access, conversation history,
+  larger/multilingual model support, and multi-language deployments.
 
 ---
 
 ## Resolved
 
-### D-100: Fresh install — does embed auto-run after initial scan?
-**Status:** Resolved (yes) — 2026-06-27  
-`scan` command now embeds by default (same as `rescan`). `--no-embed` flag
-available for opt-out.
-
-### D-101: No-extension file classification
-**Status:** Done — 2026-07-02  
-Added `_classify_noext()` magic-byte classifier in `scan_docs.py`. Handles
-PDF, DOCX, XLSX, PPTX, EPUB, HTML, and plain text. Binary formats (ELF, images)
-are skipped.
-
-### D-102: PII bank routing/account precision
-**Status:** Done — 2026-07-02  
-Fixed ABA prefix range (1–12, not 0–12) and restructured bank account regex
-so the `no/number/#` qualifier applies to both "account" and "acct".
+_(No resolved Enterprise items yet.)_
