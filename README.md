@@ -103,6 +103,12 @@ Click any thumbnail to view full size.
 
 [↑ Top](#top)
 
+### System Requirements
+
+**Minimum:** 8 GB RAM, x86_64 or ARM64 CPU, 2 GB free disk (plus space for your documents and the index). Works without a GPU — synopsis generation will be slower but functional. 32-bit systems are not supported (Ollama does not ship 32-bit builds).
+
+**Recommended:** 16 GB RAM, 4 GB+ vRAM (NVIDIA or Apple Silicon). GPU acceleration significantly speeds up synopsis generation and embedding.
+
 ### Prerequisites
 - Python 3.9+
 - `pdfplumber`, `pypdf` — PDF extraction
