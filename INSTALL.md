@@ -289,7 +289,7 @@ zero indexed documents — run a scan (Step 6) to populate it.
 ## Step 6 — Index your documents
 
 ```bash
-# Scan all supported formats (PDF, HTML, TXT, Markdown)
+# Scan all supported formats (PDF, DOCX, PPTX, XLSX, ODF, EPUB, MOBI, HTML, TXT, etc.)
 # Will show a file-type breakdown and prompt before proceeding
 ./docubrowser.py rescan
 

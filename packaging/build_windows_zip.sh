@@ -64,6 +64,7 @@ APP_FILES=(
     docx_extractor.py
     pptx_extractor.py
     xlsx_extractor.py
+    odf_extractor.py
     ebook_extractor.py
     hardware_utils.py
     docubrowse_db.py
