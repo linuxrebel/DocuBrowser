@@ -205,8 +205,8 @@ Usage: docubrowser.py <command> [options]
 | `stop` | Stop the server |
 | `restart` | Stop then start |
 | `status` | Show server status, document count, embedding count, tag count |
-| `scan [TYPE ...]` | Scan and index documents (no embedding) |
-| `rescan [TYPE ...]` | Scan + generate embeddings |
+| `scan [TYPE ...]` | Scan, index, and embed documents (same as `rescan`; use `--no-embed` to skip embedding) |
+| `rescan [TYPE ...]` | Alias for `scan` (kept for backward compatibility) |
 | `scan-file --file PATH` | Extract and index a single file, then embed it |
 | `embed` | Generate/refresh embeddings for un-embedded documents |
 | `open` | Open the DocuBrowse UI in your default browser |
@@ -236,15 +236,14 @@ Usage: docubrowser.py <command> [options]
 ./docubrowser.py stop
 ./docubrowser.py stopall
 
-# Scanning
-./docubrowser.py scan                          # scan all supported types
+# Scanning (scan and rescan are identical)
+./docubrowser.py scan                          # scan, index, and embed all types
 ./docubrowser.py scan pdf                      # PDFs only
 ./docubrowser.py scan pdf txt                  # PDFs and plain text
 ./docubrowser.py scan --limit 100              # first 100 unindexed files only
-./docubrowser.py rescan                        # scan + embed all types
-./docubrowser.py rescan pdf --workers 4        # PDFs only, 4 workers
-./docubrowser.py rescan --no-embed             # scan without embedding step
-./docubrowser.py rescan --doc-dir /data/docs
+./docubrowser.py scan --workers 4              # 4 extraction workers
+./docubrowser.py scan --no-embed               # scan without embedding step
+./docubrowser.py scan --doc-dir /data/docs
 
 # Single-file indexing (useful for retrying blacklisted files)
 ./docubrowser.py scan-file --file /path/to/document.pdf
@@ -277,12 +276,12 @@ Usage: docubrowser.py <command> [options]
 ### scan / rescan Type Filters
 
 ```
-Types: pdf  txt  md  html  (default: all four)
+Types: pdf  txt  md  html  (default: all supported)
 
 Examples:
-  rescan pdf             PDFs only
-  rescan pdf txt         PDFs and plain text
-  rescan                 all supported types (prompts if unfiltered)
+  scan pdf               PDFs only
+  scan pdf txt           PDFs and plain text
+  scan                   all supported types (prompts if unfiltered)
 ```
 
 ### scan-file Details
