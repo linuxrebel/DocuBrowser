@@ -65,15 +65,12 @@ Scanned (image-only) PDFs are detected and listed in `ocr_list_pdfs.txt` but not
 searchable. Integrate Tesseract or similar OCR engine to extract text from these.
 
 ### D-5: FOSS server packaging
-**Status:** Open — decision needed  
+**Status:** Resolved 2026-07-09  
 **Priority:** Medium  
 **Added:** 2026-07-02
 
-Decide on distribution format beyond the current `install.sh`:
-- pip-installable package (PyPI)
-- `.deb` / `.rpm` packages
-- Docker image
-- Flatpak / Snap
+RPM, DEB, and installable tarball are built via `packaging/build_packages.sh`
+since v0.9.0. PyPI, Docker, Flatpak, and Snap remain future options.
 
 ### D-8: Windows Unicode console encoding — permanent fix needed
 **Status:** ANSI colors resolved 2026-07-04; item 3 (check_missing_path) still open  
