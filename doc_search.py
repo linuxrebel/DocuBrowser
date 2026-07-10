@@ -816,7 +816,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 # match isn't diluted by a zero semantic score (no embedding)
                 # and vice versa. When both are present, boost slightly.
                 if fts > 0 and sem >= SEM_FLOOR:
-                    final = max(fts, sem) + 0.1 * min(fts, sem)
+                    final = min(max(fts, sem) + 0.1 * min(fts, sem), 1.0)
                 else:
                     final = max(fts, sem)
                 if final > 0.01:
