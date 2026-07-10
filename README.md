@@ -356,7 +356,7 @@ work_dir     = /home/user/DocuBrowse
 │  ProcessPoolExecutor │  │  GET /  /api/search             │
 │  pdf_extractor.py    │  │  GET /api/stats  /api/tags      │
 │  embed_docs.py       │  │  GET /api/open  /api/config     │
-│                      │  │  GET /api/delete /api/synopsis   │
+│                      │  │  GET /api/delete /api/synopsis  │
 └──────────┬───────────┘  └──────────────┬──────────────────┘
            │                              │
            └──────────┬───────────────────┘
