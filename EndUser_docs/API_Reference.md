@@ -1,6 +1,6 @@
-# DocuBrowse v0.9.0 — API Reference
+# DocuBrowse v0.9.1 — API Reference
 
-**Date:** 2026-07-05
+**Date:** 2026-07-10
 **Base URL:** `http://127.0.0.1:8643`
 **Content-Type:** `application/json` (all API requests and responses)
 
@@ -198,7 +198,7 @@ curl http://127.0.0.1:8643/api/status
 ```json
 {
   "ok": true,
-  "version": "0.8.3",
+  "version": "0.9.1",
   "uptime_seconds": 3721.4,
   "timestamp": "2026-06-27T14:22:08.113245",
   "semantic_ready": true,
@@ -220,7 +220,7 @@ The `semantic_ready` field is `false` when any of these conditions are not met: 
 ```json
 {
   "ok": false,
-  "version": "0.8.3",
+  "version": "0.9.1",
   "uptime_seconds": 42.1,
   "timestamp": "2026-06-27T09:00:42.000000",
   "components": {
@@ -741,13 +741,14 @@ curl -X POST \
 
 **CSRF required:** Yes
 
-Deletes a file from disk and removes it from the document index. The path must be in the index — arbitrary filesystem deletions are not possible. Database removal cascades to the document's tags and embedding vectors. If the file is already absent from disk (e.g., manually deleted), the database record is still removed.
+Removes a document from the index, with optional blacklisting or disk deletion. The path must be in the index — arbitrary filesystem deletions are not possible. Database removal cascades to the document's tags and embedding vectors.
 
 **Parameters (query string):**
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | path | string | Yes | Absolute path of the document to delete. |
+| mode | string | No | Deletion mode: `db_only` (remove from index only — default), `blacklist` (remove from index and add to `scan_blacklist.txt` so future scans skip it), or `delete_file` (remove from index and delete the file from disk). |
 
 **Response fields:**
 
@@ -1157,7 +1158,7 @@ When `enterprise_mode` is `True`, the `GET /api/status` response includes additi
 ```json
 {
   "ok": true,
-  "version": "0.8.3",
+  "version": "0.9.1",
   "uptime_seconds": 7200.0,
   "timestamp": "2026-06-27T16:00:00.000000",
   "components": {

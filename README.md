@@ -135,14 +135,14 @@ Download the appropriate package from the
 
 ```bash
 # Fedora / RHEL
-sudo dnf install ./docubrowser-foss-0.9.1-1.noarch.rpm
+sudo dnf install ./docubrowser-foss-0.9.1-3.noarch.rpm
 
 # Debian / Ubuntu / Mint
-sudo apt install ./docubrowser-foss_0.9.1-1_all.deb
+sudo apt install ./docubrowser-foss_0.9.1-3_all.deb
 
 # Any Linux (tarball)
-tar xzf docubrowser-foss-0.9.1-1.tar.gz
-cd docubrowser-foss-0.9.1-1
+tar xzf docubrowser-foss-0.9.1-3.tar.gz
+cd docubrowser-foss-0.9.1-3
 sudo ./install.sh
 ```
 
@@ -356,7 +356,7 @@ work_dir     = /home/user/DocuBrowse
 │  ProcessPoolExecutor │  │  GET /  /api/search             │
 │  pdf_extractor.py    │  │  GET /api/stats  /api/tags      │
 │  embed_docs.py       │  │  GET /api/open  /api/config     │
-│                      │  GET /api/delete  /api/synopsis │
+│                      │  │  GET /api/delete  /api/synopsis  │
 └──────────┬───────────┘  └──────────────┬──────────────────┘
            │                              │
            └──────────┬───────────────────┘
@@ -725,6 +725,13 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
   `meta.xml`; body text is extracted from `content.xml` with full namespace
   handling for paragraphs, headings, lists, tables, and slide frames.
 - **Version bump** — all packaging files updated to 0.9.1.
+
+### Bug fix
+
+- **Relevance score capped at 100%** — the hybrid search merge formula
+  `max(fts, sem) + 0.1 × min(fts, sem)` could exceed 1.0 when both keyword
+  and semantic scores were high, producing relevance percentages above 100%.
+  Now clamped to 1.0.
 
 ---
 

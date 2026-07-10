@@ -1,8 +1,8 @@
 # DocuBrowse Project Status
 
-**Version**: v0.9.0  
+**Version**: v0.9.1  
 **Status**: 🟢 **STABLE — daily use, packaged for distribution**  
-**Last Updated**: 2026-07-06  
+**Last Updated**: 2026-07-10  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
@@ -14,7 +14,7 @@ using PDF/DOCX/EPUB/HTML/TXT/MD extraction, SQLite FTS5 keyword search, and Olla
 embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, config UI, delete from UI, and duplicate detection.
 
 **Key Metrics**:
-- Supported formats: PDF, DOCX, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
+- Supported formats: PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
 - Search latency: <150ms typical
 - Worker parallelism: physical-core-aware (tested up to 8 workers)
 - PDF resilience: pdfplumber primary, pypdf fallback for >8,000-object files, layout=False secondary fallback, scanned PDF detection

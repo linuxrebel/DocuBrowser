@@ -1,7 +1,7 @@
-# DocuBrowse v0.9.0 — Administrator Guide
+# DocuBrowse v0.9.1 — Administrator Guide
 
-**Date:** 2026-07-06
-**Version:** v0.9.0
+**Date:** 2026-07-10
+**Version:** v0.9.1
 **License:** GPL-3.0-or-later
 
 ---
@@ -61,7 +61,7 @@
 
 This guide is for administrators, power users, and self-hosters responsible for installing, configuring, and maintaining a DocuBrowse instance. It assumes comfort with the Linux command line, package management, and basic systemd concepts.
 
-DocuBrowse turns a local collection of documents — PDFs, ebooks, Word documents, spreadsheets, presentations, plain text, and Markdown — into a searchable index accessible through a web browser at `http://localhost:8643`. It uses SQLite with FTS5 for keyword search and Ollama with local AI models for semantic search and on-demand document synopsis generation.
+DocuBrowse turns a local collection of documents — PDFs, ebooks, Word documents, spreadsheets, presentations, OpenDocument files, plain text, and Markdown — into a searchable index accessible through a web browser at `http://localhost:8643`. It uses SQLite with FTS5 for keyword search and Ollama with local AI models for semantic search and on-demand document synopsis generation.
 
 Everything runs on your own machine. No internet connection is required after initial setup, no accounts, and no per-query costs.
 
@@ -120,18 +120,18 @@ Download the appropriate package from the
 
 **Fedora / RHEL:**
 ```bash
-sudo dnf install ./docubrowser-foss-0.9.0-7.noarch.rpm
+sudo dnf install ./docubrowser-foss-0.9.1-3.noarch.rpm
 ```
 
 **Debian / Ubuntu / Mint:**
 ```bash
-sudo apt install ./docubrowser-foss_0.9.0-7_all.deb
+sudo apt install ./docubrowser-foss_0.9.1-3_all.deb
 ```
 
 **Any Linux (tarball):**
 ```bash
-tar xzf docubrowser-foss-0.9.0-7.tar.gz
-cd docubrowser-foss-0.9.0-7
+tar xzf docubrowser-foss-0.9.1-3.tar.gz
+cd docubrowser-foss-0.9.1-3
 sudo ./install.sh
 ```
 
@@ -384,22 +384,21 @@ Shows: config file in use, database path, port, PID, systemd unit status (if app
 
 ### 4.6 scan
 
-Scan and index documents without generating embeddings. Useful for a quick first pass when you want to review what was indexed before committing embedding time.
+Scan, index, and embed documents. This is identical to `rescan` (kept as an alias for backward compatibility). Use `--no-embed` to skip the embedding step.
 
 ```bash
-docubrowser scan                        # all supported types
+docubrowser scan                        # all supported types, with embedding
 docubrowser scan pdf                    # PDFs only
 docubrowser scan pdf txt                # PDFs and plain text
 docubrowser scan --workers 4            # override worker count
 docubrowser scan --limit 100            # index first 100 unindexed files only
+docubrowser scan --no-embed             # scan without embedding step
 docubrowser scan --doc-dir /data/docs   # scan a specific directory
 ```
 
-Supported type tokens: `pdf`, `txt`, `md`, `html`. Default (no type specified) scans all four. When no type filter is given, `scan` walks the directory, shows a file-type breakdown, and prompts for confirmation before proceeding.
+Supported type tokens: `pdf`, `txt`, `md`, `html`. Default (no type specified) scans all supported formats. When no type filter is given, `scan` walks the directory, shows a file-type breakdown, and prompts for confirmation before proceeding.
 
 Scanning runs in the background using `ProcessPoolExecutor`. Worker count is auto-tuned to your hardware. Files are processed smallest-first so the index becomes useful quickly.
-
-`scan` is equivalent to `rescan --no-embed`.
 
 ### 4.7 rescan
 
@@ -1193,5 +1192,5 @@ pdfinfo /path/to/file.pdf | grep -i objects
 
 ---
 
-*DocuBrowse v0.9.0 — Administrator Guide — 2026-07-06*
+*DocuBrowse v0.9.1 — Administrator Guide — 2026-07-10*
 *Copyright (C) 2026 James Sparenberg — GPL-3.0-or-later*
