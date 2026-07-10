@@ -96,6 +96,65 @@ _SERVER_START_TIME = None  # set by main(); used by /api/status
 # request after startup doesn't spuriously fail.
 SYNOPSIS_TIMEOUT_SECS = 90
 
+# ── Synopsis model warmup ───────────────────────────────────────────────────
+# Ollama loads models on-demand. On 8 GB systems, loading dolphin3 (~4.9 GB)
+# into RAM can take long enough that the first synopsis request times out —
+# especially for large documents.  A lightweight warmup (num_predict=1) forces
+# the model into memory before any user requests it.
+#
+# To avoid OOM on low-RAM machines, the warmup waits until any running
+# scan/embed finishes (the embedding model is unloaded by Ollama once idle,
+# freeing RAM for dolphin3).
+
+_synopsis_warm = False   # set True once warmup succeeds
+
+
+def _warmup_synopsis_model():
+    """Send a trivial prompt to dolphin3 so Ollama loads it into RAM."""
+    global _synopsis_warm
+    try:
+        url = f"{OLLAMA_HOST}/api/generate"
+        payload = json.dumps({
+            "model": SYNOPSIS_MODEL,
+            "prompt": "hi",
+            "stream": False,
+            "options": {"num_predict": 1},
+        }).encode("utf-8")
+        request = Request(url, data=payload, method="POST")
+        request.add_header("Content-Type", "application/json")
+        with urlopen(request, timeout=120) as resp:
+            resp.read()
+        _synopsis_warm = True
+        print("  Synopsis model: OK (dolphin3 loaded)")
+    except Exception as exc:
+        print(f"  Synopsis model: ⚠ warmup failed ({exc})")
+
+
+def _is_scan_running() -> bool:
+    """Check if a scan/embed process is currently running."""
+    try:
+        from platform_paths import scan_pid_file
+        pidfile = scan_pid_file()
+        if not pidfile.exists():
+            return False
+        pid = int(pidfile.read_text().strip())
+        # Check if the process is actually alive
+        os.kill(pid, 0)
+        return True
+    except (ValueError, ProcessLookupError, PermissionError, OSError):
+        return False
+
+
+def _deferred_synopsis_warmup():
+    """Background thread: wait for scan/embed to finish, then warm up dolphin3."""
+    if _is_scan_running():
+        print("  Synopsis model: deferring warmup until scan/embed finishes...")
+        while _is_scan_running():
+            time.sleep(5)
+        # Brief pause to let Ollama unload the embedding model
+        time.sleep(3)
+    _warmup_synopsis_model()
+
 
 def cosine_similarity(v1: list, v2: list) -> float:
     """Calculate cosine similarity between two vectors."""
@@ -1538,6 +1597,13 @@ def main():
     else:
         print("  Embeddings: ⚠ FAILED — semantic search will return nothing.")
         print("              Check that Ollama is running and the model is pulled.")
+
+    # Warm up the synopsis model (dolphin3) in the background so the first
+    # synopsis request doesn't time out on low-RAM systems.  If a scan/embed
+    # is in progress, the warmup waits for it to finish first to avoid OOM.
+    warmup_thread = threading.Thread(target=_deferred_synopsis_warmup, daemon=True)
+    warmup_thread.start()
+
     print()
     print("Endpoints:")
     print(f"  GET  http://localhost:{port}/               - UI (index.html)")
