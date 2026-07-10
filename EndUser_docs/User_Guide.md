@@ -1,4 +1,4 @@
-# DocuBrowse v0.9.0 — User Guide
+# DocuBrowse v0.9.1 — User Guide
 
 ---
 
@@ -30,7 +30,7 @@ DocuBrowse is a local document search tool that indexes the files on your machin
 
 You could search for "that contract about the lease renewal" and find the right document even if those exact words never appear in the file.
 
-**Supported file types:** PDF, DOCX, PPTX, XLSX, EPUB, MOBI, AZW3, HTML, TXT, Markdown.
+**Supported file types:** PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, EPUB, MOBI, AZW3, HTML, TXT, Markdown.
 
 **Key features:**
 
@@ -180,16 +180,14 @@ The index bar stays visible and functional while you are viewing search results,
 
 ## 8. Deleting a Document
 
-Each document card has a trash icon (**🗑**) near the top-right corner of the title row. Clicking it opens a confirmation dialog:
+Each document card has a trash icon (**🗑**) near the top-right corner of the title row. Clicking it opens a modal with four options:
 
-> **Delete this document?**
-> /full/path/to/the/file.pdf
->
-> [Cancel] [Delete]
+1. **Remove from index only** — the file stays on disk and will be re-indexed on the next scan.
+2. **Remove & blacklist** — the file stays on disk but is added to the scan blacklist so future scans skip it.
+3. **Remove & delete file from disk** — permanently removes the file from both the index and the disk. A second confirmation is required before the file is deleted. This action cannot be undone.
+4. **Cancel** — dismiss the modal without doing anything. You can also press Escape or click outside the dialog.
 
-Click **Cancel** (or press Escape, or click anywhere outside the dialog box) to dismiss it without doing anything.
-
-Click **Delete** to permanently remove the file from your disk and from the search index. This action cannot be undone. The document card fades out and disappears from the current view.
+After any removal option, the document card fades out and disappears from the current view.
 
 ---
 
