@@ -39,12 +39,14 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 
 ### 🔍 Dual Search Modes
 - **Keyword Search** — fast full-text search via SQLite FTS5 (title, author, subject, tags, snippet)
-- **Semantic Search** — AI-powered similarity via Ollama embeddings (nomic-embed-text:latest)
+- **Semantic Search** — AI-powered similarity via Ollama embeddings (nomic-embed-text:latest). Semantic search identifies *which documents* are relevant to your query, but does not pinpoint the location within the document.
 - **Hybrid Mode** (default) — 70% semantic + 30% keyword, merged and re-ranked
 
 ### 📖 AI Synopsis
 - Click any document title for a Kindle-style book-jacket synopsis, generated on demand
   via Ollama (`dolphin3:latest`) and cached in the database after first generation.
+  The first synopsis for a given document may take a while on minimal hardware (CPU-only,
+  no GPU) — subsequent requests are instant since the result is cached.
   Semantic search embeddings are produced by a second local model (`nomic-embed-text:latest`)
 
 ### 📚 Document Indexing
@@ -53,8 +55,9 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 - **Word documents**: python-docx extracts paragraphs, tables, and core properties (title, author, subject)
 - **Presentations**: python-pptx extracts slide text, notes, and core properties
 - **Spreadsheets**: openpyxl extracts cell values and sheet names
-- **OpenDocument**: ODF files (.odt, .ods, .odp) parsed via stdlib XML/ZIP — no extra dependency
-- **E-books**: ebooklib for EPUB; mobi package + Calibre fallback for MOBI/AZW3; DRM-encrypted AZW files indexed with metadata only (title/author visible, body not searchable)
+- **OpenDocument**: ODF text documents (.odt), spreadsheets (.ods), and presentations (.odp) — paragraphs, headings, lists, tables, cell values, and slide text extracted via Python stdlib (`zipfile` + `xml.etree.ElementTree`). Metadata (title, author, subject, description, keywords) read from `meta.xml`. No extra dependency required.
+- **E-books**: ebooklib for EPUB; mobi package + Calibre `ebook-convert` fallback for MOBI/AZW3 text extraction; DRM-encrypted AZW files indexed with metadata only (title/author visible, body not searchable)
+- **Platform**: all extraction libraries are pure Python or have wheels for both x86_64 and ARM64. 32-bit systems are not supported.
 - **Metadata**: title, author, subject extracted from document metadata fields; auto-generated tags from directory structure and content keywords
 - **PII protection**: post-ingest scanner detects SSN, credit card, bank routing/account number, DOB, MRN, driver license, passport patterns; removes matching documents and permanently blacklists them
 
@@ -701,6 +704,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Multiple top-level doc directories | Fully supported — configure any number of additional scan directories in the General panel (`scan_dirs.txt`); `scan`/`rescan` automatically scan all of them into the single shared database |
 | Moved/renamed files | Not detected as moves — old path is removed (interactively or via `scan-missing`), new path is picked up on next rescan as a fresh entry; true duplicates are caught by `duplist`/`dupclean` |
 | No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure |
+| Semantic search is document-level | Identifies *which* documents match, but not *where* within the document the match occurs |
 | English only | Keyword search, tag generation, and synopsis prompts assume English content; multi-language support is planned (see `status_docs/DECISIONS.md`) |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 
