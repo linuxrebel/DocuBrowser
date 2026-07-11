@@ -44,7 +44,7 @@ from urllib.error import URLError
 
 from platform_paths import (
     IS_WINDOWS, pid_file, scan_pid_file, log_file,
-    kill_process_tree, kill_pid, find_procs_by_script, kill_port,
+    kill_process_tree, kill_pid, find_procs_by_script, kill_port, pid_exists,
 )
 
 VERSION = "0.9.1"
@@ -166,17 +166,14 @@ def read_pid() -> int | None:
         return None
     try:
         pid = int(PID_FILE.read_text().strip())
-        # Check the process actually exists
-        os.kill(pid, 0)
-        return pid
-    except PermissionError:
-        # signal 0 was rejected, not "no such process": the process exists but
-        # is owned by another user (e.g. started by root/systemd). It IS
-        # running — don't unlink the PID file or treat it as stale.
-        return pid
-    except (ValueError, ProcessLookupError):
+    except ValueError:
         PID_FILE.unlink(missing_ok=True)
         return None
+    # Check the process actually exists (Windows-safe; see pid_exists).
+    if pid_exists(pid):
+        return pid
+    PID_FILE.unlink(missing_ok=True)
+    return None
 
 
 def write_pid(pid: int):
@@ -413,9 +410,7 @@ def cmd_stop(config: dict, args):
         # Wait for clean shutdown
         for _ in range(10):
             time.sleep(0.5)
-            try:
-                os.kill(pid, 0)  # Still alive?
-            except (ProcessLookupError, PermissionError):
+            if not pid_exists(pid):  # Still alive? (Windows-safe)
                 break
         else:
             print(f"Server did not stop gracefully; force-killing.")

@@ -63,7 +63,7 @@ def _require_elevated() -> None:
 MAX_BACKUPS = 3
 
 # Canonical backup location — resolved per-platform via platform_paths.
-from platform_paths import backup_dir as _default_backup_dir
+from platform_paths import backup_dir as _default_backup_dir, pid_exists
 BACKUP_DIR = _default_backup_dir()
 
 # Files to back up, relative to the data directory (where du-docs.db lives).
@@ -242,10 +242,10 @@ def _server_is_running() -> bool:
             continue
         try:
             pid = int(pid_file.read_text().strip())
-            os.kill(pid, 0)  # signal 0 = existence check
-            return True
-        except (ValueError, ProcessLookupError, OSError):
+        except (ValueError, OSError):
             continue
+        if pid_exists(pid):  # Windows-safe existence check
+            return True
     return False
 
 
