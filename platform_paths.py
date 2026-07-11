@@ -134,6 +134,52 @@ def scan_log_paths() -> list[Path]:
 
 # ── Process management ─────────────────────────────────────────────────────
 
+def pid_exists(pid: int) -> bool:
+    """Return True if a process with *pid* is currently running.
+
+    Cross-platform.  On POSIX this uses the classic ``os.kill(pid, 0)``
+    probe (signal 0 is a no-op that only checks for the process's
+    existence).  On Windows ``os.kill(pid, 0)`` is NOT harmless — it maps
+    to ``TerminateProcess`` and would *kill* the target — so we use psutil
+    (or a Win32 ``OpenProcess`` fallback) instead.
+    """
+    if pid is None or pid <= 0:
+        return False
+
+    if IS_WINDOWS:
+        try:
+            import psutil
+            return psutil.pid_exists(pid)
+        except ImportError:
+            pass
+        # Fallback: Win32 OpenProcess without psutil.
+        import ctypes
+        from ctypes import wintypes
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(
+            PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            return False
+        try:
+            exit_code = wintypes.DWORD()
+            if kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                return exit_code.value == STILL_ACTIVE
+            return True  # couldn't read exit code, but the handle opened
+        finally:
+            kernel32.CloseHandle(handle)
+
+    # POSIX
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists but owned by another user
+    return True
+
+
 def kill_process_tree(pid: int, sig=None):
     """Kill a process and all its children.
 

@@ -133,15 +133,15 @@ def _warmup_synopsis_model():
 def _is_scan_running() -> bool:
     """Check if a scan/embed process is currently running."""
     try:
-        from platform_paths import scan_pid_file
+        from platform_paths import scan_pid_file, pid_exists
         pidfile = scan_pid_file()
         if not pidfile.exists():
             return False
         pid = int(pidfile.read_text().strip())
-        # Check if the process is actually alive
-        os.kill(pid, 0)
-        return True
-    except (ValueError, ProcessLookupError, PermissionError, OSError):
+        # Check if the process is actually alive (Windows-safe; a bare
+        # os.kill(pid, 0) probe would kill the scan on Windows).
+        return pid_exists(pid)
+    except (ValueError, OSError):
         return False
 
 
