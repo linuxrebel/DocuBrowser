@@ -217,6 +217,32 @@ architecture makes language a configuration choice rather than a code change.
 - Customer-provided knowledge bases, role-based access, conversation history,
   larger/multilingual model support, and multi-language deployments.
 
+### D-10: Document all files created on the system
+**Status:** Open  
+**Priority:** Medium  
+**Added:** 2026-07-13
+
+Both the FOSS server and the Enterprise Tauri client create files in multiple
+locations (databases, logs, config, PID files, blacklists, caches, XDG data
+dirs). A comprehensive manifest of every file and directory that DocuBrowse
+creates — with paths, permissions, and purpose — is needed so that security
+teams can audit, allowlist, and monitor the application's filesystem footprint.
+This should cover all platforms (Linux, Windows, macOS) and both install methods
+(package vs. manual/dev checkout).
+
+### D-9: Tauri data directory uses reverse-DNS path
+**Status:** By design  
+**Priority:** Informational  
+**Added:** 2026-07-13
+
+Tauri requires a reverse-DNS bundle identifier (`us.sparenbergs.docubrowse` in
+`src-tauri/tauri.conf.json`). On Linux, Tauri automatically creates its app
+data directory at `~/.local/share/us.sparenbergs.docubrowse/` rather than
+`~/.local/share/docubrowser/` (which is what the FOSS server uses). This is
+standard Tauri/XDG behavior and not a bug. The two directories are independent:
+the FOSS server stores its database and logs in `docubrowser/`; the Tauri
+desktop client stores its own state in `us.sparenbergs.docubrowse/`.
+
 ---
 
 ## Resolved
