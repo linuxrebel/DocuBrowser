@@ -1,4 +1,4 @@
-# DocuBrowse v0.9.1 — User Guide
+# DocuBrowse v0.9.2 — User Guide
 
 ---
 

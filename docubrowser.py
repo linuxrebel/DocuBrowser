@@ -47,7 +47,7 @@ from platform_paths import (
     kill_process_tree, kill_pid, find_procs_by_script, kill_port, pid_exists,
 )
 
-VERSION = "0.9.1"
+VERSION = "0.9.2"
 
 # ─── Paths ───────────────────────────────────────────────────────────────────
 # APP_DIR  = where the code lives (scripts, HTML, icons).  Always the
