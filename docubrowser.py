@@ -628,14 +628,22 @@ def cmd_rescan(config: dict, args):
         from scan_docs import DEFAULT_EXTENSIONS as _DEFAULT_EXTENSIONS
         _SUPPORTED = set(_DEFAULT_EXTENSIONS)
         _counts: dict = _Counter()
+        _skipped = 0
         try:
             for _d in doc_dirs:
                 for _f in Path(_d).rglob("*"):
-                    if _f.is_file():
-                        _counts[_f.suffix.lower() or "(no ext)"] += 1
+                    try:
+                        if _f.is_file():
+                            _counts[_f.suffix.lower() or "(no ext)"] += 1
+                    except OSError as _e:
+                        _skipped += 1
+                        print(f"  ⚠ Skipping (cannot stat): {_f}  ({_e})")
         except KeyboardInterrupt:
             print("\nCancelled.")
             sys.exit(0)
+        if _skipped:
+            print(f"  ⚠ Skipped {_skipped} inaccessible file(s) "
+                  "(broken symlinks, permission errors, etc.)")
 
         _total = sum(_counts.values())
         _supported_total = sum(_counts.get(e, 0) for e in _SUPPORTED)
@@ -903,17 +911,24 @@ def cmd_report(config: dict, args):
     print("Scanning directory (no changes made)...")
     counts: dict = Counter()
     sizes:  dict = Counter()
+    skipped = 0
     try:
         for f in p.rglob("*"):
-            if f.is_file():
-                ext = f.suffix.lower() or "(no ext)"
-                counts[ext] += 1
-                try:
-                    sizes[ext] += f.stat().st_size
-                except OSError:
-                    pass
+            try:
+                if f.is_file():
+                    ext = f.suffix.lower() or "(no ext)"
+                    counts[ext] += 1
+                    try:
+                        sizes[ext] += f.stat().st_size
+                    except OSError:
+                        pass
+            except OSError:
+                skipped += 1
     except KeyboardInterrupt:
         print("\nInterrupted — partial results shown.")
+    if skipped:
+        print(f"  ⚠ Skipped {skipped} inaccessible file(s) "
+              "(broken symlinks, permission errors, etc.)")
 
     total_files = sum(counts.values())
     total_bytes = sum(sizes.values())
