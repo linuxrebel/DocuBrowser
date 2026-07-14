@@ -1,4 +1,4 @@
-# DocuBrowse v0.9.1
+# DocuBrowse v0.9.2
 
 <a name="top"></a>
 
@@ -135,14 +135,14 @@ Download the appropriate package from the
 
 ```bash
 # Fedora / RHEL
-sudo dnf install ./docubrowser-foss-0.9.1-3.noarch.rpm
+sudo dnf install ./docubrowser-foss-0.9.2-1.noarch.rpm
 
 # Debian / Ubuntu / Mint
-sudo apt install ./docubrowser-foss_0.9.1-3_all.deb
+sudo apt install ./docubrowser-foss_0.9.2-1_all.deb
 
 # Any Linux (tarball)
-tar xzf docubrowser-foss-0.9.1-3.tar.gz
-cd docubrowser-foss-0.9.1-3
+tar xzf docubrowser-foss-0.9.2-1.tar.gz
+cd docubrowser-foss-0.9.2-1
 sudo ./install.sh
 ```
 
@@ -728,7 +728,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 ---
 
-## v0.9.1 (2026-07-09)
+## v0.9.2 (2026-07-09)
 
 ### OpenDocument Format support
 
@@ -738,7 +738,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
   Metadata (title, author, subject, description, keywords) is read from
   `meta.xml`; body text is extracted from `content.xml` with full namespace
   handling for paragraphs, headings, lists, tables, and slide frames.
-- **Version bump** — all packaging files updated to 0.9.1.
+- **Version bump** — all packaging files updated to 0.9.2.
 
 ### Bug fix
 
@@ -1042,4 +1042,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.9.1** — Fast, local, AI-powered document search.
+**DocuBrowse v0.9.2** — Fast, local, AI-powered document search.
