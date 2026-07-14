@@ -230,6 +230,44 @@ teams can audit, allowlist, and monitor the application's filesystem footprint.
 This should cover all platforms (Linux, Windows, macOS) and both install methods
 (package vs. manual/dev checkout).
 
+### D-11: Chunk-level semantic search with in-document result locations
+**Status:** Open — design needed  
+**Priority:** Medium  
+**Added:** 2026-07-13
+
+Currently, each document gets a single embedding vector (the first ~8000 chars
+of extracted text sent to `nomic-embed-text`). This means semantic search can
+find *which document* matches a query, but cannot show *where* inside the
+document the match occurs.
+
+**Goal:** when a user clicks a semantic search result, open a modal showing the
+top 5 matching passages within that document, each with its page number and a
+text excerpt.
+
+**Required changes:**
+
+1. **Chunking during embed** — split extracted text into overlapping passages
+   (~500 tokens, ~100-token overlap). Each chunk stores its `chunk_index`,
+   `char_offset`, and **page number** (available from PDF/DOCX/PPTX extractors
+   which already track page boundaries).
+2. **New DB table** — `doc_chunk_embeddings(doc_id, chunk_index, page_number,
+   char_offset, chunk_text, embedding BLOB, model, updated_at)`.
+3. **Search refactor** — document-level score becomes best-of or top-N-average
+   chunk score. Per-chunk scores are retained for the in-document view.
+4. **New API endpoint** — e.g. `GET /api/search-in-doc?doc_id=<id>&q=<query>`
+   returning the top 5 matching chunks with page number, excerpt, and score.
+5. **UI modal** — triggered from a search result card; displays ranked passages
+   with page numbers.
+
+**Tradeoffs:**
+
+- DB size increases ~30-40× for embeddings (still manageable — ~1-2 GB for
+  2000 docs).
+- Embed time proportionally longer (one Ollama call per chunk).
+- Existing embeddings must be regenerated.
+- Overall search quality improves (chunk-level matching is more precise than
+  whole-document matching).
+
 ### D-9: Tauri data directory uses reverse-DNS path
 **Status:** By design  
 **Priority:** Informational  
