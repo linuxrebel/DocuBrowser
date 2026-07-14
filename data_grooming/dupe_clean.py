@@ -56,21 +56,32 @@ class DuplicateCleanup:
         file_hashes = defaultdict(list)
         print(f"Scanning {directory} for duplicates...", file=sys.stderr)
 
+        _skipped = 0
         for filepath in Path(directory).rglob('*'):
-            if filepath.is_file():
-                self.stats['total_files_evaluated'] += 1
-                if self.stats['total_files_evaluated'] % 1000 == 0:
-                    print(f"  Scanned {self.stats['total_files_evaluated']} files...", file=sys.stderr)
+            try:
+                if not filepath.is_file():
+                    continue
+            except OSError:
+                _skipped += 1
+                continue
+            self.stats['total_files_evaluated'] += 1
+            if self.stats['total_files_evaluated'] % 1000 == 0:
+                print(f"  Scanned {self.stats['total_files_evaluated']} files...", file=sys.stderr)
 
-                file_hash = self.hash_file(filepath)
-                if file_hash:
+            file_hash = self.hash_file(filepath)
+            if file_hash:
+                try:
                     size = filepath.stat().st_size
                     mtime = filepath.stat().st_mtime
-                    file_hashes[file_hash].append({
-                        'path': str(filepath),
-                        'size': size,
-                        'mtime': mtime
-                    })
+                except OSError:
+                    continue
+                file_hashes[file_hash].append({
+                    'path': str(filepath),
+                    'size': size,
+                    'mtime': mtime
+                })
+        if _skipped:
+            print(f"  ⚠ Skipped {_skipped} inaccessible file(s)", file=sys.stderr)
 
         # Filter to only hashes with duplicates
         duplicates = {k: v for k, v in file_hashes.items() if len(v) > 1}

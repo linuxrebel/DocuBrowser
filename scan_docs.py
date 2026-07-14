@@ -693,10 +693,19 @@ def scan_directory(
     print(f"Workers:  {workers}")
     print()
 
-    all_files = sorted(
-        f for f in doc_dir.rglob("*")
-        if f.is_file() and (f.suffix.lower() in extensions or not f.suffix)
-    )
+    _walk_skipped = 0
+    _walk_candidates = []
+    for f in doc_dir.rglob("*"):
+        try:
+            if f.is_file() and (f.suffix.lower() in extensions or not f.suffix):
+                _walk_candidates.append(f)
+        except OSError as _e:
+            _walk_skipped += 1
+            logging.warning("Skipping inaccessible path: %s  (%s)", f, _e)
+    if _walk_skipped:
+        print(f"  ⚠ Skipped {_walk_skipped:,} inaccessible file(s) "
+              "(broken symlinks, permission errors, etc.)")
+    all_files = sorted(_walk_candidates)
 
     # Drop anything under an ignored directory before the indexing check.
     # ignore_dirs entries are fully resolved (symlinks included), so resolve
@@ -704,7 +713,12 @@ def scan_directory(
     # component would not match and would slip through unfiltered.
     if ignore_dirs:
         before = len(all_files)
-        all_files = [f for f in all_files if not _under_any(f.resolve(), ignore_dirs)]
+        def _safe_resolve(f):
+            try:
+                return f.resolve()
+            except OSError:
+                return f
+        all_files = [f for f in all_files if not _under_any(_safe_resolve(f), ignore_dirs)]
         ignored_count = before - len(all_files)
         if ignored_count:
             print(f"Skipping {ignored_count:,} file(s) under ignored director(y/ies)")

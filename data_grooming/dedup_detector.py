@@ -38,21 +38,32 @@ class DuplicateDetector:
         """Scan all files and compute hashes."""
         print(f"Scanning {self.root_path}...", file=sys.stderr)
 
+        _skipped = 0
         for filepath in self.root_path.rglob('*'):
-            if filepath.is_file():
-                self.scanned_count += 1
-                if self.scanned_count % 1000 == 0:
-                    print(f"  Scanned {self.scanned_count} files...", file=sys.stderr)
+            try:
+                if not filepath.is_file():
+                    continue
+            except OSError:
+                _skipped += 1
+                continue
+            self.scanned_count += 1
+            if self.scanned_count % 1000 == 0:
+                print(f"  Scanned {self.scanned_count} files...", file=sys.stderr)
 
-                file_hash = self.hash_file(filepath)
-                if file_hash:
+            file_hash = self.hash_file(filepath)
+            if file_hash:
+                try:
                     size = filepath.stat().st_size
                     mtime = filepath.stat().st_mtime
-                    self.file_hashes[file_hash].append({
-                        'path': str(filepath),
-                        'size': size,
-                        'mtime': mtime
-                    })
+                except OSError:
+                    continue
+                self.file_hashes[file_hash].append({
+                    'path': str(filepath),
+                    'size': size,
+                    'mtime': mtime
+                })
+        if _skipped:
+            print(f"  ⚠ Skipped {_skipped} inaccessible file(s)", file=sys.stderr)
 
     def find_exact_duplicates(self):
         """Find files with identical hashes."""
