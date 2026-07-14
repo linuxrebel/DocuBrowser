@@ -714,6 +714,20 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+## v0.9.2 (2026-07-13)
+
+### Bug fix
+
+- **Broken symlinks and permission errors no longer crash scans** — `is_file()`
+  and `stat()` calls during directory walks now catch `OSError` instead of
+  propagating it. Affected code paths: pre-scan file count, `report` command,
+  main file collection in `scan_docs.py`, and both data-grooming dedup scripts.
+  Inaccessible entries (broken symlinks, NTFS junctions/reparse points copied
+  to ext4, permission-denied paths on sshfs/network mounts) are skipped and
+  counted in the summary output.
+
+---
+
 ## v0.9.1 (2026-07-09)
 
 ### OpenDocument Format support

@@ -1,4 +1,4 @@
-# DocuBrowse v0.9.1 — Installation Guide
+# DocuBrowse v0.9.2 — Installation Guide
 
 This guide covers a fresh install on Linux (Fedora/RHEL/Debian/Ubuntu/Mint),
 Windows 10/11, or macOS. DocuBrowse runs entirely locally — no cloud
@@ -41,18 +41,18 @@ Download the appropriate package from the
 
 **Fedora / RHEL:**
 ```bash
-sudo dnf install ./docubrowser-foss-0.9.1-3.noarch.rpm
+sudo dnf install ./docubrowser-foss-0.9.2-1.noarch.rpm
 ```
 
 **Debian / Ubuntu / Mint:**
 ```bash
-sudo apt install ./docubrowser-foss_0.9.1-3_all.deb
+sudo apt install ./docubrowser-foss_0.9.2-1_all.deb
 ```
 
 **Any Linux (tarball):**
 ```bash
-tar xzf docubrowser-foss-0.9.1-3.tar.gz
-cd docubrowser-foss-0.9.1-3
+tar xzf docubrowser-foss-0.9.2-1.tar.gz
+cd docubrowser-foss-0.9.2-1
 sudo ./install.sh
 ```
 
@@ -145,8 +145,8 @@ cd DocuBrowser
 Or unpack the release tarball:
 
 ```bash
-tar xzf docubrowser-foss-0.9.1-3.tar.gz
-cd docubrowser-foss-0.9.1-3
+tar xzf docubrowser-foss-0.9.2-1.tar.gz
+cd docubrowser-foss-0.9.2-1
 ```
 
 ---
