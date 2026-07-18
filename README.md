@@ -1,4 +1,4 @@
-# DocuBrowse v0.9.2
+# DocuBrowse v0.9.3
 
 <a name="top"></a>
 
@@ -50,12 +50,26 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
   Semantic search embeddings are produced by a second local model (`nomic-embed-text:latest`)
 
 ### 📚 Document Indexing
-- **Formats**: PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
+- **Formats**: PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, VSDX/VSDM, VSD/VSS/VST (legacy Visio), VDX (Visio 2003 XML), draw.io/diagrams.net (.drawio/.dio), PlantUML (.puml/.plantuml), Mermaid (.mmd), SGML/XML family (.xml/.xhtml/.sgml/.sgm), DocBook (.docbook/.dbk), SVG, feeds (.rss/.atom/.opml), reStructuredText (.rst), AsciiDoc (.adoc/.asciidoc), LaTeX (.tex/.latex), Email (.eml), RTF (.rtf), CSV / TSV, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown, plus config-ish plain text (.ini/.conf/.cfg/.log/.lst)
 - **PDF intelligence**: pdfplumber (preferred) with pypdf fallback for bloated-object files; `layout=False` retry for complex layouts; scanned (image-only) PDFs detected and routed to `ocr_list_pdfs.txt`
 - **Word documents**: python-docx extracts paragraphs, tables, and core properties (title, author, subject)
 - **Presentations**: python-pptx extracts slide text, notes, and core properties
 - **Spreadsheets**: openpyxl extracts cell values and sheet names
 - **OpenDocument**: ODF text documents (.odt), spreadsheets (.ods), and presentations (.odp) — paragraphs, headings, lists, tables, cell values, and slide text extracted via Python stdlib (`zipfile` + `xml.etree.ElementTree`). Metadata (title, author, subject, description, keywords) read from `meta.xml`. No extra dependency required.
+- **Visio and diagrams**:
+  - Modern Visio (`.vsdx`/`.vsdm`) — OOXML zip parsed with the stdlib; shape text, page names, and core properties (title/author/subject/keywords) extracted with no third-party dependency.
+  - Legacy Visio (`.vsd`/`.vss`/`.vst`) — binary compound document; requires the optional `vsd2xml` tool from **libvisio-tools** (`sudo dnf install libvisio-tools` / `sudo apt install libvisio-tools`). Without it, legacy files are indexed metadata-only (filename as title, no body) and the path is appended to `visio_legacy_missing.txt` so a rescan after install picks them up.
+  - draw.io / diagrams.net (`.drawio`/`.dio`) — both plain `mxfile` XML and compressed (`deflate + base64 + URL-encoded`) diagrams are supported; every `mxCell` label and `object` label is extracted, plus page names. Stdlib-only.
+  - Text-based diagrams — PlantUML (`.puml`/`.plantuml`) and Mermaid (`.mmd`) source is indexed as plain text and tagged `diagram`.
+- **Markup family** (all stdlib, no extra dependency):
+  - XML/SGML (`.xml`/`.xhtml`/`.sgml`/`.sgm`), DocBook (`.docbook`/`.dbk`), SVG (also tagged `diagram`), and feeds (`.rss`/`.atom`/`.opml`) are tag-stripped — DOCTYPE, comments, CDATA wrappers, `<script>` and `<style>` blocks are removed and remaining tags dropped; entities are unescaped. Title/author/subject are sniffed from well-known elements (`<title>`, `<dc:title>`, `<author>`, `<dc:creator>`) before stripping, so DocBook, Atom, RSS, and SVG all surface useful metadata.
+  - reStructuredText (`.rst`), AsciiDoc (`.adoc`/`.asciidoc`), and LaTeX (`.tex`/`.latex`) are indexed verbatim (all markup becomes searchable text) with a per-format title heuristic: reST underline-style titles, AsciiDoc level-0 `= Title`, LaTeX `\title{}` / `\section{}`. LaTeX `\author{}` is captured and line-`%` comments are stripped.
+  - Every markup file is tagged `markup` for browse/filter convenience. `.vdx` (Visio 2003 XML) also gets a `diagram` tag.
+- **Email, RTF, tabular, and config-ish text**:
+  - Email (`.eml`) — parsed with the stdlib `email` package. Subject becomes the title, From becomes the author, To/Cc/Date and the plain-text body (or HTML body tag-stripped) become searchable content. Attachment filenames are appended so name-searches still hit.
+  - RTF (`.rtf`) — decoded via **striprtf** (pure Python, MIT). Without it the file is indexed metadata-only and the path is appended to `rtf_missing_striprtf.txt`; installing `striprtf` and rescanning picks up the body.
+  - CSV / TSV — first ~500 rows are indexed with pipe-delimited row rendering; the header row lands in the `description` field so column names weigh in keyword search. Stdlib-only; delimiter auto-detected.
+  - Config-ish plain text — `.ini`, `.conf`, `.cfg`, `.log`, `.lst` route through the standard text path with the same 200 KB read cap.
 - **E-books**: ebooklib for EPUB; mobi package + Calibre `ebook-convert` fallback for MOBI/AZW3 text extraction; DRM-encrypted AZW files indexed with metadata only (title/author visible, body not searchable)
 - **Platform**: all extraction libraries are pure Python or have wheels for both x86_64 and ARM64. 32-bit systems are not supported.
 - **Metadata**: title, author, subject extracted from document metadata fields; auto-generated tags from directory structure and content keywords
@@ -119,9 +133,13 @@ Click any thumbnail to view full size.
 - `python-pptx` — PowerPoint presentations
 - `openpyxl` — Excel spreadsheets
 - `ebooklib`, `beautifulsoup4`, `mobi` — E-books
+- `striprtf` — RTF text extraction (pure Python; without it .rtf is indexed metadata-only)
 - `psutil` — cross-platform process and hardware detection
 - **Calibre** — E-book metadata and conversion (required for MOBI/AZW3/AZW indexing):
   `sudo dnf install calibre` or `sudo apt install calibre`
+- **libvisio-tools** — *optional*; only needed to extract body text from legacy binary Visio (`.vsd`/`.vss`/`.vst`).
+  Without it, those files are still indexed metadata-only.
+  `sudo dnf install libvisio-tools` or `sudo apt install libvisio-tools`
 - Ollama — installed automatically by `docubrowser start` if missing
 - Modern browser (Chrome, Firefox, Safari, Edge)
 
@@ -135,14 +153,14 @@ Download the appropriate package from the
 
 ```bash
 # Fedora / RHEL
-sudo dnf install ./docubrowser-foss-0.9.2-1.noarch.rpm
+sudo dnf install ./docubrowser-foss-0.9.3-1.noarch.rpm
 
 # Debian / Ubuntu / Mint
-sudo apt install ./docubrowser-foss_0.9.2-1_all.deb
+sudo apt install ./docubrowser-foss_0.9.3-1_all.deb
 
 # Any Linux (tarball)
-tar xzf docubrowser-foss-0.9.2-1.tar.gz
-cd docubrowser-foss-0.9.2-1
+tar xzf docubrowser-foss-0.9.3-1.tar.gz
+cd docubrowser-foss-0.9.3-1
 sudo ./install.sh
 ```
 
@@ -380,6 +398,11 @@ work_dir     = /home/user/DocuBrowse
 | `pdf_extractor.py` | PDF-specific extraction with pdfplumber/pypdf |
 | `docx_extractor.py` | Word document extraction (python-docx) |
 | `odf_extractor.py` | OpenDocument (.odt, .ods, .odp) extraction (stdlib) |
+| `visio_extractor.py` | Visio + draw.io extraction (.vsdx/.vsdm/.vsd/.vss/.vst/.drawio/.dio) |
+| `markup_extractor.py` | SGML/XML family + reST/AsciiDoc/LaTeX (stdlib) |
+| `eml_extractor.py` | Email (.eml) via stdlib `email` |
+| `csv_extractor.py` | CSV / TSV via stdlib `csv` |
+| `rtf_extractor.py` | RTF via `striprtf` (graceful degradation if missing) |
 | `ebook_extractor.py` | EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre) |
 | `hardware_utils.py` | CPU/GPU/RAM detection, worker count formula |
 | `embed_docs.py` | Sends text to Ollama; stores 768-dim vectors |
@@ -393,6 +416,8 @@ work_dir     = /home/user/DocuBrowse
 | `scan_blacklist.txt` | Files that failed extraction | No — remove line to retry |
 | `pii_blacklist.txt` | Files removed for containing PII | Yes — never re-ingest |
 | `ocr_list_pdfs.txt` | Image-only PDFs needing OCR | N/A — informational |
+| `visio_legacy_missing.txt` | Legacy `.vsd`/`.vss`/`.vst` seen while `vsd2xml` was missing | N/A — informational; install libvisio-tools + rescan |
+| `rtf_missing_striprtf.txt` | `.rtf` seen while `striprtf` was missing | N/A — informational; `pip install striprtf` + rescan |
 | `ignore_dirs.txt` | Directories excluded from scanning (managed via `ignore` command) | No — `ignore remove` + `rescan` |
 
 ---
@@ -577,6 +602,11 @@ DocuBrowse/
 ├── pdf_extractor.py        # PDF extraction (pdfplumber + pypdf fallback)
 ├── docx_extractor.py       # Word document extraction (python-docx)
 ├── odf_extractor.py        # OpenDocument (.odt/.ods/.odp) extraction (stdlib)
+├── visio_extractor.py      # Visio (.vsdx/.vsdm/.vsd) + draw.io (.drawio/.dio)
+├── markup_extractor.py     # SGML/XML family + reST/AsciiDoc/LaTeX (stdlib)
+├── eml_extractor.py        # Email (.eml) — stdlib `email`
+├── csv_extractor.py        # CSV / TSV — stdlib `csv`
+├── rtf_extractor.py        # RTF via striprtf (graceful degradation)
 ├── ebook_extractor.py      # EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre)
 ├── hardware_utils.py       # CPU/GPU/RAM detection, worker formula
 ├── embed_docs.py           # Embedding generation pipeline
@@ -589,6 +619,8 @@ DocuBrowse/
 ├── scan_blacklist.txt      # Failed-extraction skiplist (gitignored)
 ├── pii_blacklist.txt       # PII-removed files — permanent (gitignored)
 ├── ocr_list_pdfs.txt       # Image-only PDFs needing OCR (gitignored)
+├── visio_legacy_missing.txt # Legacy .vsd files seen without vsd2xml (gitignored)
+├── rtf_missing_striprtf.txt # .rtf files seen without striprtf (gitignored)
 ├── ignore_dirs.txt         # Directories excluded from scanning (gitignored)
 ├── scan_dirs.txt           # Additional scan directories (gitignored)
 ├── docubrowse.config       # Local config (optional, gitignored)
@@ -713,6 +745,46 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 ## Recent Changes
 
 [↑ Top](#top)
+
+## v0.9.3 (2026-07-17)
+
+### Format expansion — diagrams, markup, email, RTF, CSV, config-ish text
+
+Massive coverage bump. Adds 40+ new file extensions across five new
+extractor modules, all pure-Python / stdlib where possible.
+
+- **Visio & diagrams** — new `visio_extractor.py` handles modern Visio
+  (`.vsdx`/`.vsdm`), legacy binary Visio (`.vsd`/`.vss`/`.vst` — needs
+  optional `libvisio-tools` for body text; degrades to metadata-only
+  otherwise), and draw.io / diagrams.net (`.drawio`/`.dio`) — both plain
+  and compressed (deflate + base64 + URL-encoded) mxfile variants. Shape
+  text, page names, and core properties captured. PlantUML
+  (`.puml`/`.plantuml`) and Mermaid (`.mmd`) source is indexed as text
+  and tagged `diagram`.
+- **SGML/XML markup family** — new `markup_extractor.py` handles
+  `.xml`/`.xhtml`/`.sgml`/`.sgm`, DocBook (`.docbook`/`.dbk`), SVG (also
+  tagged `diagram`), Visio 2003 XML (`.vdx`, tagged `diagram`), feeds
+  (`.rss`/`.atom`/`.opml`), reStructuredText (`.rst`), AsciiDoc
+  (`.adoc`/`.asciidoc`), and LaTeX (`.tex`/`.latex`). Schema-agnostic
+  tag-strip with title/author sniffing from common local-names
+  (`<title>`, `<dc:title>`, `<author>`, `<dc:creator>`). Stdlib-only.
+- **Email, RTF, tabular** — new `eml_extractor.py`, `csv_extractor.py`,
+  and `rtf_extractor.py`. Email (`.eml`) via stdlib `email` package
+  (Subject → title, From → author, To/Cc/Date → subject field, plain
+  or tag-stripped HTML body). CSV/TSV via stdlib `csv` with delimiter
+  auto-sniffing and BOM-safe reading; header row → description. RTF
+  via optional `striprtf` (added to `requirements.txt`); degrades to
+  metadata-only with a `rtf_missing_striprtf.txt` sidecar if missing —
+  mirrors the `visio_legacy_missing.txt` pattern.
+- **Config-ish plain text** — `.ini`, `.conf`, `.cfg`, `.log`, `.lst`
+  route through the existing text path.
+- **Tagging** — every diagram file gets a `diagram` tag; every markup
+  file gets a `markup` tag. Auto-keyword tag generation extended to
+  cover all the new formats.
+- **CLI** — 30+ new `_TYPE_MAP` entries so `scan vsdx drawio eml rtf`
+  etc. all work naturally.
+- **New sidecar files** (gitignored, informational): `visio_legacy_missing.txt`,
+  `rtf_missing_striprtf.txt`.
 
 ## v0.9.2 (2026-07-13)
 
@@ -1042,4 +1114,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.9.2** — Fast, local, AI-powered document search.
+**DocuBrowse v0.9.3** — Fast, local, AI-powered document search.

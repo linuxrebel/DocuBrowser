@@ -1,7 +1,7 @@
-# DocuBrowse v0.9.2 — Administrator Guide
+# DocuBrowse v0.9.3 — Administrator Guide
 
-**Date:** 2026-07-13
-**Version:** v0.9.2
+**Date:** 2026-07-17
+**Version:** v0.9.3
 **License:** GPL-3.0-or-later
 
 ---
@@ -61,7 +61,7 @@
 
 This guide is for administrators, power users, and self-hosters responsible for installing, configuring, and maintaining a DocuBrowse instance. It assumes comfort with the Linux command line, package management, and basic systemd concepts.
 
-DocuBrowse turns a local collection of documents — PDFs, ebooks, Word documents, spreadsheets, presentations, OpenDocument files, plain text, and Markdown — into a searchable index accessible through a web browser at `http://localhost:8643`. It uses SQLite with FTS5 for keyword search and Ollama with local AI models for semantic search and on-demand document synopsis generation.
+DocuBrowse turns a local collection of documents — PDFs, ebooks, Word documents, spreadsheets, presentations, OpenDocument files, Visio and draw.io diagrams, PlantUML/Mermaid source, SGML/XML and DocBook, SVG, RSS/Atom/OPML feeds, reStructuredText, AsciiDoc, LaTeX, email (.eml), RTF, CSV/TSV, plain text and Markdown, plus config-ish files (.ini/.conf/.cfg/.log/.lst) — into a searchable index accessible through a web browser at `http://localhost:8643`. It uses SQLite with FTS5 for keyword search and Ollama with local AI models for semantic search and on-demand document synopsis generation.
 
 Everything runs on your own machine. No internet connection is required after initial setup, no accounts, and no per-query costs.
 
@@ -92,6 +92,7 @@ Linux (Fedora, RHEL, Debian, Ubuntu, Mint, and derivatives), Windows 10/11, and 
 | nomic-embed-text | Latest | Embedding model (~274 MB); pulled via Ollama |
 | dolphin3 | Latest | Synopsis generation model (~4.9 GB); pulled via Ollama |
 | Calibre | Latest | Required for MOBI/AZW3/AZW indexing; provides `ebook-meta` and `ebook-convert` |
+| libvisio-tools | Latest | Optional — provides `vsd2xml` for legacy binary Visio (`.vsd`/`.vss`/`.vst`) body-text extraction. Without it, legacy files are indexed metadata-only. |
 
 ### Python Packages
 
@@ -105,6 +106,7 @@ Linux (Fedora, RHEL, Debian, Ubuntu, Mint, and derivatives), Windows 10/11, and 
 | `ebooklib` | EPUB extraction |
 | `beautifulsoup4` | HTML stripping for EPUB/MOBI content |
 | `mobi` | MOBI and AZW3 extraction |
+| `striprtf` | RTF text extraction (pure Python; without it .rtf is indexed metadata-only) |
 | `numpy` | Vector math for semantic search |
 | `psutil` | Hardware detection, cross-platform process management |
 
@@ -120,18 +122,18 @@ Download the appropriate package from the
 
 **Fedora / RHEL:**
 ```bash
-sudo dnf install ./docubrowser-foss-0.9.2-1.noarch.rpm
+sudo dnf install ./docubrowser-foss-0.9.3-1.noarch.rpm
 ```
 
 **Debian / Ubuntu / Mint:**
 ```bash
-sudo apt install ./docubrowser-foss_0.9.2-1_all.deb
+sudo apt install ./docubrowser-foss_0.9.3-1_all.deb
 ```
 
 **Any Linux (tarball):**
 ```bash
-tar xzf docubrowser-foss-0.9.2-1.tar.gz
-cd docubrowser-foss-0.9.2-1
+tar xzf docubrowser-foss-0.9.3-1.tar.gz
+cd docubrowser-foss-0.9.3-1
 sudo ./install.sh
 ```
 
@@ -224,6 +226,23 @@ On systems without a packaged version (e.g. CentOS Stream):
 ```bash
 sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin
 ```
+
+### 3.4a Install libvisio-tools (optional — legacy Visio only)
+
+Modern Visio (`.vsdx`/`.vsdm`) and draw.io (`.drawio`/`.dio`) are handled with
+no extra dependency. Legacy binary Visio (`.vsd`/`.vss`/`.vst`) needs the
+`vsd2xml` converter from **libvisio-tools** to extract body text:
+
+```bash
+sudo dnf install libvisio-tools   # Fedora / RHEL
+sudo apt install libvisio-tools   # Debian / Ubuntu
+```
+
+Without it, legacy Visio files are still indexed metadata-only (filename
+becomes the title, body is empty) and their paths are appended to
+`visio_legacy_missing.txt` next to `du-docs.db`. Install libvisio-tools and
+run `docubrowser rescan` — the scanner picks the files back up on the next
+pass and updates their existing rows with the extracted body text.
 
 ### 3.5 Install and Start Ollama
 
@@ -1192,5 +1211,5 @@ pdfinfo /path/to/file.pdf | grep -i objects
 
 ---
 
-*DocuBrowse v0.9.2 — Administrator Guide — 2026-07-13*
+*DocuBrowse v0.9.3 — Administrator Guide — 2026-07-17*
 *Copyright (C) 2026 James Sparenberg — GPL-3.0-or-later*
