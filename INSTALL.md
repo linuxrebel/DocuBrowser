@@ -1,4 +1,4 @@
-# DocuBrowse v0.9.2 — Installation Guide
+# DocuBrowse v0.9.3 — Installation Guide
 
 This guide covers a fresh install on Linux (Fedora/RHEL/Debian/Ubuntu/Mint),
 Windows 10/11, or macOS. DocuBrowse runs entirely locally — no cloud
@@ -41,18 +41,18 @@ Download the appropriate package from the
 
 **Fedora / RHEL:**
 ```bash
-sudo dnf install ./docubrowser-foss-0.9.2-1.noarch.rpm
+sudo dnf install ./docubrowser-foss-0.9.3-1.noarch.rpm
 ```
 
 **Debian / Ubuntu / Mint:**
 ```bash
-sudo apt install ./docubrowser-foss_0.9.2-1_all.deb
+sudo apt install ./docubrowser-foss_0.9.3-1_all.deb
 ```
 
 **Any Linux (tarball):**
 ```bash
-tar xzf docubrowser-foss-0.9.2-1.tar.gz
-cd docubrowser-foss-0.9.2-1
+tar xzf docubrowser-foss-0.9.3-1.tar.gz
+cd docubrowser-foss-0.9.3-1
 sudo ./install.sh
 ```
 
@@ -145,8 +145,8 @@ cd DocuBrowser
 Or unpack the release tarball:
 
 ```bash
-tar xzf docubrowser-foss-0.9.2-1.tar.gz
-cd docubrowser-foss-0.9.2-1
+tar xzf docubrowser-foss-0.9.3-1.tar.gz
+cd docubrowser-foss-0.9.3-1
 ```
 
 ---
@@ -188,6 +188,23 @@ sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | 
 
 Calibre is used for ebook metadata extraction and as a text-extraction fallback.
 It is required for ebook indexing — install it before running a scan.
+
+### libvisio-tools (optional — legacy Visio only)
+
+Modern Visio (`.vsdx`/`.vsdm`) and draw.io (`.drawio`/`.dio`) files are
+indexed with no extra dependency. Legacy binary Visio (`.vsd`/`.vss`/`.vst`)
+needs the `vsd2xml` converter from **libvisio-tools**:
+
+```bash
+sudo dnf install libvisio-tools   # Fedora / RHEL
+sudo apt install libvisio-tools   # Debian / Ubuntu
+```
+
+Without it, DocuBrowse still indexes legacy Visio files metadata-only
+(filename becomes the title, no body text is searchable) and appends the
+paths to `visio_legacy_missing.txt` next to `du-docs.db`. Install
+libvisio-tools and rescan those paths (or run `docubrowser rescan`) to
+extract body text.
 
 ### DRM-encrypted AZW files
 

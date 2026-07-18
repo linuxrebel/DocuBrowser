@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        0.9.2
+Version:        0.9.3
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
@@ -179,6 +179,18 @@ fi
 
 
 %changelog
+* Fri Jul 17 2026 James Sparenberg <james@sparenbergs.us> - 0.9.3-1
+- Add Visio (.vsdx/.vsdm/.vsd/.vss/.vst/.vdx), draw.io (.drawio/.dio),
+  PlantUML (.puml/.plantuml), and Mermaid (.mmd) diagram support
+- Add SGML/XML markup family: .xml, .xhtml, .sgml, .sgm, DocBook
+  (.docbook/.dbk), SVG, feeds (.rss/.atom/.opml), reStructuredText (.rst),
+  AsciiDoc (.adoc/.asciidoc), LaTeX (.tex/.latex)
+- Add email (.eml), RTF (.rtf), CSV/TSV, and config-ish plain text
+  (.ini/.conf/.cfg/.log/.lst) support
+- New optional runtime deps: libvisio-tools (for legacy .vsd) and
+  striprtf (pip, for .rtf); files indexed metadata-only if either is
+  missing and appended to visio_legacy_missing.txt / rtf_missing_striprtf.txt
+
 * Fri Jul 03 2026 James Sparenberg <james@sparenbergs.us> - 0.9.0-1
 - Initial FOSS package release
 - Document search and indexing with AI-powered features

@@ -10,6 +10,148 @@ resolved items keep their number.
 
 ## Open
 
+### D-14: Email, RTF, CSV, and config-ish plain text — coverage sweep
+**Status:** Decided — new dedicated extractors + trivial extension adds
+**Priority:** Low
+**Added:** 2026-07-17
+
+An audit of `/mnt/data/Documents` found ~1,171 files across ~40 extensions
+that DocuBrowse wasn't scanning. Categorized as:
+
+- **Real content, no extractor** — `.eml` (email), `.rtf`, `.csv`, `.tsv`,
+  `.vdx` (Visio 2003 XML).
+- **Plain text, just need to be listed** — `.ini`, `.conf`, `.cfg`, `.log`,
+  `.lst`.
+- **Junk** — images, fonts, TLS material, source maps, `.pyc`, HTTrack mirror
+  cruft (~356 files with `?a=b`-style query strings baked into the filename).
+
+**Decision:** ship extractors for the real-content group, add the plain-text
+group to `DEFAULT_EXTENSIONS` (they fall through to `_extract_text_file`),
+route `.vdx` through `markup_extractor`'s XML tag-strip path and tag it as
+`diagram`, and leave the HTTrack cruft to be handled by
+`docubrowser ignore add <mirror-root>`.
+
+Component choices:
+- `.eml` — stdlib `email` package. Subject → title, From → author, To/Cc/Date
+  → subject field, text/plain body preferred (falls back to text/html
+  tag-stripped). Attachment filenames appended so name-searches still hit.
+- `.csv` / `.tsv` — stdlib `csv` with delimiter auto-sniffing. First 500 rows
+  as pipe-delimited text; header row lands in the description field so column
+  names weigh into keyword search.
+- `.rtf` — `striprtf` (pure Python, MIT, ARM64-safe). Added to
+  `requirements.txt`. Graceful degradation when missing: file is indexed
+  metadata-only and the path is appended to `rtf_missing_striprtf.txt`, same
+  convention as `visio_legacy_missing.txt` for missing vsd2xml.
+- `.vdx` — routed to `markup_extractor`. Tagged `markup` + `diagram`.
+
+Consequences:
+- One new optional runtime dependency (`striprtf`) in requirements.txt.
+- Three new extractor modules (`eml_extractor.py`, `csv_extractor.py`,
+  `rtf_extractor.py`) alongside existing `docx/odf/visio/markup/ebook/pdf`.
+- One new sidecar file `rtf_missing_striprtf.txt` (gitignored).
+- HTTrack mirror cruft is a user-space cleanup — not code work.
+
+**Deferred follow-ups (surfaced by QA review 2026-07-17):**
+- `.vdx` title extraction picks the first `<Title>` element anywhere in the
+  document.  Real Visio 2003 XML puts `DocumentProperties/Title` first so
+  this works today, but a file with a shape-level `<Title>` before the
+  document properties would extract the wrong string.  Follow-up: prefer
+  `<DocumentProperties><Title>` explicitly in `markup_extractor`.
+- CSV extractor sets `description` to whatever the first row is, even when
+  `csv.Sniffer.has_header(sample)` says the file has no header.  Follow-up:
+  gate the header-→description assignment on `has_header`.
+- `csv_extractor` returns `success=False` on genuinely-empty files, so
+  empty CSVs land in `scan_blacklist.txt`.  Cosmetic; consider
+  `success=True` with empty text so they show up in browse instead.
+- `eml_extractor` returns `success=True` on a zero-byte `.eml` (empty text,
+  no title).  Inconsistent with `_extract_text_file` which returns
+  `success=bool(text)`.  Cosmetic.
+
+---
+
+### D-13: Markup family — schema-agnostic tag-strip vs. per-format parsing
+**Status:** Decided — schema-agnostic tag-strip
+**Priority:** Low
+**Added:** 2026-07-17
+
+The SGML/XML family (`.xml`, `.xhtml`, `.sgml`, `.sgm`, `.docbook`, `.dbk`,
+`.svg`, `.rss`, `.atom`, `.opml`) plus structured plain-text markup (`.rst`,
+`.adoc`, `.asciidoc`, `.tex`, `.latex`) all needed a first-pass extractor.
+
+Options considered:
+- **(a) Schema-aware per format** — dedicated parser per format (DocBook →
+  section headings; RSS → item list; Atom → entry summaries; SVG →
+  `<text>` and `<title>`; reST/AsciiDoc → structured heading walk). Best
+  metadata, most maintenance.
+- **(b) Schema-agnostic tag-strip ← chosen** — one XML/SGML tag-stripper
+  that decodes DOCTYPE, comments, and CDATA, sniffs title/author from
+  well-known local-names (`title`, `dc:title`, `author`, `dc:creator`)
+  before stripping, then unescapes entities. reST/AsciiDoc/LaTeX are
+  passed through verbatim so all markup becomes searchable text, with a
+  per-format title-sniff. LaTeX gets `\title{}`/`\author{}` + line-`%`
+  comment stripping.
+- **(c) Skip entirely** — leave everything to `_extract_text_file`.
+
+**Decision:** ship path (b). No new dependencies, one 280-line module,
+handles unknown schemas gracefully, extracts useful titles/authors for
+the formats that follow well-known conventions (DocBook, Atom, RSS, SVG,
+LaTeX).
+
+Consequences:
+- New extractor `markup_extractor.py`; no new runtime dependency.
+- Every markup file gets a `markup` browse/filter tag; SVG additionally
+  gets a `diagram` tag alongside `.vsdx` / `.drawio` / `.puml`.
+- Deferred to a future session: per-format schema-aware pretty extraction
+  (structure preserved instead of flattened), and light heuristic
+  cleanup of reST/AsciiDoc/LaTeX punctuation noise from the searchable
+  text — the current path leaves the source markup verbatim, which is
+  fine for keyword hits but slightly noisy for synopsis generation.
+
+---
+
+### D-12: Legacy Visio (.vsd/.vss/.vst) — external converter choice
+**Status:** Decided — libvisio-tools (`vsd2xml`)
+**Priority:** Low
+**Added:** 2026-07-17
+
+Modern Visio (`.vsdx`/`.vsdm`) is OOXML and parses with the stdlib. Legacy
+binary Visio (`.vsd`, and the related stencil `.vss` / template `.vst`) is
+Microsoft Compound Document format and needs a real converter.
+
+Options considered:
+- **(a) LibreOffice headless** — reliable but pulls in ~1 GB of dependencies,
+  slow to spawn, and inconvenient in server contexts.
+- **(b) libvisio-tools (`vsd2xml`) ← chosen** — packaged in Fedora, Debian,
+  and Ubuntu; ~5 MB install; produces ODG-flavoured XML on stdout that the
+  same text-walking approach used in `odf_extractor.py` can consume.
+- **(c) Metadata-only** — skip body extraction entirely. Cheap, but the
+  file's diagram labels never make it into keyword or semantic search.
+
+**Decision:** ship path (b). When `vsd2xml` is missing at scan time,
+degrade gracefully to path (c): index the row with the filename as the
+title and append the path to `visio_legacy_missing.txt` so an operator can
+install libvisio-tools and rescan.
+
+Consequences:
+- New optional runtime dependency documented in README, INSTALL.md, and
+  the Admin Guide.
+- New sidecar file `visio_legacy_missing.txt` (gitignored) alongside the
+  existing `ocr_list_pdfs.txt` — same append-only convention.
+
+**Deferred follow-ups (surfaced by QA review 2026-07-17):**
+- `vsd2xml` stdout is currently unbounded via `subprocess.run(..., capture_output=True)`.
+  A hostile / corrupt file that made the converter emit multi-GB output would
+  grow the worker until the existing `RLIMIT_AS` (6 GB) killed it — which then
+  routes the whole ProcessPool into its "worker killed" branch and mis-blacklists
+  the file. Primary defence today is the 90 s timeout. Follow-up: switch to
+  `Popen` + a bounded `stdout.read(N)` cap, or route through a `head -c` wrapper.
+- The `.vsdx` extractor only knows the `visio/2012/main` namespace URI. Visio
+  2010 and earlier files using older URIs will silently extract zero body text
+  (metadata still works). Follow-up: add a fallback namespace list and log a
+  warning when pages exist but no `<Text>` was found.
+
+---
+
 ### D-1: Multi-language / i18n support
 **Status:** Open — design needed  
 **Priority:** Medium  

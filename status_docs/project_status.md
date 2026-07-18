@@ -1,8 +1,8 @@
 # DocuBrowse Project Status
 
-**Version**: v0.9.2  
+**Version**: v0.9.3  
 **Status**: 🟢 **STABLE — daily use, packaged for distribution**  
-**Last Updated**: 2026-07-13  
+**Last Updated**: 2026-07-17  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
@@ -79,6 +79,135 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 ---
 
 ## Session History
+
+### 2026-07-17 — Email, RTF, CSV/TSV, config-ish plain text, .vdx
+
+Audit of `/mnt/data/Documents` (~9,479 files) found DocuBrowse was already
+covering 8,258 files (87%). Sweep to close the gap:
+
+- **New `eml_extractor.py`** — stdlib `email` package. Subject → title,
+  From → author, To/Cc/Date → subject field. Prefers text/plain body;
+  falls back to text/html tag-stripped. Attachment filenames appended so
+  name-searches still hit. No new dependency. Verified end-to-end on a
+  synthetic RFC 822 fixture.
+- **New `csv_extractor.py`** — stdlib `csv` with delimiter auto-sniffing
+  (comma / tab / semicolon / pipe). First 500 rows as pipe-delimited text;
+  header row lands in the description field so column names weigh into
+  keyword search. Handles `.csv` and `.tsv`. Verified on both.
+- **New `rtf_extractor.py`** — `striprtf` (pure Python, MIT). Added to
+  requirements.txt. Graceful degradation when the module isn't installed:
+  file indexed metadata-only, path appended to `rtf_missing_striprtf.txt`
+  next to `du-docs.db`, same pattern as `visio_legacy_missing.txt` for
+  missing vsd2xml. Verified degradation path works (sidecar written,
+  file indexed with filename as title).
+- **`.vdx`** — Visio 2003 XML. Routed through `markup_extractor`'s XML
+  tag-strip path; also lands in `_MARKUP_DIAGRAM_EXTENSIONS` so it gets
+  a `diagram` tag alongside `.vsdx` / `.drawio`. Verified: title extracted
+  from `<Title>`, tags `diagram` + `markup` + `vdx`.
+- **Plain-text expansions** — `.ini`, `.conf`, `.cfg`, `.log`, `.lst`
+  added to `DEFAULT_EXTENSIONS`. They fall through to `_extract_text_file`
+  with no new code. Verified each type indexed as expected.
+- **CLI** — `_TYPE_MAP` in `docubrowser.py` gets `eml`, `email` (alias),
+  `rtf`, `csv`, `tsv`, `ini`, `conf`, `cfg`, `log`, `lst`, `vdx`.
+- **Sidecar plumbing** — new `RTF_MISSING_LIST_FILENAME` constant,
+  `_rtf_missing_list_add()` helper mirroring `_legacy_visio_list_add()`,
+  `_needs_striprtf` flag threaded through the worker return dict and
+  both the multi-worker `_index_result` and the single-file
+  `cmd_scan_file` logging paths. `.gitignore` extended.
+- **Docs** — README (Formats + new bullet block + Prerequisites + Key
+  Scripts + File Structure + Blacklist Files), User_Guide (types list),
+  Admin_Guide (intro + Python packages table), DECISIONS.md (D-14),
+  this file. INSTALL.md unchanged — no new system-level dependency (only
+  a pip-level one).
+- **HTTrack cruft** — the audit also surfaced ~356 files under a mirror
+  directory with query-string extensions (`.htmlc=s;o=d` and siblings)
+  and `.ccd` sidecars. Not code work; user-space cleanup via
+  `docubrowser ignore add <mirror-root>` recommended.
+
+### 2026-07-17 — SGML/XML markup family + reST/AsciiDoc/LaTeX
+
+- **New extractor `markup_extractor.py`** — 280 lines, stdlib-only.
+  Handles two families:
+  - XML/SGML (`.xml`/`.xhtml`/`.sgml`/`.sgm`), DocBook (`.docbook`/`.dbk`),
+    SVG, and feeds (`.rss`/`.atom`/`.opml`) — schema-agnostic tag-strip
+    (DOCTYPE + XML decl + PI + comments + CDATA + `<script>`/`<style>`
+    stripped; entities unescaped). Title/author/subject sniffed from
+    well-known local-names (`<title>`, `<dc:title>`, `<author>`,
+    `<dc:creator>`, `<subject>`, `<dc:subject>`) BEFORE stripping.
+  - reST (`.rst`), AsciiDoc (`.adoc`/`.asciidoc`), LaTeX (`.tex`/`.latex`)
+    — passthrough (all markup becomes searchable text) with per-format
+    title heuristics: reST underline lines, AsciiDoc `= Title`, LaTeX
+    `\title{}` / `\section{}`. LaTeX also captures `\author{}` and strips
+    line-`%` comments.
+  See `status_docs/DECISIONS.md` D-13 for the schema-agnostic-vs-per-format
+  reasoning.
+- **Integration** — `DEFAULT_EXTENSIONS` extended; new
+  `_MARKUP_XML_EXTENSIONS` / `_MARKUP_TEXT_EXTENSIONS` frozensets in
+  `scan_docs.py`; dispatch branch routes both families through
+  `extract_markup`. All markup files get a `markup` browse-filter tag;
+  SVG additionally gets a `diagram` tag alongside `.vsdx`/`.drawio`/`.puml`.
+  Keyword-generation gate extended so tags are auto-derived from the
+  extracted body.
+- **CLI** — `_TYPE_MAP` in `docubrowser.py` gets `xml`, `xhtml`, `sgml`,
+  `sgm`, `docbook`, `dbk`, `svg`, `rss`, `atom`, `opml`, `rst`, `adoc`,
+  `asciidoc`, `tex`, `latex`. Users chain individual types.
+- **Docs** — README (Formats + Markup family bullet + Key Scripts + File
+  Structure), User_Guide and Admin_Guide (introductions and format list),
+  DECISIONS.md (D-13), this file. INSTALL.md unchanged — no new
+  runtime dependency.
+- **QA** — Isolated Python calls exercised every family (DocBook XML,
+  bare XML, SGML with entities, SVG, RSS, reST with underline title,
+  AsciiDoc, LaTeX with `\title`/`\author` + `%` comment). All extracted
+  cleanly with correct title/author capture. Syntax check green on all
+  three edited `.py` files. Next: end-to-end `scan-file` run through the
+  real CLI + QA subagent pass.
+
+### 2026-07-17 — Visio, draw.io, PlantUML, Mermaid format support
+
+- **New extractor `visio_extractor.py`** — handles four families of diagram
+  formats, all returning the standard extractor result dict so
+  `scan_docs._extract_file` treats them like every other type:
+  - Modern Visio (`.vsdx`/`.vsdm`) — OOXML zip parsed with stdlib
+    (`zipfile` + `xml.etree.ElementTree`). Walks every `<Shape><Text>` on
+    every page, prepends the page display name from `pages.xml`, and
+    reads `docProps/core.xml` for title/author/subject/keywords. Verified
+    on a synthetic fixture (title/author/subject captured, nested-group
+    shape text captured).
+  - Legacy Visio (`.vsd`/`.vss`/`.vst`) — shells out to `vsd2xml` from
+    the optional `libvisio-tools` package (chose (b) in DECISIONS.md
+    D-12). When `vsd2xml` is absent, the file is indexed metadata-only
+    (filename as title, empty body) and the path is appended to
+    `visio_legacy_missing.txt` — same append-only convention as
+    `ocr_list_pdfs.txt`. Rescanning after installing libvisio-tools
+    updates the existing row in place.
+  - draw.io / diagrams.net (`.drawio`/`.dio`) — stdlib-only. Handles
+    both plain `<mxfile><diagram><mxGraphModel>...` and the compressed
+    variant (raw-deflate → base64 → URL-encode) that draw.io writes by
+    default. Extracts every `mxCell.value` and `object.label` (HTML tags
+    stripped, `<br>` normalized to newlines) and page names from
+    `<diagram name="...">`. Verified on `bus_docs/DocuBrowse_Architecture.drawio`
+    and a compressed synthetic fixture.
+  - PlantUML (`.puml`/`.plantuml`) and Mermaid (`.mmd`) — routed through
+    the existing plain-text path; source is indexed verbatim so keyword
+    and semantic search both work. `doc_type` is set to the extension so
+    the front-end can style them.
+- **Diagram tag** — every diagram result gets a `diagram` tag for easy
+  browse/filter alongside per-diagram-type tags.
+- **CLI** — new type aliases in `_TYPE_MAP` in `docubrowser.py`:
+  `vsdx`, `vsdm`, `vsd`, `vss`, `vst`, `drawio`, `dio`, `puml`,
+  `plantuml`, `mmd`. Users can chain them (`scan vsdx drawio puml`).
+  The unfiltered-scan file-type prompt picks up the new extensions
+  automatically via `DEFAULT_EXTENSIONS`.
+- **Docs updated** — README.md (Formats, Prerequisites, Key Scripts,
+  File Structure, Blacklist Files), INSTALL.md (new 3.4a-equivalent
+  section), Admin Guide (§3.4a and Software Dependencies table), User
+  Guide (supported types list), DECISIONS.md (D-12), .gitignore
+  (`visio_legacy_missing.txt`).
+- **QA:** module-level syntax check passes on `scan_docs.py`,
+  `docubrowser.py`, `visio_extractor.py`. Isolated extraction tests
+  green on real .drawio, synthetic .vsdx, compressed .drawio, and the
+  vsd2xml-missing degradation path. Next up: end-to-end `scan-file` run
+  through the real CLI + QA subagent pass.
 
 ### 2026-06-28 — v0.8.3.1: Show/Unhide hidden documents
 

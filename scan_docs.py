@@ -36,13 +36,54 @@ from platform_paths import scan_log_paths
 # and routes them through _extract_text_file.
 DEFAULT_EXTENSIONS = [".pdf", ".docx", ".pptx", ".xlsx",
                       ".odt", ".ods", ".odp",
+                      ".vsdx", ".vsdm", ".vsd", ".vss", ".vst",
+                      ".drawio", ".dio",
                       ".epub", ".mobi", ".azw", ".azw3",
+                      ".eml", ".rtf", ".csv", ".tsv",
                       ".txt", ".md", ".html",
+                      ".ini", ".conf", ".cfg", ".log", ".lst",
+                      ".puml", ".plantuml", ".mmd",
+                      # SGML/XML family + structured plain-text markup
+                      ".xml", ".xhtml", ".sgml", ".sgm",
+                      ".docbook", ".dbk",
+                      ".svg", ".vdx",
+                      ".rss", ".atom", ".opml",
+                      ".rst", ".adoc", ".asciidoc", ".tex", ".latex",
                       ".json", ".yml", ".yaml",
                       ".py", ".sh", ".js", ".css",
                       ".rs", ".c", ".h", ".cpp", ".hpp", ".cc",
                       ".go", ".java", ".ts", ".tsx", ".jsx",
                       ".rb", ".php", ".toml"]
+
+# Diagram/drawing extensions handled by visio_extractor.
+_VISIO_EXTENSIONS = frozenset({
+    ".vsdx", ".vsdm", ".vsd", ".vss", ".vst", ".drawio", ".dio",
+})
+
+# Text-based diagram sources (PlantUML, Mermaid) — routed through the plain
+# text path but still counted as first-class scannable types.
+_TEXT_DIAGRAM_EXTENSIONS = frozenset({".puml", ".plantuml", ".mmd"})
+
+# XML/SGML markup family — routed through markup_extractor.
+_MARKUP_XML_EXTENSIONS = frozenset({
+    ".xml", ".xhtml", ".sgml", ".sgm",
+    ".docbook", ".dbk",
+    ".svg", ".vdx",
+    ".rss", ".atom", ".opml",
+})
+
+# Structured plain-text markup (reST, AsciiDoc, LaTeX) — same extractor,
+# different code path (no tag-stripping).
+_MARKUP_TEXT_EXTENSIONS = frozenset({
+    ".rst",
+    ".adoc", ".asciidoc",
+    ".tex", ".latex",
+})
+
+# SVG and Visio 2003 XML (.vdx) are technically XML-markup but are really
+# diagrams — surface them in the diagram tag pool so users can filter for
+# them alongside .drawio / .vsdx.
+_MARKUP_DIAGRAM_EXTENSIONS = frozenset({".svg", ".vdx"})
 
 _CODE_EXTENSIONS = frozenset({
     ".json", ".yml", ".yaml", ".py", ".sh", ".js", ".css",
@@ -76,6 +117,8 @@ _IS_TTY = sys.stdout.isatty()
 BLACKLIST_FILENAME     = "scan_blacklist.txt"
 PII_BLACKLIST_FILENAME = "pii_blacklist.txt"
 OCR_LIST_FILENAME      = "ocr_list_pdfs.txt"
+LEGACY_VISIO_LIST_FILENAME = "visio_legacy_missing.txt"
+RTF_MISSING_LIST_FILENAME  = "rtf_missing_striprtf.txt"
 IGNORE_DIRS_FILENAME   = "ignore_dirs.txt"
 SCAN_DIRS_FILENAME     = "scan_dirs.txt"
 
@@ -253,6 +296,31 @@ def _ocr_list_add(db_path: Path, file_path: str) -> None:
     """Append a scanned PDF path to ocr_list_pdfs.txt for future OCR processing."""
     ocr_path = db_path.parent / OCR_LIST_FILENAME
     with open(ocr_path, "a", encoding="utf-8") as fh:
+        fh.write(file_path + "\n")
+
+
+def _legacy_visio_list_add(db_path: Path, file_path: str) -> None:
+    """Append a legacy .vsd/.vss/.vst path to visio_legacy_missing.txt.
+
+    Populated when a legacy Visio file is encountered but ``vsd2xml`` is not
+    installed.  The file is still indexed metadata-only; installing
+    libvisio-tools and rescanning will then extract body text.
+    """
+    lv_path = db_path.parent / LEGACY_VISIO_LIST_FILENAME
+    with open(lv_path, "a", encoding="utf-8") as fh:
+        fh.write(file_path + "\n")
+
+
+def _rtf_missing_list_add(db_path: Path, file_path: str) -> None:
+    """Append an .rtf path to rtf_missing_striprtf.txt.
+
+    Populated when an .rtf file is encountered but ``striprtf`` is not
+    installed.  The file is still indexed metadata-only; installing
+    striprtf (``pip install striprtf``) and rescanning will extract body
+    text.  Same convention as ``visio_legacy_missing.txt``.
+    """
+    rm_path = db_path.parent / RTF_MISSING_LIST_FILENAME
+    with open(rm_path, "a", encoding="utf-8") as fh:
         fh.write(file_path + "\n")
 
 
@@ -444,9 +512,53 @@ def _extract_file(args: tuple) -> dict:
         elif effective_ext in (".odt", ".ods", ".odp"):
             from odf_extractor import extract_odf
             result = extract_odf(str(file_path))
+        elif effective_ext in _VISIO_EXTENSIONS:
+            from visio_extractor import extract_visio
+            result = extract_visio(str(file_path))
+            # Legacy .vsd/.vss/.vst without vsd2xml: index metadata-only
+            # rather than blacklist, and signal the missing-converter list
+            # to the main process via the result dict.
+            if (not result["success"]
+                    and (result.get("error") or "").startswith("vsd2xml not found")):
+                result["success"]         = True
+                result["text"]            = ""
+                result["snippet"]         = ""
+                result["description"]     = "[legacy Visio — install libvisio-tools to index body]"
+                result["title"]           = result.get("title") or file_path.stem
+                result["_needs_vsd2xml"]  = True
+                result["error"]           = None
+        elif effective_ext in _TEXT_DIAGRAM_EXTENSIONS:
+            # PlantUML / Mermaid source — plain text, but tag as diagram
+            result = _extract_text_file(file_path)
+            if result["success"]:
+                result["doc_type"] = effective_ext.lstrip(".")
+        elif (effective_ext in _MARKUP_XML_EXTENSIONS
+              or effective_ext in _MARKUP_TEXT_EXTENSIONS):
+            from markup_extractor import extract_markup
+            result = extract_markup(str(file_path))
         elif effective_ext in (".epub", ".mobi", ".azw", ".azw3"):
             from ebook_extractor import extract_ebook
             result = extract_ebook(str(file_path))
+        elif effective_ext == ".eml":
+            from eml_extractor import extract_eml
+            result = extract_eml(str(file_path))
+        elif effective_ext in (".csv", ".tsv"):
+            from csv_extractor import extract_csv
+            result = extract_csv(str(file_path))
+        elif effective_ext == ".rtf":
+            from rtf_extractor import extract_rtf
+            result = extract_rtf(str(file_path))
+            # striprtf missing: degrade to metadata-only and flag for the
+            # main process to append to rtf_missing_striprtf.txt.
+            if (not result["success"]
+                    and (result.get("error") or "").startswith("striprtf not installed")):
+                result["success"]           = True
+                result["text"]              = ""
+                result["snippet"]           = ""
+                result["description"]       = "[RTF — install striprtf to index body]"
+                result["title"]             = result.get("title") or file_path.stem
+                result["_needs_striprtf"]   = True
+                result["error"]             = None
         elif detected_ext == "html":
             result = _extract_text_file(file_path, detected_ext="html")
         else:
@@ -479,27 +591,49 @@ def _extract_file(args: tuple) -> dict:
         if effective_ext in _CODE_EXTENSIONS:
             tags.add("code")
 
-        if effective_ext in (".pdf", ".docx", ".pptx", ".xlsx", ".odt", ".ods", ".odp", ".epub", ".mobi", ".azw", ".azw3"):
+        if effective_ext in (".pdf", ".docx", ".pptx", ".xlsx",
+                             ".odt", ".ods", ".odp",
+                             ".vsdx", ".vsdm", ".drawio", ".dio",
+                             ".xml", ".xhtml", ".sgml", ".sgm",
+                             ".docbook", ".dbk",
+                             ".svg", ".vdx",
+                             ".rss", ".atom", ".opml",
+                             ".rst", ".adoc", ".asciidoc", ".tex", ".latex",
+                             ".eml", ".rtf", ".csv", ".tsv",
+                             ".epub", ".mobi", ".azw", ".azw3"):
             from pdf_extractor import generate_keywords
             keywords = generate_keywords(
                 result.get("text", ""), result.get("title", ""), max_keywords=5
             )
             tags.update(keywords)
 
+        # Diagram files get a "diagram" tag for browse/filter convenience.
+        if (effective_ext in _VISIO_EXTENSIONS
+                or effective_ext in _TEXT_DIAGRAM_EXTENSIONS
+                or effective_ext in _MARKUP_DIAGRAM_EXTENSIONS):
+            tags.add("diagram")
+
+        # Markup files get a "markup" tag for the same reason.
+        if (effective_ext in _MARKUP_XML_EXTENSIONS
+                or effective_ext in _MARKUP_TEXT_EXTENSIONS):
+            tags.add("markup")
+
         return {
             **base,
-            "success":     True,
-            "size_bytes":  size_bytes,
-            "file_ext":    effective_ext,
-            "doc_type":    result.get("doc_type", effective_ext.lstrip(".")),
-            "title":       result.get("title") or file_path.stem,
-            "author":      result.get("author"),
-            "subject":     result.get("subject"),
-            "description": result.get("description", ""),
-            "snippet":     result.get("snippet", ""),
-            "text":        result.get("text", ""),
-            "modified_at": modified_at,
-            "tags":        sorted(tags),
+            "success":         True,
+            "size_bytes":      size_bytes,
+            "file_ext":        effective_ext,
+            "doc_type":        result.get("doc_type", effective_ext.lstrip(".")),
+            "title":           result.get("title") or file_path.stem,
+            "author":          result.get("author"),
+            "subject":         result.get("subject"),
+            "description":    result.get("description", ""),
+            "snippet":         result.get("snippet", ""),
+            "text":            result.get("text", ""),
+            "modified_at":     modified_at,
+            "tags":            sorted(tags),
+            "_needs_vsd2xml":  result.get("_needs_vsd2xml", False),
+            "_needs_striprtf": result.get("_needs_striprtf", False),
         }
 
     except TimeoutError as exc:
@@ -831,6 +965,14 @@ def scan_directory(
                     scanned += 1
                     _ocr_list_add(db_path, result["path"])
                     _log.info("SCANNED  %s  (added to ocr_list_pdfs.txt)", name)
+                elif result.get("_needs_vsd2xml"):
+                    extracted += 1
+                    _legacy_visio_list_add(db_path, result["path"])
+                    _log.info("LEGACY-VISIO  %s  (metadata-only; install libvisio-tools to index body)", name)
+                elif result.get("_needs_striprtf"):
+                    extracted += 1
+                    _rtf_missing_list_add(db_path, result["path"])
+                    _log.info("RTF-NO-STRIPRTF  %s  (metadata-only; pip install striprtf to index body)", name)
                 else:
                     extracted += 1
                     _log.info("OK  %s  (%d tags)", name, len(result.get("tags", [])))
@@ -1040,6 +1182,12 @@ def scan_single_file(
         if doc_type == "scanned":
             _ocr_list_add(db_path, str(file_path))
             _log.info("SCANNED  %s  (added to ocr_list_pdfs.txt)", file_path.name)
+        elif result.get("_needs_vsd2xml"):
+            _legacy_visio_list_add(db_path, str(file_path))
+            _log.info("LEGACY-VISIO  %s  (metadata-only; install libvisio-tools to index body)", file_path.name)
+        elif result.get("_needs_striprtf"):
+            _rtf_missing_list_add(db_path, str(file_path))
+            _log.info("RTF-NO-STRIPRTF  %s  (metadata-only; pip install striprtf to index body)", file_path.name)
         else:
             _log.info("OK  %s  (%d tags)", file_path.name, len(result.get("tags", [])))
 

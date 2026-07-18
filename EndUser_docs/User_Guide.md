@@ -1,4 +1,4 @@
-# DocuBrowse v0.9.2 — User Guide
+# DocuBrowse v0.9.3 — User Guide
 
 ---
 
@@ -30,7 +30,7 @@ DocuBrowse is a local document search tool that indexes the files on your machin
 
 You could search for "that contract about the lease renewal" and find the right document even if those exact words never appear in the file.
 
-**Supported file types:** PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, EPUB, MOBI, AZW3, HTML, TXT, Markdown.
+**Supported file types:** PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, VSDX/VSDM, VSD/VSS/VST (legacy Visio, optional libvisio-tools for full body text), VDX (Visio 2003 XML), draw.io/diagrams.net (.drawio/.dio), PlantUML (.puml/.plantuml), Mermaid (.mmd), SGML/XML (.xml/.xhtml/.sgml/.sgm), DocBook (.docbook/.dbk), SVG, RSS/Atom/OPML feeds, reStructuredText (.rst), AsciiDoc (.adoc), LaTeX (.tex), Email (.eml), RTF (.rtf, optional striprtf for full body text), CSV / TSV, EPUB, MOBI, AZW3, HTML, TXT, Markdown, and config-ish plain text (.ini/.conf/.cfg/.log/.lst).
 
 **Key features:**
 

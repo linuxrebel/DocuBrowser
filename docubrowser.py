@@ -47,7 +47,7 @@ from platform_paths import (
     kill_process_tree, kill_pid, find_procs_by_script, kill_port, pid_exists,
 )
 
-VERSION = "0.9.2"
+VERSION = "0.9.3"
 
 # ─── Paths ───────────────────────────────────────────────────────────────────
 # APP_DIR  = where the code lives (scripts, HTML, icons).  Always the
@@ -569,6 +569,48 @@ _TYPE_MAP = {
     "markdown": ".md",
     "html": ".html",
     "htm":  ".html",
+    # Config-ish plain text
+    "ini":  ".ini",
+    "conf": ".conf",
+    "cfg":  ".cfg",
+    "log":  ".log",
+    "lst":  ".lst",
+    # Email, RTF, tabular
+    "eml":   ".eml",
+    "email": ".eml",
+    "rtf":   ".rtf",
+    "csv":   ".csv",
+    "tsv":   ".tsv",
+    # Visio / diagram formats
+    "vsdx":   ".vsdx",
+    "vsdm":   ".vsdm",
+    "vsd":    ".vsd",
+    "vss":    ".vss",
+    "vst":    ".vst",
+    "vdx":    ".vdx",       # Visio 2003 XML — routed through markup_extractor
+    "drawio": ".drawio",
+    "dio":    ".dio",
+    # Text-based diagrams (PlantUML / Mermaid source)
+    "puml":     ".puml",
+    "plantuml": ".plantuml",
+    "mmd":      ".mmd",
+    # SGML/XML markup family
+    "xml":      ".xml",
+    "xhtml":    ".xhtml",
+    "sgml":     ".sgml",
+    "sgm":      ".sgm",
+    "docbook":  ".docbook",
+    "dbk":      ".dbk",
+    "svg":      ".svg",
+    "rss":      ".rss",
+    "atom":     ".atom",
+    "opml":     ".opml",
+    # Structured plain-text markup
+    "rst":      ".rst",
+    "adoc":     ".adoc",
+    "asciidoc": ".asciidoc",
+    "tex":      ".tex",
+    "latex":    ".latex",
 }
 
 
