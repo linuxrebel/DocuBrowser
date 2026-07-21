@@ -14,11 +14,28 @@ Workers return plain dicts; all DB writes happen in the main process.
 Default workers: min(os.cpu_count(), 8)
 """
 
+# One scanner module by design — file dispatch, DB writes, blacklist
+# handling, and the CLI all share tight state; splitting would explode
+# the import graph without buying much.
+# pylint: disable=too-many-lines
+#
+# All open() calls in this file target user documents where the OS default
+# encoding matches or errors="replace" is set explicitly at the call site.
+# pylint: disable=unspecified-encoding
+#
+# Long print/help lines that would only get worse from mechanical wrapping.
+# pylint: disable=line-too-long
+
 import argparse
+import contextlib
+import html as _html
+import io
 import itertools
 import logging
 import os
+import re
 import signal
+import sqlite3
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
@@ -26,8 +43,27 @@ from concurrent.futures.process import BrokenProcessPool
 from datetime import datetime
 from pathlib import Path
 
+try:
+    import resource as _resource
+except ImportError:
+    _resource = None      # Windows: no resource module — RLIMIT guards no-op
+
 from docubrowse_db import get_db, delete_documents
 from platform_paths import scan_log_paths
+
+# Per-format extractors — hoisted so ProcessPool workers pay the import cost
+# once at process start rather than once per file dispatched.
+from pdf_extractor import extract_pdf, generate_keywords
+from docx_extractor import extract_docx
+from pptx_extractor import extract_pptx
+from xlsx_extractor import extract_xlsx
+from odf_extractor import extract_odf
+from visio_extractor import extract_visio
+from markup_extractor import extract_markup
+from ebook_extractor import extract_ebook
+from eml_extractor import extract_eml
+from csv_extractor import extract_csv
+from rtf_extractor import extract_rtf
 
 
 # HTtrack-mirrored sites save pages as extensionless files (e.g. "index"
@@ -98,12 +134,15 @@ try:
     DEFAULT_WORKERS = recommended_scan_workers()
 except ImportError:
     DEFAULT_WORKERS = min(os.cpu_count() or 4, 8)
-    def wait_for_memory(**kw): return False
+
+    def wait_for_memory(**_kw):
+        """No-op fallback when hardware_utils is unavailable."""
+        return False
 
 # Per-file timeout: 2 generous seconds per page in the MAX_PAGES cap.
 # Keeps a single corrupt/looping PDF from blocking the whole scan.
 try:
-    from pdf_extractor import MAX_PAGES as _MAX_PAGES
+    from pdf_extractor import MAX_PAGES as _MAX_PAGES  # pylint: disable=ungrouped-imports
 except ImportError:
     _MAX_PAGES = 150
 _SECS_PER_PAGE   = 2
@@ -179,6 +218,7 @@ def _load_scan_dirs(db_path: Path) -> set:
     return dirs
 
 
+# pylint: disable-next=too-many-return-statements,too-many-branches
 def _classify_noext(file_path: Path) -> str:
     """Classify a file with no extension by reading its first 8192 bytes.
 
@@ -229,7 +269,7 @@ def _classify_noext(file_path: Path) -> str:
     # Check the first portion for common HTML indicators
     try:
         text_head = head[:4096].decode("utf-8", errors="replace").lower()
-    except Exception:
+    except (UnicodeError, LookupError):
         return "skip"
 
     html_markers = ("<!doctype html", "<html", "<head", "<body",
@@ -364,9 +404,7 @@ def _worker_init():
     """
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-    try:
-        import resource
-    except ImportError:
+    if _resource is None:
         return   # Windows — no resource limits available
 
     # 6 GB virtual address space cap per worker.  When pdfplumber/pdfminer's
@@ -374,9 +412,9 @@ def _worker_init():
     # NOT propagate this as a Python MemoryError — it usually crashes the
     # worker process with SIGSEGV or SIGBUS.  That causes BrokenProcessPool
     # on the associated future, which _handle_result catches.
-    _6GB = 6 * 1024 ** 3
+    six_gb = 6 * 1024 ** 3
     try:
-        resource.setrlimit(resource.RLIMIT_AS, (_6GB, _6GB))
+        _resource.setrlimit(_resource.RLIMIT_AS, (six_gb, six_gb))
     except (ValueError, OSError):
         pass   # ignore if already lower or unsupported
 
@@ -385,10 +423,10 @@ def _worker_init():
     # last-resort backstop for a completely runaway worker, not as a per-file
     # timer.  Per-file timing is handled by SIGALRM in _extract_file (for
     # pure-Python paths) and RLIMIT_AS (for C-extension paths).
-    _cpu_limit = FILE_TIMEOUT_SECS * 10
+    cpu_limit = FILE_TIMEOUT_SECS * 10
     try:
-        resource.setrlimit(resource.RLIMIT_CPU,
-                           (_cpu_limit, _cpu_limit + 5))
+        _resource.setrlimit(_resource.RLIMIT_CPU,
+                            (cpu_limit, cpu_limit + 5))
     except (ValueError, OSError):
         pass
 
@@ -432,21 +470,22 @@ def _progress_bar(completed: int, total: int, start_time: float, errors: int = 0
     elapsed = time.time() - start_time + 0.001
     pct     = completed * 100 // total
     width   = 25
-    filled  = width * completed // total
-    bar     = "█" * filled + "░" * (width - filled)
-    rate    = completed / elapsed
-    remain  = (total - completed) / rate if rate > 0 else 0
-    eta     = (f"{int(remain // 60)}m{int(remain % 60):02d}s"
-               if remain > 60 else f"{remain:.0f}s")
-    err_str = f"  \033[91m{errors} err\033[0m" if errors else ""
+    filled    = width * completed // total
+    bar_glyph = "█" * filled + "░" * (width - filled)
+    rate      = completed / elapsed
+    remain    = (total - completed) / rate if rate > 0 else 0
+    eta       = (f"{int(remain // 60)}m{int(remain % 60):02d}s"
+                 if remain > 60 else f"{remain:.0f}s")
+    err_str   = f"  \033[91m{errors} err\033[0m" if errors else ""
     return (
-        f"\r  [{bar}] {pct:3d}%  {completed}/{total}"
+        f"\r  [{bar_glyph}] {pct:3d}%  {completed}/{total}"
         f"  {rate:.1f}/s  ETA {eta}{err_str}  "
     )
 
 
 # ── Worker function (runs in subprocess — NO sqlite3 here) ───────────────────
 
+# pylint: disable-next=too-many-locals,too-many-branches,too-many-statements
 def _extract_file(args: tuple) -> dict:
     """
     Extract text and metadata from one file.
@@ -494,26 +533,19 @@ def _extract_file(args: tuple) -> dict:
         effective_ext = ext or f".{detected_ext}"
 
         if effective_ext == ".pdf":
-            import contextlib, io
-            from pdf_extractor import extract_pdf, generate_keywords
             # pdfminer/pdfplumber emit harmless color-space warnings to stderr;
             # suppress them in the worker process so they never reach the terminal.
             with contextlib.redirect_stderr(io.StringIO()):
                 result = extract_pdf(str(file_path))
         elif effective_ext == ".docx":
-            from docx_extractor import extract_docx
             result = extract_docx(str(file_path))
         elif effective_ext == ".pptx":
-            from pptx_extractor import extract_pptx
             result = extract_pptx(str(file_path))
         elif effective_ext == ".xlsx":
-            from xlsx_extractor import extract_xlsx
             result = extract_xlsx(str(file_path))
         elif effective_ext in (".odt", ".ods", ".odp"):
-            from odf_extractor import extract_odf
             result = extract_odf(str(file_path))
         elif effective_ext in _VISIO_EXTENSIONS:
-            from visio_extractor import extract_visio
             result = extract_visio(str(file_path))
             # Legacy .vsd/.vss/.vst without vsd2xml: index metadata-only
             # rather than blacklist, and signal the missing-converter list
@@ -534,19 +566,14 @@ def _extract_file(args: tuple) -> dict:
                 result["doc_type"] = effective_ext.lstrip(".")
         elif (effective_ext in _MARKUP_XML_EXTENSIONS
               or effective_ext in _MARKUP_TEXT_EXTENSIONS):
-            from markup_extractor import extract_markup
             result = extract_markup(str(file_path))
         elif effective_ext in (".epub", ".mobi", ".azw", ".azw3"):
-            from ebook_extractor import extract_ebook
             result = extract_ebook(str(file_path))
         elif effective_ext == ".eml":
-            from eml_extractor import extract_eml
             result = extract_eml(str(file_path))
         elif effective_ext in (".csv", ".tsv"):
-            from csv_extractor import extract_csv
             result = extract_csv(str(file_path))
         elif effective_ext == ".rtf":
-            from rtf_extractor import extract_rtf
             result = extract_rtf(str(file_path))
             # striprtf missing: degrade to metadata-only and flag for the
             # main process to append to rtf_missing_striprtf.txt.
@@ -601,7 +628,6 @@ def _extract_file(args: tuple) -> dict:
                              ".rst", ".adoc", ".asciidoc", ".tex", ".latex",
                              ".eml", ".rtf", ".csv", ".tsv",
                              ".epub", ".mobi", ".azw", ".azw3"):
-            from pdf_extractor import generate_keywords
             keywords = generate_keywords(
                 result.get("text", ""), result.get("title", ""), max_keywords=5
             )
@@ -639,7 +665,9 @@ def _extract_file(args: tuple) -> dict:
     except TimeoutError as exc:
         base["error"] = str(exc)
         return base
-    except Exception as exc:
+    except Exception as exc:   # pylint: disable=broad-exception-caught
+        # Worker safety net — any extractor crash must return a failed result
+        # so the file gets blacklisted rather than killing the whole scan.
         base["error"] = str(exc)
         return base
     finally:
@@ -672,25 +700,24 @@ def _extract_text_file(file_path: Path, detected_ext: str = "") -> dict:
         with open(file_path, encoding="utf-8", errors="replace") as fh:
             text = fh.read(200_000)
         if file_path.suffix.lower() == ".html" or detected_ext == "html":
-            import re, html as html_mod
             text = re.sub(r"<script[^>]*>.*?</script>", "", text,
                           flags=re.DOTALL | re.IGNORECASE)
             text = re.sub(r"<style[^>]*>.*?</style>",  "", text,
                           flags=re.DOTALL | re.IGNORECASE)
             text = re.sub(r"<[^>]+>", "", text)
-            text = html_mod.unescape(text)
+            text = _html.unescape(text)
         result["text"]    = text[:5000]
         result["snippet"] = text[:500]
         result["success"] = bool(result["text"])
         return result
-    except Exception as exc:
+    except (OSError, UnicodeError, LookupError) as exc:
         result["error"] = str(exc)
         return result
 
 
 # ── DB write helper (main process only) ──────────────────────────────────────
 
-def _write_result(conn, result: dict, doc_dir: Path):
+def _write_result(conn, result: dict, _doc_dir: Path):
     """Insert or update one document record. Returns doc_id or None."""
     doc_id = None
     try:
@@ -767,13 +794,14 @@ def _write_result(conn, result: dict, doc_dir: Path):
             ),
         )
         return doc_id
-    except Exception as exc:
+    except sqlite3.Error as exc:
         print(f"  DB ERROR for {result['name']}: {exc}", file=sys.stderr)
         return None
 
 
 # ── Main scan function ────────────────────────────────────────────────────────
 
+# pylint: disable-next=too-many-locals,too-many-branches,too-many-statements
 def scan_directory(
     doc_dir: str,
     db_path: str,
@@ -924,14 +952,14 @@ def scan_directory(
     # Sliding-window executor: keep at most `workers` futures in-flight —
     # one per worker slot, no extra queuing.  Memory is checked BEFORE each
     # individual submit so we never hand a new PDF to a worker when RAM is low.
-    MAX_IN_FLIGHT = workers   # match exactly to worker count, no pre-queue
+    max_in_flight = workers   # match exactly to worker count, no pre-queue
     work_iter     = iter(work_items)
     in_flight     = {}   # future -> filename
-    width         = len(str(total))
+    _width = len(str(total))
 
     def _fill_queue(executor):
         """Submit one new future per available worker slot, checking RAM first."""
-        slots = MAX_IN_FLIGHT - len(in_flight)
+        slots = max_in_flight - len(in_flight)
         for item in itertools.islice(work_iter, slots):
             wait_for_memory(is_tty=_IS_TTY, logger=_log)
             f = executor.submit(_extract_file, item)
@@ -1007,7 +1035,7 @@ def scan_directory(
                                "killed by resource limit (RLIMIT_AS/RLIMIT_CPU)")
                 _progress()
                 continue
-            except Exception as exc:
+            except Exception as exc:   # pylint: disable=broad-exception-caught
                 completed += 1
                 failed += 1
                 _log.error("FUTURE ERROR (isolated retry)  %s  —  %s", fname, exc)
@@ -1040,7 +1068,7 @@ def scan_directory(
                             suspects_extra.append((fname, str(doc_dir)))
                             broke = True
                             continue
-                        except Exception as exc:
+                        except Exception as exc:   # pylint: disable=broad-exception-caught
                             completed += 1
                             failed += 1
                             _log.error("FUTURE ERROR  %s  —  %s", fname, exc)
@@ -1092,7 +1120,7 @@ def scan_directory(
             (datetime.now().isoformat(), total + skipped, extracted, skipped),
         )
         conn.commit()
-    except Exception as exc:
+    except sqlite3.Error as exc:
         print(f"  WARNING: could not write scan_log: {exc}", file=sys.stderr)
 
     conn.close()
@@ -1204,6 +1232,7 @@ def scan_single_file(
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def build_parser():
+    """Return the argparse parser for the scan_docs CLI."""
     p = argparse.ArgumentParser(
         description="Scan a directory and index documents into DocuBrowse",
     )
@@ -1223,17 +1252,17 @@ def build_parser():
 
 if __name__ == "__main__":
     # Required for ProcessPoolExecutor on all platforms
-    import multiprocessing
+    import multiprocessing   # pylint: disable=import-outside-toplevel
     multiprocessing.freeze_support()
 
-    args = build_parser().parse_args()
+    _cli_args = build_parser().parse_args()
     try:
         scan_directory(
-            args.doc_dir,
-            args.db_path,
-            extensions=args.ext,
-            workers=args.workers,
-            limit=args.limit,
+            _cli_args.doc_dir,
+            _cli_args.db_path,
+            extensions=_cli_args.ext,
+            workers=_cli_args.workers,
+            limit=_cli_args.limit,
         )
     except KeyboardInterrupt:
         print("\nInterrupted.")

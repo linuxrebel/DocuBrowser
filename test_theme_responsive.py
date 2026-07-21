@@ -7,12 +7,13 @@ Tests dark/light theme rendering, persistence, and responsive breakpoints
 with real 100-PDF dataset.
 """
 
+# Long inline HTML fixture strings and log lines would only get worse from
+# mechanical wrapping.
+# pylint: disable=line-too-long
+
 import os
-import sys
-import json
-import time
 import sqlite3
-from pathlib import Path
+import time
 
 # Test configuration
 TEST_CONFIG = {
@@ -47,6 +48,8 @@ TEST_CONFIG = {
 }
 
 class ThemeResponsiveValidator:
+    """Run a fixture-based validation of theme + responsive-layout behavior."""
+
     def __init__(self, db_path, output_path):
         self.db_path = db_path
         self.output_path = output_path
@@ -94,7 +97,7 @@ class ThemeResponsiveValidator:
                 }
                 for d in docs
             ]
-        except Exception as e:
+        except (sqlite3.Error, IndexError) as e:
             self.log(f"Error fetching docs: {e}")
             return []
 
@@ -324,6 +327,7 @@ class ThemeResponsiveValidator:
     def _get_border_color(self, theme):
         return '#2a3040' if theme == 'dark' else '#c8d3df'
 
+    # pylint: disable-next=too-many-locals,too-many-branches,too-many-statements
     def run_validation(self):
         """
         Run all validations.
@@ -344,7 +348,7 @@ class ThemeResponsiveValidator:
                 for issue in validation['issues']:
                     self.log(f"      - {issue}")
             else:
-                self.log(f"    ✓ All color contrasts meet WCAG AA standards")
+                self.log("    ✓ All color contrasts meet WCAG AA standards")
 
         # 2. Responsive layout validation
         self.log("\n[2] Validating responsive layout at breakpoints...")
@@ -396,7 +400,7 @@ class ThemeResponsiveValidator:
             max_path = max(path_stats)
             self.log(f"  - Avg path length: {avg_path:.0f}, max: {max_path}")
             if max_path > 100:
-                self.log(f"    ⚠ Some paths exceed 100 chars (truncation active)")
+                self.log("    ⚠ Some paths exceed 100 chars (truncation active)")
 
         # 6. Add recommendations
         self.results['recommendations'] = self._generate_recommendations(
@@ -407,7 +411,7 @@ class ThemeResponsiveValidator:
         self.log("VALIDATION COMPLETE")
         self.log("=" * 80)
 
-    def _generate_recommendations(self, docs, tag_stats, path_stats):
+    def _generate_recommendations(self, _docs, tag_stats, path_stats):
         """Generate recommendations based on findings"""
         recommendations = []
 
@@ -469,11 +473,12 @@ class ThemeResponsiveValidator:
 
         return recommendations
 
+    # pylint: disable-next=too-many-locals,too-many-branches,too-many-statements
     def save_report(self):
         """Save validation report to file"""
         output_file = self.output_path
 
-        with open(output_file, 'w') as f:
+        with open(output_file, 'w', encoding="utf-8") as f:
             f.write("=" * 80 + "\n")
             f.write("DOCUBROWSE: THEME & RESPONSIVE DESIGN VALIDATION REPORT\n")
             f.write("=" * 80 + "\n\n")
@@ -523,7 +528,7 @@ class ThemeResponsiveValidator:
                 f.write("-" * 40 + "\n")
                 f.write(f"Width: {checks['width']}px\n")
                 f.write(f"Expected Columns: {checks['expected_columns']}\n")
-                f.write(f"\nLayout Checks:\n")
+                f.write("\nLayout Checks:\n")
                 for check, status in checks['checks'].items():
                     f.write(f"  ✓ {check}\n")
                 if checks['issues']:

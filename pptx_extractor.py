@@ -15,13 +15,21 @@ Text extraction strategy:
 Dependency: pip install python-pptx
 """
 
-from pathlib import Path
+try:
+    from pptx import Presentation as _Presentation
+except ImportError:
+    _Presentation = None
 
 _TEXT_LIMIT = 5000
 _GENERIC_TITLES = frozenset({'powerpoint presentation', 'presentation', 'untitled'})
 
 
 def extract_pptx(file_path: str) -> dict:
+    """Extract text + core properties from a .pptx file.
+
+    Returns the standard extractor result dict — see docx_extractor.extract_docx.
+    """
+    # pylint: disable=too-many-locals,too-many-nested-blocks,too-many-branches
     result = {
         'title':       None,
         'author':      None,
@@ -33,10 +41,11 @@ def extract_pptx(file_path: str) -> dict:
         'success':     False,
         'error':       None,
     }
+    if _Presentation is None:
+        result['error'] = 'python-pptx not installed'
+        return result
     try:
-        from pptx import Presentation
-
-        prs = Presentation(file_path)
+        prs = _Presentation(file_path)
 
         # Core properties
         cp = prs.core_properties
@@ -70,7 +79,7 @@ def extract_pptx(file_path: str) -> dict:
                 try:
                     ph = shape.placeholder_format
                     is_title = ph is not None and ph.idx in (0, 1)
-                except Exception:
+                except (AttributeError, KeyError, ValueError):
                     is_title = False
 
                 for para in shape.text_frame.paragraphs:  # noqa: E501
@@ -91,6 +100,6 @@ def extract_pptx(file_path: str) -> dict:
         result['success'] = True
         return result
 
-    except Exception as exc:
+    except (OSError, ValueError, KeyError, AttributeError) as exc:
         result['error'] = str(exc)
         return result

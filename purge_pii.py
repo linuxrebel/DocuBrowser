@@ -18,6 +18,7 @@ Usage:
 
 import argparse
 import re
+import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -208,6 +209,7 @@ def _scan_text(text: str) -> list:
 def run_purge(db_path: str, dry_run: bool = False) -> int:
     """Run the PII purge.  Returns the number of matching documents found
     (dry-run) or removed (live).  Returns 0 if nothing matched."""
+    # pylint: disable=too-many-locals,too-many-statements
     db_path = Path(db_path)
     if not db_path.exists():
         print(f"ERROR: Database not found: {db_path}")
@@ -226,8 +228,9 @@ def run_purge(db_path: str, dry_run: bool = False) -> int:
 
     print(f"Scanning {total:,} documents for PII...")
     print(f"Patterns: {', '.join(p[0] for p in _PII_PATTERNS)}")
-    print(f"Mode:     "
-          f"{'DRY RUN — no changes will be made' if dry_run else 'LIVE — matching docs will be removed'}")
+    mode_msg = ('DRY RUN — no changes will be made'
+                if dry_run else 'LIVE — matching docs will be removed')
+    print(f"Mode:     {mode_msg}")
     print()
 
     for row in rows:
@@ -295,7 +298,7 @@ def run_purge(db_path: str, dry_run: bool = False) -> int:
             # all-or-nothing (committed once below, rolled back on any error).
             delete_document(conn, doc_id, commit=False)
             to_blacklist.append((path, pattern_names, name))
-        except Exception as exc:
+        except sqlite3.Error as exc:
             errors += 1
             print(f"  \033[91mERROR\033[0m    {name}: {exc}", file=sys.stderr)
 
@@ -328,6 +331,7 @@ def run_purge(db_path: str, dry_run: bool = False) -> int:
 
 
 def build_parser():
+    """Return the argparse parser for the ``purge_pii`` CLI."""
     p = argparse.ArgumentParser(
         description="Scan the DocuBrowse index for PII and remove matching documents",
     )

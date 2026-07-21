@@ -6,10 +6,18 @@ Populate database with 100 test documents.
 Run: python3 populate_db.py
 """
 
-from docubrowse_db import get_db
+# Topic descriptions below are static readable sentences that would only get
+# worse from mechanical 100-column wrapping.
+# pylint: disable=line-too-long
+
 import sys
 
+from docubrowse_db import get_db
+
+
+# pylint: disable-next=too-many-locals
 def main():
+    """Insert 100 test document rows, then print a summary and exit."""
     print("=" * 70)
     print("DocuBrowse: Populate Test Database")
     print("=" * 70)
@@ -78,7 +86,7 @@ def main():
             if added % 10 == 0:
                 print(f"  ✓ Created {added}/100 documents")
 
-        except Exception as e:
+        except (KeyError, ValueError) as e:
             failed += 1
             print(f"  ✗ Error on document {i}: {e}")
 
@@ -95,7 +103,7 @@ def main():
     print("=" * 70)
     print(f"Documents added: {doc_count}")
     print(f"Unique tags: {tag_count}")
-    print(f"Database file: ./du-docs.db")
+    print("Database file: ./du-docs.db")
     print()
     print("Next steps:")
     print("  1. python3 doc_search.py ./du-docs.db 8643")

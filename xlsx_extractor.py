@@ -15,13 +15,21 @@ Text extraction strategy:
 Dependency: pip install openpyxl
 """
 
-from pathlib import Path
+try:
+    import openpyxl
+except ImportError:
+    openpyxl = None
 
 _TEXT_LIMIT  = 5000
 _MAX_ROWS    = 500   # safety cap per sheet
 
 
+# pylint: disable-next=too-many-locals
 def extract_xlsx(file_path: str) -> dict:
+    """Extract text + core properties from a .xlsx file.
+
+    Returns the standard extractor result dict — see docx_extractor.extract_docx.
+    """
     result = {
         'title':       None,
         'author':      None,
@@ -33,9 +41,10 @@ def extract_xlsx(file_path: str) -> dict:
         'success':     False,
         'error':       None,
     }
+    if openpyxl is None:
+        result['error'] = 'openpyxl not installed'
+        return result
     try:
-        import openpyxl
-
         # read_only for speed; data_only=True returns cached values not formulas
         wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
         try:
@@ -80,6 +89,6 @@ def extract_xlsx(file_path: str) -> dict:
         result['success'] = True
         return result
 
-    except Exception as exc:
+    except (OSError, ValueError, KeyError, AttributeError) as exc:
         result['error'] = str(exc)
         return result
