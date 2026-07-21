@@ -14,7 +14,13 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import time
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 
 # ── CPU ───────────────────────────────────────────────────────────────────────
@@ -27,25 +33,19 @@ def physical_cpu_cores() -> int:
     On Intel hybrid CPUs (P+E cores), this counts all physical cores,
     which is appropriate for both CPU-bound and I/O-bound work.
     """
-    try:
-        import psutil
+    if psutil is not None:
         cores = psutil.cpu_count(logical=False)
         if cores:
             return cores
-    except ImportError:
-        pass
     return os.cpu_count() or 4
 
 
 def logical_cpu_cores() -> int:
     """Return logical (hyperthreaded) CPU core count."""
-    try:
-        import psutil
+    if psutil is not None:
         cores = psutil.cpu_count(logical=True)
         if cores:
             return cores
-    except ImportError:
-        pass
     return os.cpu_count() or 4
 
 
@@ -62,12 +62,11 @@ def recommended_scan_workers(cap: int = 8, mem_gb_per_worker: float = 4.0) -> in
     Minimum 1 regardless.
     """
     cores = physical_cpu_cores()
-    try:
-        import psutil
+    if psutil is not None:
         avail_gb  = psutil.virtual_memory().available / (1024 ** 3)
         usable_gb = max(0.0, avail_gb - 4.0)   # reserve 4 GB for OS/other procs
         mem_limit = max(1, int(usable_gb / mem_gb_per_worker))
-    except ImportError:
+    else:
         mem_limit = cap
     return max(1, min(cores, mem_limit, cap))
 
@@ -91,6 +90,7 @@ def detect_nvidia_gpu() -> dict | None:
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
         if result.returncode != 0:
             return None
@@ -136,26 +136,25 @@ def memory_status() -> dict:
     Keys: total_gb, available_gb, used_pct, available_pct
     Returns dummy 100% available if psutil is not installed.
     """
-    try:
-        import psutil
-        vm = psutil.virtual_memory()
-        avail_pct = vm.available * 100 / vm.total
-        return {
-            "total_gb":     vm.total     / (1024 ** 3),
-            "available_gb": vm.available / (1024 ** 3),
-            "used_pct":     vm.percent,
-            "available_pct": avail_pct,
-        }
-    except ImportError:
+    if psutil is None:
         return {"total_gb": 0, "available_gb": 99, "used_pct": 0, "available_pct": 100}
+    vm = psutil.virtual_memory()
+    avail_pct = vm.available * 100 / vm.total
+    return {
+        "total_gb":     vm.total     / (1024 ** 3),
+        "available_gb": vm.available / (1024 ** 3),
+        "used_pct":     vm.percent,
+        "available_pct": avail_pct,
+    }
 
 
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def wait_for_memory(
     pause_pct:  float = MEM_PAUSE_PCT,
     resume_pct: float = MEM_RESUME_PCT,
     warn_pct:   float = MEM_WARN_PCT,
     poll_secs:  float = 3.0,
-    is_tty:     bool  = True,
+    _is_tty:    bool  = True,   # kept for callers; used by future TTY-only branches
     logger=None,
 ) -> bool:
     """
@@ -165,8 +164,6 @@ def wait_for_memory(
 
     Returns True if a full pause occurred.
     """
-    import sys as _sys
-
     status = memory_status()
     avail  = status["available_pct"]
 
@@ -179,7 +176,7 @@ def wait_for_memory(
             f"⚠ Memory critical: {avail:.1f}% free "
             f"({status['available_gb']:.1f} GB) — pausing until ≥{resume_pct}%"
         )
-        print(f"\n  {msg}", file=_sys.stderr, flush=True)
+        print(f"\n  {msg}", file=sys.stderr, flush=True)
         if logger:
             logger.warning(msg)
         while True:
@@ -190,7 +187,7 @@ def wait_for_memory(
                 recovered = (
                     f"Memory recovered: {avail:.1f}% free — resuming"
                 )
-                print(f"  {recovered}", file=_sys.stderr, flush=True)
+                print(f"  {recovered}", file=sys.stderr, flush=True)
                 if logger:
                     logger.info(recovered)
                 return True
@@ -240,7 +237,7 @@ def print_hardware_summary(scan_workers: int, embed_workers: int):
     else:
         print("  GPU: (none detected — Ollama will use CPU inference)")
 
-    print(f"Workers")
+    print("Workers")
     print(f"  Scan (PDF extraction):  {scan_workers}  [ProcessPoolExecutor, CPU-bound]")
     print(f"  Embed (Ollama calls):   {embed_workers}  [ThreadPoolExecutor, I/O-bound]")
     print()

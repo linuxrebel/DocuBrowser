@@ -28,6 +28,7 @@ _init_lock = threading.Lock()
 
 
 def check_missing_path(path):
+    # pylint: disable=too-many-return-statements
     """
     Classify a document path that may no longer exist on disk.
 
@@ -251,9 +252,9 @@ def delete_documents(conn, doc_ids, commit: bool = True) -> int:
         return 0
     conn.execute("PRAGMA foreign_keys=ON")
     removed = 0
-    CHUNK = 500   # stay well under SQLite's bound-variable limit
-    for start in range(0, len(ids), CHUNK):
-        chunk = ids[start:start + CHUNK]
+    chunk_size = 500   # stay well under SQLite's bound-variable limit
+    for start in range(0, len(ids), chunk_size):
+        chunk = ids[start:start + chunk_size]
         qmarks = ",".join("?" * len(chunk))
         cur = conn.execute(
             f"DELETE FROM documents WHERE id IN ({qmarks})", chunk
@@ -291,9 +292,15 @@ def ensure_db(db_path):
 
 # ── Test harness ──────────────────────────────────────────────────────────
 
-if __name__ == '__main__':
-    import tempfile
-    import struct
+def _selftest() -> None:   # pylint: disable=too-many-statements,too-many-locals
+    """Create an in-memory schema, exercise every table, and verify FK cascade.
+
+    Sequential integration test — statement count reflects the number of
+    tables and cross-table invariants under test; splitting it into helpers
+    would fragment a linear execution flow.
+    """
+    import tempfile   # pylint: disable=import-outside-toplevel
+    import struct     # pylint: disable=import-outside-toplevel
 
     # Create test database in temp directory
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -351,7 +358,7 @@ if __name__ == '__main__':
                 'INSERT OR IGNORE INTO doc_tags (doc_id, tag, source) VALUES (?, ?, ?)',
                 (doc_id, tag, 'auto')
             )
-        print(f"  - Inserted 3 tags")
+        print("  - Inserted 3 tags")
 
         # Insert a test embedding (float32 vector)
         # Create a fake 384-dim embedding (typical for nomic-embed-text)
@@ -370,14 +377,14 @@ if __name__ == '__main__':
             VALUES (?, ?, ?, ?, ?)
         ''', (doc_id, 'example.pdf', 'Example Document',
               'A test document for embedding search', 'pdf example test'))
-        print(f"  - Inserted FTS record")
+        print("  - Inserted FTS record")
 
         # Insert scan log entry
         conn.execute('''
             INSERT INTO scan_log (docs_found, docs_added, docs_updated)
             VALUES (?, ?, ?)
         ''', (1, 1, 0))
-        print(f"  - Inserted scan log entry")
+        print("  - Inserted scan log entry")
 
         conn.commit()
 
@@ -395,7 +402,8 @@ if __name__ == '__main__':
         print(f"  - Tags: {[t[0] for t in tags]}")
 
         embed_row = conn.execute(
-            'SELECT doc_id, model, length(embedding) as blob_size FROM doc_embeddings WHERE doc_id = ?',
+            'SELECT doc_id, model, length(embedding) as blob_size'
+            '  FROM doc_embeddings WHERE doc_id = ?',
             (doc_id,)
         ).fetchone()
         if embed_row:
@@ -440,3 +448,7 @@ if __name__ == '__main__':
         conn.close()
 
         print("\n✓ All tests passed!")
+
+
+if __name__ == '__main__':
+    _selftest()

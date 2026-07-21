@@ -21,6 +21,7 @@ platform branches for process management.
 
 import os
 import signal
+import subprocess
 import sys
 from pathlib import Path
 
@@ -29,6 +30,11 @@ try:
     colorama.init()
 except ImportError:
     pass
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 IS_WINDOWS = sys.platform == "win32"
 
@@ -70,6 +76,7 @@ def _pick_runtime_path(preferred: Path, fallback: Path) -> Path:
 
 
 def pid_file() -> Path:
+    """Path to the DocuBrowse server pid file (platform-appropriate)."""
     if IS_WINDOWS:
         d = user_data_dir()
         d.mkdir(parents=True, exist_ok=True)
@@ -81,6 +88,7 @@ def pid_file() -> Path:
 
 
 def scan_pid_file() -> Path:
+    """Path to the scan/embed pid file (platform-appropriate)."""
     if IS_WINDOWS:
         d = user_data_dir()
         d.mkdir(parents=True, exist_ok=True)
@@ -92,6 +100,7 @@ def scan_pid_file() -> Path:
 
 
 def log_file() -> Path:
+    """Path to the DocuBrowse log file (platform-appropriate)."""
     if IS_WINDOWS:
         d = user_data_dir() / "logs"
         d.mkdir(parents=True, exist_ok=True)
@@ -134,6 +143,7 @@ def scan_log_paths() -> list[Path]:
 
 # ── Process management ─────────────────────────────────────────────────────
 
+# pylint: disable-next=too-many-return-statements
 def pid_exists(pid: int) -> bool:
     """Return True if a process with *pid* is currently running.
 
@@ -147,25 +157,23 @@ def pid_exists(pid: int) -> bool:
         return False
 
     if IS_WINDOWS:
-        try:
-            import psutil
+        if psutil is not None:
             return psutil.pid_exists(pid)
-        except ImportError:
-            pass
         # Fallback: Win32 OpenProcess without psutil.
+        # pylint: disable=import-outside-toplevel  # Windows-only import
         import ctypes
         from ctypes import wintypes
-        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-        STILL_ACTIVE = 259
+        query_limited_information = 0x1000
+        still_active = 259
         kernel32 = ctypes.windll.kernel32
         handle = kernel32.OpenProcess(
-            PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            query_limited_information, False, pid)
         if not handle:
             return False
         try:
             exit_code = wintypes.DWORD()
             if kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
-                return exit_code.value == STILL_ACTIVE
+                return exit_code.value == still_active
             return True  # couldn't read exit code, but the handle opened
         finally:
             kernel32.CloseHandle(handle)
@@ -197,15 +205,15 @@ def kill_process_tree(pid: int, sig=None):
         return
 
     # Windows path — no os.killpg; use psutil if available
+    if psutil is None:
+        os.kill(pid, sig)
+        return
     try:
-        import psutil
         parent = psutil.Process(pid)
         for child in parent.children(recursive=True):
             child.kill()
         parent.kill()
-    except ImportError:
-        os.kill(pid, sig)
-    except Exception:
+    except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
         pass
 
 
@@ -221,6 +229,7 @@ def kill_pid(pid: int, force: bool = False):
         os.kill(pid, signal.SIGTERM)
 
 
+# pylint: disable-next=too-many-branches,too-many-nested-blocks
 def find_procs_by_script(script_name: str) -> list[int]:
     """Return PIDs of Python processes running *script_name*.
 
@@ -230,8 +239,7 @@ def find_procs_by_script(script_name: str) -> list[int]:
     my_pid = os.getpid()
     pids = []
 
-    try:
-        import psutil
+    if psutil is not None:
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
                 if proc.pid == my_pid:
@@ -246,8 +254,6 @@ def find_procs_by_script(script_name: str) -> list[int]:
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         return pids
-    except ImportError:
-        pass
 
     # Fallback: /proc (Linux only)
     if IS_WINDOWS:
@@ -277,13 +283,9 @@ def find_procs_by_script(script_name: str) -> list[int]:
     return pids
 
 
+# pylint: disable=too-many-branches,too-many-nested-blocks
 def kill_port(port: int, verbose: bool = False) -> bool:
     """Kill any process listening on *port*.  Returns True if killed."""
-    try:
-        import psutil
-    except ImportError:
-        psutil = None
-
     if psutil is not None:
         try:
             killed = False
@@ -306,11 +308,10 @@ def kill_port(port: int, verbose: bool = False) -> bool:
     # Fallback: lsof / fuser (Unix only)
     if IS_WINDOWS:
         return False
-    import subprocess
     try:
         result = subprocess.run(
             ["lsof", "-ti", f"tcp:{port}"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, check=False,
         )
         pids = [int(p) for p in result.stdout.split() if p.strip().isdigit()]
         for pid in pids:
@@ -324,7 +325,7 @@ def kill_port(port: int, verbose: bool = False) -> bool:
     except FileNotFoundError:
         try:
             r = subprocess.run(["fuser", "-k", f"{port}/tcp"],
-                               capture_output=True)
+                               capture_output=True, check=False)
             return r.returncode == 0
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             return False

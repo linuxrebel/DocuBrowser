@@ -97,6 +97,7 @@ def _parse_meta(zf):
     return meta
 
 
+# pylint: disable-next=too-many-branches
 def _extract_odt(zf):
     """Extract body text from an ODT (text document)."""
     with zf.open("content.xml") as f:
@@ -178,6 +179,7 @@ def _extract_ods(zf):
     return "\n".join(parts)
 
 
+# pylint: disable-next=too-many-locals,too-many-branches
 def _extract_odp(zf):
     """Extract slide text from an ODP (presentation)."""
     with zf.open("content.xml") as f:
@@ -296,6 +298,6 @@ def extract_odf(file_path: str) -> dict:
     except zipfile.BadZipFile:
         result["error"] = "not a valid ZIP/ODF file"
         return result
-    except Exception as exc:
+    except (OSError, ValueError, KeyError, ET.ParseError) as exc:
         result["error"] = str(exc)
         return result

@@ -6,15 +6,16 @@ PDF extractor module for DocuBrowse.
 Handles PDF text extraction, metadata parsing, and error handling.
 """
 
-import io
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict
 
 # Try importing pdfplumber and pypdf independently.
 # Both may be installed simultaneously; pdfplumber is preferred for extraction
 # but pypdf is used as a lightweight pre-check (lazy-loading trailer /Size)
 # to detect bloated-object PDFs that would hang pdfminer at open() time.
+# HAS_* flags follow the module-level presence-check convention.
+# pylint: disable=invalid-name
 HAS_PDFPLUMBER = False
 HAS_PYPDF = False
 try:
@@ -32,6 +33,7 @@ except ImportError:
         HAS_PYPDF = True
     except ImportError:
         pass
+# pylint: enable=invalid-name
 
 
 MAX_PAGES = 150   # cap per-PDF to bound memory use and extraction time
@@ -116,7 +118,7 @@ def extract_pdf(pdf_path: str) -> Dict:
     # old objects — hang pdfminer at open() time. pypdf lazy-loads and is
     # unaffected. Pre-check /Size from the xref via pypdf; route bloated
     # files directly to pypdf to avoid the hang.
-    OBJECT_COUNT_THRESHOLD = 8000
+    object_count_threshold = 8000
 
     try:
         if HAS_PDFPLUMBER:
@@ -127,23 +129,23 @@ def extract_pdf(pdf_path: str) -> Dict:
                     # immediately instead of waiting on GC during long scans.
                     with open(pdf_path, 'rb') as _fh:
                         obj_count = pypdf.PdfReader(_fh).trailer.get('/Size', 0)
-                    if obj_count > OBJECT_COUNT_THRESHOLD:
+                    if obj_count > object_count_threshold:
                         use_pypdf = True
-                except Exception:
+                except (OSError, ValueError, KeyError):
                     pass  # probe failed — let pdfplumber try
             if use_pypdf:
                 return _extract_pypdf(pdf_path, result)
             return _extract_pdfplumber(pdf_path, result)
-        elif HAS_PYPDF:
+        if HAS_PYPDF:
             return _extract_pypdf(pdf_path, result)
-        else:
-            result['error'] = 'No PDF library available (install pdfplumber or PyPDF2)'
-            return result
-    except Exception as e:
+        result['error'] = 'No PDF library available (install pdfplumber or PyPDF2)'
+        return result
+    except (OSError, ValueError, KeyError, RuntimeError) as e:
         result['error'] = f'Extraction failed: {str(e)}'
         return result
 
 
+# pylint: disable-next=too-many-branches
 def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
     """Extract using pdfplumber (preferred method)."""
     try:
@@ -152,7 +154,9 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
 
             # Extract metadata
             if pdf.metadata:
-                result['title']   = _sanitize_title(pdf.metadata.get('Title')   or result['title'])
+                result['title']   = _sanitize_title(
+                    pdf.metadata.get('Title') or result['title']
+                )
                 result['author']  = pdf.metadata.get('Author')  or None
                 result['subject'] = pdf.metadata.get('Subject') or None
 
@@ -161,17 +165,18 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
             # If that yields nothing, retry with layout=False (skips spatial
             # analysis — faster, safer for complex/spread-layout PDFs, slightly
             # messier output but fully searchable).
-            # TODO: investigate exact trigger for pathological behavior on files
-            # like Security_of_Cloud-based_systems.pdf (439x669 pts, not a
-            # spread-layout by dimension but still causes pdfplumber to spin).
-            # See DECISIONS.md — "layout=False fallback root cause".
+            # NOTE (deferred, tracked in DECISIONS.md — "layout=False fallback
+            # root cause"): investigate exact trigger for pathological behavior
+            # on files like Security_of_Cloud-based_systems.pdf (439x669 pts,
+            # not a spread-layout by dimension but still causes pdfplumber to
+            # spin).
             text_parts = []
             for page in pdf.pages[:MAX_PAGES]:
                 try:
                     text = page.extract_text() or ''
                     if text:
                         text_parts.append(text)
-                except Exception:
+                except (ValueError, KeyError, IndexError, TypeError):
                     pass
 
             if not text_parts:
@@ -181,7 +186,7 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
                         text = page.extract_text(layout=False) or ''
                         if text:
                             text_parts.append(text)
-                    except Exception:
+                    except (ValueError, KeyError, IndexError, TypeError):
                         pass
 
             full_text = '\n'.join(text_parts)
@@ -194,7 +199,7 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
                 # Distinguish scanned (image pages) from truly broken/empty
                 try:
                     has_images = bool(pdf.pages[0].images) if pdf.pages else False
-                except Exception:
+                except (IndexError, AttributeError, ValueError, KeyError):
                     has_images = False
                 if has_images:
                     result['success']  = True
@@ -208,7 +213,7 @@ def _extract_pdfplumber(pdf_path: Path, result: Dict) -> Dict:
                     )
 
             return result
-    except Exception as e:
+    except (OSError, ValueError, KeyError, RuntimeError) as e:
         result['error'] = f'pdfplumber error: {str(e)}'
         return result
 
@@ -222,7 +227,9 @@ def _extract_pypdf(pdf_path: Path, result: Dict) -> Dict:
 
             # Extract metadata
             if reader.metadata:
-                result['title']   = _sanitize_title(reader.metadata.get('/Title')   or result['title'])
+                result['title']   = _sanitize_title(
+                    reader.metadata.get('/Title') or result['title']
+                )
                 result['author']  = reader.metadata.get('/Author')  or None
                 result['subject'] = reader.metadata.get('/Subject') or None
 
@@ -233,7 +240,7 @@ def _extract_pypdf(pdf_path: Path, result: Dict) -> Dict:
                     text = page.extract_text() or ''
                     if text:
                         text_parts.append(text)
-                except Exception:
+                except (ValueError, KeyError, IndexError, TypeError):
                     pass
 
             full_text = '\n'.join(text_parts)
@@ -248,7 +255,7 @@ def _extract_pypdf(pdf_path: Path, result: Dict) -> Dict:
                 )
 
             return result
-    except Exception as e:
+    except (OSError, ValueError, KeyError, RuntimeError) as e:
         result['error'] = f'pypdf error: {str(e)}'
         return result
 
@@ -292,9 +299,8 @@ def generate_keywords(text: str, title: str = '', max_keywords: int = 10) -> lis
     return sorted(list(keywords))
 
 
-# Test harness
-if __name__ == '__main__':
-    # Test with a real PDF if provided as argument
+def _selftest() -> None:
+    """Extract from a PDF given on argv[1], or print load status."""
     if len(sys.argv) > 1:
         pdf_file = sys.argv[1]
         print(f"Extracting from: {pdf_file}")
@@ -308,7 +314,7 @@ if __name__ == '__main__':
         if result['error']:
             print(f"  Error: {result['error']}")
         print(f"  Text length: {len(result['text'])} chars")
-        print(f"  Snippet (first 200 chars):")
+        print("  Snippet (first 200 chars):")
         print(f"    {result['snippet'][:200]}...")
     else:
         print("PDF Extractor module loaded successfully")

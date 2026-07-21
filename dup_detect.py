@@ -22,7 +22,11 @@ import hashlib
 import math
 import struct
 from collections import defaultdict
-from pathlib import Path
+
+try:
+    import numpy as _np                    # pylint: disable=invalid-name
+except ImportError:
+    _np = None                             # pylint: disable=invalid-name
 
 from docubrowse_db import get_db
 
@@ -108,12 +112,14 @@ class _UnionFind:
         self.parent = {i: i for i in ids}
 
     def find(self, x):
+        """Return the representative of the cluster containing *x*."""
         while self.parent[x] != x:
             self.parent[x] = self.parent[self.parent[x]]  # path compression
             x = self.parent[x]
         return x
 
     def union(self, x, y):
+        """Merge the clusters containing *x* and *y*."""
         self.parent[self.find(x)] = self.find(y)
 
     def groups(self, data_by_id: dict) -> list:
@@ -124,6 +130,7 @@ class _UnionFind:
         return [g for g in buckets.values() if len(g) > 1]
 
 
+# pylint: disable-next=too-many-locals,too-many-branches,too-many-statements
 def find_near_dups(db_path: str, threshold: float = 0.97,
                    progress: bool = True) -> list:
     """
@@ -171,9 +178,8 @@ def find_near_dups(db_path: str, threshold: float = 0.97,
     uf = _UnionFind([d['id'] for d in docs])
     max_sim: dict = {}  # doc id → max similarity seen
 
-    try:
-        import numpy as np  # type: ignore
-
+    if _np is not None:
+        np = _np
         mat = np.array(vecs, dtype=np.float32)                    # (n, dim)
         norms = np.linalg.norm(mat, axis=1, keepdims=True)        # (n, 1)
         norms[norms == 0] = 1.0
@@ -201,7 +207,7 @@ def find_near_dups(db_path: str, threshold: float = 0.97,
         if progress:
             print(f"\r  Processed {n:,}/{n:,}.   ")
 
-    except ImportError:
+    else:
         # Scalar fallback — O(n²), slow for large collections
         if progress:
             print("  (numpy not available — using scalar comparison; may be slow)")
@@ -267,6 +273,5 @@ def group_label(group: list, kind: str = 'exact') -> str:
     n = len(group)
     if kind == 'exact':
         return f'"{title}"  [{size} × {n} copies]'
-    else:
-        sim = first.get('similarity', 0.0)
-        return f'"{title}"  [similarity {sim * 100:.1f}%  × {n} docs]'
+    sim = first.get('similarity', 0.0)
+    return f'"{title}"  [similarity {sim * 100:.1f}%  × {n} docs]'

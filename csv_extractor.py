@@ -89,6 +89,6 @@ def extract_csv(file_path: str) -> dict:
         result["success"] = True
         return result
 
-    except Exception as exc:
+    except (OSError, csv.Error, UnicodeError, ValueError) as exc:
         result["error"] = str(exc)
         return result
