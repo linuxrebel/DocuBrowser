@@ -35,6 +35,9 @@ try:
 except ImportError:
     _pwd = None                 # Windows: sudo/chown not applicable
 
+# Canonical backup location — resolved per-platform via platform_paths.
+from platform_paths import backup_dir as _default_backup_dir, pid_exists
+
 
 # ── Privilege check ───────────────────────────────────────────────────────────
 
@@ -62,8 +65,8 @@ def _require_elevated() -> None:
 
 MAX_BACKUPS = 3
 
-# Canonical backup location — resolved per-platform via platform_paths.
-from platform_paths import backup_dir as _default_backup_dir, pid_exists
+# Canonical backup location — resolved per-platform via platform_paths
+# (imported at the top of the module).
 BACKUP_DIR = _default_backup_dir()
 
 # Files to back up, relative to the data directory (where du-docs.db lives).
@@ -241,7 +244,7 @@ def _server_is_running() -> bool:
         if not pid_file.exists():
             continue
         try:
-            pid = int(pid_file.read_text().strip())
+            pid = int(pid_file.read_text(encoding="utf-8").strip())
         except (ValueError, OSError):
             continue
         if pid_exists(pid):  # Windows-safe existence check
@@ -251,26 +254,32 @@ def _server_is_running() -> bool:
 
 # ── Restore ───────────────────────────────────────────────────────────────────
 
-def do_restore(data_dir: Path, backup_dir: Path) -> None:
-    """Restore from a backup tarball, chosen interactively."""
+def _prompt(prompt_text: str) -> str:
+    """input() that treats EOF/^C as an abort with a clean exit."""
+    try:
+        return input(prompt_text).strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nAborted.")
+        sys.exit(0)
 
-    if _server_is_running():
-        print("WARNING: The DocuBrowse server appears to be running.")
-        print("Restoring while the server is active can cause data loss.")
-        print("Stop the server first:  docubrowser stop")
-        print()
-        try:
-            answer = input("Continue anyway? [y/N] ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            print("\nAborted.")
-            sys.exit(0)
-        if answer not in ("y", "yes"):
-            print("Aborted.")
-            sys.exit(0)
-        print()
 
+def _confirm_server_running() -> None:
+    """If the server is running, warn and abort unless the user forces through."""
+    if not _server_is_running():
+        return
+    print("WARNING: The DocuBrowse server appears to be running.")
+    print("Restoring while the server is active can cause data loss.")
+    print("Stop the server first:  docubrowser stop")
+    print()
+    if _prompt("Continue anyway? [y/N] ").lower() not in ("y", "yes"):
+        print("Aborted.")
+        sys.exit(0)
+    print()
+
+
+def _choose_backup(backup_dir: Path):
+    """List backups and prompt for one.  Returns the selected Path."""
     backups = _list_backups(backup_dir)
-
     if not backups:
         print(f"No backups found in {backup_dir}")
         sys.exit(1)
@@ -278,26 +287,20 @@ def do_restore(data_dir: Path, backup_dir: Path) -> None:
     # Present choices — newest last (default)
     print(f"Available backups in {backup_dir}:\n")
     for i, bak in enumerate(backups, 1):
-        # Parse timestamp from filename
-        stem = bak.stem.replace(".tar", "")  # strip .tar from .tar.gz stem
+        stem = bak.stem.replace(".tar", "")           # strip .tar from .tar.gz stem
         ts_part = stem.replace("docubrowser_backup_", "")
         try:
-            ts = datetime.strptime(ts_part, "%Y%m%d_%H%M%S")
-            ts_str = ts.strftime("%Y-%m-%d %H:%M:%S")
+            ts_str = datetime.strptime(
+                ts_part, "%Y%m%d_%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
         except ValueError:
             ts_str = ts_part
         default_marker = "  [default]" if i == len(backups) else ""
         print(f"  {i}) {bak.name}  ({_fmt_size(bak)}, {ts_str}){default_marker}")
-
     print()
+
     default_choice = len(backups)
-
-    try:
-        raw = input(f"Restore which backup? [1-{len(backups)}, default={default_choice}]: ").strip()
-    except (EOFError, KeyboardInterrupt):
-        print("\nAborted.")
-        sys.exit(0)
-
+    raw = _prompt(
+        f"Restore which backup? [1-{len(backups)}, default={default_choice}]: ")
     if not raw:
         choice = default_choice
     else:
@@ -306,46 +309,37 @@ def do_restore(data_dir: Path, backup_dir: Path) -> None:
         except ValueError:
             print(f"Invalid choice: {raw}")
             sys.exit(1)
-
     if choice < 1 or choice > len(backups):
         print(f"Invalid choice: {choice}")
         sys.exit(1)
+    return backups[choice - 1]
 
-    selected = backups[choice - 1]
-    print(f"\nRestoring from: {selected.name}")
-    print(f"  Into: {data_dir}")
 
-    # Safety: show what will be overwritten
-    with tarfile.open(selected, "r:gz") as tar:
-        members = tar.getnames()
-
+def _confirm_overwrites(members, data_dir: Path) -> None:
+    """Show what would be overwritten and prompt for confirmation."""
     existing = [m for m in members if (data_dir / m).exists()]
     if existing:
         print(f"\n  Will overwrite {len(existing)} existing file(s):")
         for name in existing:
             print(f"    {name}")
-
     print()
-    try:
-        answer = input("Proceed? [y/N] ").strip().lower()
-    except (EOFError, KeyboardInterrupt):
-        print("\nAborted.")
-        sys.exit(0)
-
-    if answer not in ("y", "yes"):
+    if _prompt("Proceed? [y/N] ").lower() not in ("y", "yes"):
         print("Aborted — no changes made.")
         sys.exit(0)
 
-    # Extract — filter='data' rejects absolute paths, .., symlinks, and
-    # special members (Python 3.12+).  Older Pythons don't have the filter
-    # param; fall back to unfiltered extraction (our backups are self-created
-    # and contain only plain files with simple names).
+
+def _extract_and_chown(selected: Path, data_dir: Path, members) -> None:
+    """Extract the tarball and, if invoked under sudo, chown everything back
+    to the invoking user."""
+    # filter='data' rejects absolute paths, .., symlinks, and special members
+    # (Python 3.12+).  Older Pythons don't have the filter param; fall back
+    # to unfiltered extraction (our backups are self-created and contain only
+    # plain files with simple names).
     with tarfile.open(selected, "r:gz") as tar:
         try:
             tar.extractall(path=str(data_dir), filter="data")
         except TypeError:
-            # Python < 3.12 — no filter parameter
-            tar.extractall(path=str(data_dir))
+            tar.extractall(path=str(data_dir))       # Python < 3.12
 
     # Fix ownership — extraction under sudo creates root-owned files in the
     # real user's home.  Chown everything to the invoking user so the server
@@ -357,6 +351,21 @@ def do_restore(data_dir: Path, backup_dir: Path) -> None:
             restored = data_dir / name
             if restored.exists():
                 os.chown(restored, uid, gid)
+
+
+def do_restore(data_dir: Path, backup_dir: Path) -> None:
+    """Restore from a backup tarball, chosen interactively."""
+    _confirm_server_running()
+
+    selected = _choose_backup(backup_dir)
+    print(f"\nRestoring from: {selected.name}")
+    print(f"  Into: {data_dir}")
+
+    with tarfile.open(selected, "r:gz") as tar:
+        members = tar.getnames()
+
+    _confirm_overwrites(members, data_dir)
+    _extract_and_chown(selected, data_dir, members)
 
     print()
     for name in members:
@@ -373,6 +382,7 @@ def do_restore(data_dir: Path, backup_dir: Path) -> None:
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def build_parser() -> argparse.ArgumentParser:
+    """Return the argparse parser for the ``backup_restore`` CLI."""
     p = argparse.ArgumentParser(
         description="Back up and restore DocuBrowse runtime data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -398,6 +408,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main():
+    """Entry point: parse args, verify privileges, dispatch backup or restore."""
     parser = build_parser()
     args = parser.parse_args()
 

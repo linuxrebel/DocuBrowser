@@ -1,0 +1,789 @@
+DocuBrowse pylint report
+Generated: Sun Jul 19 10:24:43 PM PDT 2026
+Pylint: pylint 4.0.5
+
+
+============================================================
+FILE: backup_restore.py
+============================================================
+
+************* Module backup_restore
+backup_restore.py:66:0: C0413: Import "from platform_paths import backup_dir as _default_backup_dir, pid_exists" should be placed at the top of the module (wrong-import-position)
+backup_restore.py:244:22: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+backup_restore.py:254:0: R0914: Too many local variables (22/15) (too-many-locals)
+backup_restore.py:254:0: R0912: Too many branches (22/12) (too-many-branches)
+backup_restore.py:254:0: R0915: Too many statements (84/50) (too-many-statements)
+backup_restore.py:375:0: C0116: Missing function or method docstring (missing-function-docstring)
+backup_restore.py:400:0: C0116: Missing function or method docstring (missing-function-docstring)
+
+-----------------------------------
+Your code has been rated at 9.74/10
+
+
+============================================================
+FILE: csv_extractor.py
+============================================================
+
+************* Module csv_extractor
+csv_extractor.py:92:11: W0718: Catching too general exception Exception (broad-exception-caught)
+
+-----------------------------------
+Your code has been rated at 9.78/10
+
+
+============================================================
+FILE: doc_search.py
+============================================================
+
+************* Module doc_search
+doc_search.py:729:0: C0301: Line too long (106/100) (line-too-long)
+doc_search.py:954:0: C0301: Line too long (131/100) (line-too-long)
+doc_search.py:1233:0: C0301: Line too long (105/100) (line-too-long)
+doc_search.py:1:0: C0302: Too many lines in module (1626/1000) (too-many-lines)
+doc_search.py:49:0: C0413: Import "from docubrowse_db import get_db, check_missing_path, delete_document" should be placed at the top of the module (wrong-import-position)
+doc_search.py:54:0: C0413: Import "from scan_docs import _load_ignore_dirs, _load_scan_dirs, IGNORE_DIRS_FILENAME, SCAN_DIRS_FILENAME, purge_path_prefix" should be placed at the top of the module (wrong-import-position)
+doc_search.py:62:7: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:63:4: C0103: Constant name "_np" doesn't conform to UPPER_CASE naming style (invalid-name)
+doc_search.py:109:0: C0103: Constant name "_synopsis_warm" doesn't conform to UPPER_CASE naming style (invalid-name)
+doc_search.py:114:4: W0603: Using the global statement (global-statement)
+doc_search.py:129:11: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:136:8: C0415: Import outside toplevel (platform_paths.scan_pid_file, platform_paths.pid_exists) (import-outside-toplevel)
+doc_search.py:140:18: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+doc_search.py:204:11: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:255:11: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:438:26: W0622: Redefining built-in 'format' (redefined-builtin)
+doc_search.py:440:8: W0107: Unnecessary pass statement (unnecessary-pass)
+doc_search.py:493:4: C0103: Method name "do_GET" doesn't conform to snake_case naming style (invalid-name)
+doc_search.py:541:15: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:493:4: R0912: Too many branches (20/12) (too-many-branches)
+doc_search.py:545:4: C0103: Method name "do_POST" doesn't conform to snake_case naming style (invalid-name)
+doc_search.py:576:15: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:605:4: R0914: Too many local variables (17/15) (too-many-locals)
+doc_search.py:635:15: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:648:15: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:621:8: W0612: Unused variable 'doc_count' (unused-variable)
+doc_search.py:714:4: R0914: Too many local variables (41/15) (too-many-locals)
+doc_search.py:808:12: C0103: Variable name "SEM_FLOOR" doesn't conform to snake_case naming style (invalid-name)
+doc_search.py:714:4: R0912: Too many branches (20/12) (too-many-branches)
+doc_search.py:714:4: R0915: Too many statements (64/50) (too-many-statements)
+doc_search.py:925:4: R0914: Too many local variables (20/15) (too-many-locals)
+doc_search.py:973:15: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:965:12: C0415: Import outside toplevel (mimetypes) (import-outside-toplevel)
+doc_search.py:968:20: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+doc_search.py:925:4: R0911: Too many return statements (7/6) (too-many-return-statements)
+doc_search.py:925:4: R0912: Too many branches (15/12) (too-many-branches)
+doc_search.py:925:4: R0915: Too many statements (59/50) (too-many-statements)
+doc_search.py:1008:23: R1732: Consider using 'with' for resource-allocating operations (consider-using-with)
+doc_search.py:1089:15: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:1097:12: C0415: Import outside toplevel (scan_docs._blacklist_add) (import-outside-toplevel)
+doc_search.py:1280:15: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:1430:23: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:1409:8: R1702: Too many nested blocks (6/5) (too-many-nested-blocks)
+doc_search.py:1519:15: W0718: Catching too general exception Exception (broad-exception-caught)
+doc_search.py:425:0: R0904: Too many public methods (24/20) (too-many-public-methods)
+doc_search.py:1543:4: W0603: Using the global statement (global-statement)
+doc_search.py:1550:14: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+doc_search.py:1577:18: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+doc_search.py:1578:18: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+doc_search.py:1579:18: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+doc_search.py:1584:10: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+doc_search.py:1589:10: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+doc_search.py:1541:0: R0915: Too many statements (60/50) (too-many-statements)
+
+-----------------------------------
+Your code has been rated at 9.43/10
+
+
+============================================================
+FILE: docubrowse_db.py
+============================================================
+
+************* Module docubrowse_db
+docubrowse_db.py:398:0: C0301: Line too long (104/100) (line-too-long)
+docubrowse_db.py:30:0: R0911: Too many return statements (7/6) (too-many-return-statements)
+docubrowse_db.py:84:12: W0621: Redefining name 'conn' from outer scope (line 304) (redefined-outer-name)
+docubrowse_db.py:214:4: W0621: Redefining name 'conn' from outer scope (line 304) (redefined-outer-name)
+docubrowse_db.py:235:21: W0621: Redefining name 'conn' from outer scope (line 304) (redefined-outer-name)
+docubrowse_db.py:258:8: W0621: Redefining name 'cur' from outer scope (line 330) (redefined-outer-name)
+docubrowse_db.py:254:4: C0103: Variable name "CHUNK" doesn't conform to snake_case naming style (invalid-name)
+docubrowse_db.py:267:20: W0621: Redefining name 'conn' from outer scope (line 304) (redefined-outer-name)
+docubrowse_db.py:267:26: W0621: Redefining name 'doc_id' from outer scope (line 345) (redefined-outer-name)
+docubrowse_db.py:286:4: W0621: Redefining name 'conn' from outer scope (line 304) (redefined-outer-name)
+docubrowse_db.py:354:14: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+docubrowse_db.py:373:14: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+docubrowse_db.py:380:14: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+
+-----------------------------------
+Your code has been rated at 9.12/10
+
+
+============================================================
+FILE: docubrowser.py
+============================================================
+
+************* Module docubrowser
+docubrowser.py:75:0: C0301: Line too long (102/100) (line-too-long)
+docubrowser.py:1420:0: C0301: Line too long (115/100) (line-too-long)
+docubrowser.py:1453:0: C0301: Line too long (143/100) (line-too-long)
+docubrowser.py:1456:0: C0301: Line too long (119/100) (line-too-long)
+docubrowser.py:1458:0: C0301: Line too long (114/100) (line-too-long)
+docubrowser.py:1490:0: C0301: Line too long (106/100) (line-too-long)
+docubrowser.py:1492:0: C0301: Line too long (112/100) (line-too-long)
+docubrowser.py:1498:0: C0301: Line too long (118/100) (line-too-long)
+docubrowser.py:1573:0: C0301: Line too long (106/100) (line-too-long)
+docubrowser.py:1592:0: C0301: Line too long (103/100) (line-too-long)
+docubrowser.py:1595:0: C0301: Line too long (108/100) (line-too-long)
+docubrowser.py:1600:0: C0301: Line too long (111/100) (line-too-long)
+docubrowser.py:1:0: C0302: Too many lines in module (1716/1000) (too-many-lines)
+docubrowser.py:107:17: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+docubrowser.py:156:11: W0718: Catching too general exception Exception (broad-exception-caught)
+docubrowser.py:151:8: C0415: Import outside toplevel (scan_docs._load_scan_dirs) (import-outside-toplevel)
+docubrowser.py:168:18: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+docubrowser.py:179:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:180:4: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+docubrowser.py:183:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:200:10: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+docubrowser.py:212:4: W0621: Redefining name 'ssl' from outer scope (line 36) (redefined-outer-name)
+docubrowser.py:212:4: W0404: Reimport 'ssl' (imported line 36) (reimported)
+docubrowser.py:212:4: C0415: Import outside toplevel (ssl) (import-outside-toplevel)
+docubrowser.py:221:15: W0718: Catching too general exception Exception (broad-exception-caught)
+docubrowser.py:226:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:232:4: W0621: Redefining name 'ssl' from outer scope (line 36) (redefined-outer-name)
+docubrowser.py:232:4: W0404: Reimport 'ssl' (imported line 36) (reimported)
+docubrowser.py:232:4: C0415: Import outside toplevel (ssl) (import-outside-toplevel)
+docubrowser.py:239:11: W0718: Catching too general exception Exception (broad-exception-caught)
+docubrowser.py:251:14: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+docubrowser.py:262:14: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+docubrowser.py:273:14: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+docubrowser.py:284:10: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+docubrowser.py:295:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:302:8: R1705: Unnecessary "else" after "return", remove the "else" and de-indent the code inside it (no-else-return)
+docubrowser.py:325:15: W0718: Catching too general exception Exception (broad-exception-caught)
+docubrowser.py:323:12: C0415: Import outside toplevel (docubrowse_db.ensure_db) (import-outside-toplevel)
+docubrowser.py:365:13: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+docubrowser.py:379:18: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+docubrowser.py:295:0: R0912: Too many branches (14/12) (too-many-branches)
+docubrowser.py:295:0: R0915: Too many statements (58/50) (too-many-statements)
+docubrowser.py:365:13: R1732: Consider using 'with' for resource-allocating operations (consider-using-with)
+docubrowser.py:366:11: R1732: Consider using 'with' for resource-allocating operations (consider-using-with)
+docubrowser.py:388:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:416:18: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+docubrowser.py:428:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:474:23: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+docubrowser.py:527:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:548:14: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+docubrowser.py:559:14: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+docubrowser.py:617:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:617:0: R0914: Too many local variables (31/15) (too-many-locals)
+docubrowser.py:655:11: W0718: Catching too general exception Exception (broad-exception-caught)
+docubrowser.py:653:8: C0415: Import outside toplevel (hardware_utils.print_hardware_summary) (import-outside-toplevel)
+docubrowser.py:665:8: C0415: Import outside toplevel (collections.Counter) (import-outside-toplevel)
+docubrowser.py:670:8: C0415: Import outside toplevel (scan_docs.DEFAULT_EXTENSIONS) (import-outside-toplevel)
+docubrowser.py:671:8: C0103: Variable name "_SUPPORTED" doesn't conform to snake_case naming style (invalid-name)
+docubrowser.py:664:4: R1702: Too many nested blocks (6/5) (too-many-nested-blocks)
+docubrowser.py:735:27: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+docubrowser.py:739:8: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+docubrowser.py:617:0: R0912: Too many branches (30/12) (too-many-branches)
+docubrowser.py:617:0: R0915: Too many statements (109/50) (too-many-statements)
+docubrowser.py:735:27: R1732: Consider using 'with' for resource-allocating operations (consider-using-with)
+docubrowser.py:738:15: R1732: Consider using 'with' for resource-allocating operations (consider-using-with)
+docubrowser.py:776:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:790:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:799:4: C0415: Import outside toplevel (webbrowser) (import-outside-toplevel)
+docubrowser.py:815:8: C0415: Import outside toplevel (purge_pii.run_purge) (import-outside-toplevel)
+docubrowser.py:864:8: C0415: Import outside toplevel (purge_pii.run_purge) (import-outside-toplevel)
+docubrowser.py:885:4: C0415: Import outside toplevel (scan_docs.IGNORE_DIRS_FILENAME, scan_docs._load_ignore_dirs, scan_docs.purge_path_prefix) (import-outside-toplevel)
+docubrowser.py:918:12: C0415: Import outside toplevel (docubrowse_db.get_db) (import-outside-toplevel)
+docubrowser.py:872:0: R0912: Too many branches (14/12) (too-many-branches)
+docubrowser.py:940:0: R0914: Too many local variables (23/15) (too-many-locals)
+docubrowser.py:942:4: C0415: Import outside toplevel (collections.Counter) (import-outside-toplevel)
+docubrowser.py:949:4: C0415: Import outside toplevel (scan_docs.DEFAULT_EXTENSIONS) (import-outside-toplevel)
+docubrowser.py:950:4: C0103: Variable name "SUPPORTED" doesn't conform to snake_case naming style (invalid-name)
+docubrowser.py:1010:10: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+docubrowser.py:1011:10: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+docubrowser.py:940:0: R0912: Too many branches (13/12) (too-many-branches)
+docubrowser.py:940:0: R0915: Too many statements (60/50) (too-many-statements)
+docubrowser.py:1029:4: C0415: Import outside toplevel (scan_docs.scan_single_file) (import-outside-toplevel)
+docubrowser.py:1059:0: R0914: Too many local variables (16/15) (too-many-locals)
+docubrowser.py:1067:4: C0415: Import outside toplevel (dup_detect.find_exact_dups, dup_detect.find_near_dups, dup_detect.fmt_size, dup_detect.group_label) (import-outside-toplevel)
+docubrowser.py:1117:0: R0914: Too many local variables (35/15) (too-many-locals)
+docubrowser.py:1125:4: C0415: Import outside toplevel (dup_detect.find_exact_dups, dup_detect.find_near_dups, dup_detect.fmt_size, dup_detect.group_label) (import-outside-toplevel)
+docubrowser.py:1156:8: C0415: Import outside toplevel (string) (import-outside-toplevel)
+docubrowser.py:1222:12: C0415: Import outside toplevel (docubrowse_db.get_db, docubrowse_db.delete_document) (import-outside-toplevel)
+docubrowser.py:1243:27: W0718: Catching too general exception Exception (broad-exception-caught)
+docubrowser.py:1117:0: R0912: Too many branches (23/12) (too-many-branches)
+docubrowser.py:1117:0: R0915: Too many statements (91/50) (too-many-statements)
+docubrowser.py:1263:11: W0718: Catching too general exception Exception (broad-exception-caught)
+docubrowser.py:1258:8: C0415: Import outside toplevel (docubrowse_db.get_db) (import-outside-toplevel)
+docubrowser.py:1282:4: C0415: Import outside toplevel (docubrowse_db.get_db, docubrowse_db.check_missing_path, docubrowse_db.delete_documents) (import-outside-toplevel)
+docubrowser.py:1299:8: R1724: Unnecessary "elif" after "continue", remove the leading "el" from "elif" (no-else-continue)
+docubrowser.py:1350:13: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+docubrowser.py:1360:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:1360:0: R0914: Too many local variables (22/15) (too-many-locals)
+docubrowser.py:1447:11: W0718: Catching too general exception Exception (broad-exception-caught)
+docubrowser.py:1444:8: C0415: Import outside toplevel (hardware_utils.recommended_scan_workers, hardware_utils.recommended_embed_workers) (import-outside-toplevel)
+docubrowser.py:1360:0: R0915: Too many statements (76/50) (too-many-statements)
+docubrowser.py:1693:0: C0116: Missing function or method docstring (missing-function-docstring)
+docubrowser.py:31:0: W0611: Unused import errno (unused-import)
+docubrowser.py:34:0: W0611: Unused import shutil (unused-import)
+docubrowser.py:36:0: W0611: Unused import ssl (unused-import)
+docubrowser.py:43:0: W0611: Unused URLError imported from urllib.error (unused-import)
+docubrowser.py:45:0: W0611: Unused IS_WINDOWS imported from platform_paths (unused-import)
+
+-----------------------------------
+Your code has been rated at 8.88/10
+
+
+============================================================
+FILE: docx_extractor.py
+============================================================
+
+************* Module docx_extractor
+docx_extractor.py:81:11: W0718: Catching too general exception Exception (broad-exception-caught)
+docx_extractor.py:39:8: C0415: Import outside toplevel (docx) (import-outside-toplevel)
+docx_extractor.py:14:0: W0611: Unused Path imported from pathlib (unused-import)
+
+-----------------------------------
+Your code has been rated at 9.03/10
+
+
+============================================================
+FILE: dup_detect.py
+============================================================
+
+************* Module dup_detect
+dup_detect.py:110:4: C0116: Missing function or method docstring (missing-function-docstring)
+dup_detect.py:116:4: C0116: Missing function or method docstring (missing-function-docstring)
+dup_detect.py:127:0: R0914: Too many local variables (37/15) (too-many-locals)
+dup_detect.py:175:8: C0415: Import outside toplevel (numpy) (import-outside-toplevel)
+dup_detect.py:127:0: R0912: Too many branches (18/12) (too-many-branches)
+dup_detect.py:127:0: R0915: Too many statements (58/50) (too-many-statements)
+dup_detect.py:268:4: R1705: Unnecessary "else" after "return", remove the "else" and de-indent the code inside it (no-else-return)
+dup_detect.py:25:0: W0611: Unused Path imported from pathlib (unused-import)
+
+-----------------------------------
+Your code has been rated at 9.49/10
+
+
+============================================================
+FILE: ebook_extractor.py
+============================================================
+
+************* Module ebook_extractor
+ebook_extractor.py:45:4: R1705: Unnecessary "elif" after "return", remove the leading "el" from "elif" (no-else-return)
+ebook_extractor.py:70:4: C0415: Import outside toplevel (bs4.BeautifulSoup) (import-outside-toplevel)
+ebook_extractor.py:126:11: W0718: Catching too general exception Exception (broad-exception-caught)
+ebook_extractor.py:104:15: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+ebook_extractor.py:148:11: W0718: Catching too general exception Exception (broad-exception-caught)
+ebook_extractor.py:140:15: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+ebook_extractor.py:195:11: W0718: Catching too general exception Exception (broad-exception-caught)
+ebook_extractor.py:163:8: C0415: Import outside toplevel (ebooklib) (import-outside-toplevel)
+ebook_extractor.py:164:8: C0415: Import outside toplevel (ebooklib.epub) (import-outside-toplevel)
+ebook_extractor.py:186:19: W0718: Catching too general exception Exception (broad-exception-caught)
+ebook_extractor.py:202:0: R0914: Too many local variables (18/15) (too-many-locals)
+ebook_extractor.py:255:11: W0718: Catching too general exception Exception (broad-exception-caught)
+ebook_extractor.py:221:8: C0415: Import outside toplevel (mobi) (import-outside-toplevel)
+ebook_extractor.py:229:8: R1705: Unnecessary "else" after "return", remove the "else" and de-indent the code inside it (no-else-return)
+ebook_extractor.py:242:12: C0415: Import outside toplevel (bs4.BeautifulSoup) (import-outside-toplevel)
+
+-----------------------------------
+Your code has been rated at 9.05/10
+
+
+============================================================
+FILE: embed_docs.py
+============================================================
+
+************* Module embed_docs
+embed_docs.py:59:4: C0116: Missing function or method docstring (missing-function-docstring)
+embed_docs.py:59:31: C0321: More than one statement on a single line (multiple-statements)
+embed_docs.py:59:0: W0613: Unused argument 'kw' (unused-argument)
+embed_docs.py:71:4: C0104: Disallowed name "bar" (disallowed-name)
+embed_docs.py:85:15: W0621: Redefining name 'args' from outer scope (line 287) (redefined-outer-name)
+embed_docs.py:107:11: W0718: Catching too general exception Exception (broad-exception-caught)
+embed_docs.py:107:4: W0612: Unused variable 'e' (unused-variable)
+embed_docs.py:120:0: R0914: Too many local variables (32/15) (too-many-locals)
+embed_docs.py:181:34: W0613: Unused argument 'completed_idx' (unused-argument)
+embed_docs.py:200:4: C0103: Variable name "MAX_IN_FLIGHT" doesn't conform to snake_case naming style (invalid-name)
+embed_docs.py:120:0: R0915: Too many statements (86/50) (too-many-statements)
+embed_docs.py:274:0: C0116: Missing function or method docstring (missing-function-docstring)
+embed_docs.py:20:0: W0611: Unused import signal (unused-import)
+embed_docs.py:30:0: W0611: Unused URLError imported from urllib.error (unused-import)
+embed_docs.py:30:0: W0611: Unused HTTPError imported from urllib.error (unused-import)
+
+-----------------------------------
+Your code has been rated at 9.12/10
+
+
+============================================================
+FILE: eml_extractor.py
+============================================================
+
+************* Module eml_extractor
+eml_extractor.py:60:11: W0718: Catching too general exception Exception (broad-exception-caught)
+eml_extractor.py:125:19: W0718: Catching too general exception Exception (broad-exception-caught)
+eml_extractor.py:131:23: W0718: Catching too general exception Exception (broad-exception-caught)
+eml_extractor.py:136:19: W0718: Catching too general exception Exception (broad-exception-caught)
+eml_extractor.py:142:23: W0718: Catching too general exception Exception (broad-exception-caught)
+eml_extractor.py:221:11: W0718: Catching too general exception Exception (broad-exception-caught)
+
+-----------------------------------
+Your code has been rated at 9.53/10
+
+
+============================================================
+FILE: ensure_ollama.py
+============================================================
+
+************* Module ensure_ollama
+ensure_ollama.py:41:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:41:15: C0321: More than one statement on a single line (multiple-statements)
+ensure_ollama.py:42:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:42:15: C0321: More than one statement on a single line (multiple-statements)
+ensure_ollama.py:43:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:43:15: C0321: More than one statement on a single line (multiple-statements)
+ensure_ollama.py:46:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:56:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:68:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:72:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:84:14: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+ensure_ollama.py:100:18: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+ensure_ollama.py:72:0: R0915: Too many statements (51/50) (too-many-statements)
+ensure_ollama.py:131:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:133:8: R1732: Consider using 'with' for resource-allocating operations (consider-using-with)
+ensure_ollama.py:139:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:141:4: R1732: Consider using 'with' for resource-allocating operations (consider-using-with)
+ensure_ollama.py:161:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:166:11: W0718: Catching too general exception Exception (broad-exception-caught)
+ensure_ollama.py:163:15: R1732: Consider using 'with' for resource-allocating operations (consider-using-with)
+ensure_ollama.py:170:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:174:0: C0116: Missing function or method docstring (missing-function-docstring)
+ensure_ollama.py:184:10: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+ensure_ollama.py:193:0: C0116: Missing function or method docstring (missing-function-docstring)
+
+-----------------------------------
+Your code has been rated at 8.38/10
+
+
+============================================================
+FILE: generate_test_pdfs.py
+============================================================
+
+************* Module generate_test_pdfs
+generate_test_pdfs.py:25:0: C0301: Line too long (158/100) (line-too-long)
+generate_test_pdfs.py:26:0: C0301: Line too long (133/100) (line-too-long)
+generate_test_pdfs.py:27:0: C0301: Line too long (139/100) (line-too-long)
+generate_test_pdfs.py:28:0: C0301: Line too long (116/100) (line-too-long)
+generate_test_pdfs.py:29:0: C0301: Line too long (129/100) (line-too-long)
+generate_test_pdfs.py:30:0: C0301: Line too long (115/100) (line-too-long)
+generate_test_pdfs.py:31:0: C0301: Line too long (129/100) (line-too-long)
+generate_test_pdfs.py:32:0: C0301: Line too long (117/100) (line-too-long)
+generate_test_pdfs.py:33:0: C0301: Line too long (112/100) (line-too-long)
+generate_test_pdfs.py:34:0: C0301: Line too long (125/100) (line-too-long)
+generate_test_pdfs.py:39:0: C0301: Line too long (141/100) (line-too-long)
+generate_test_pdfs.py:40:0: C0301: Line too long (142/100) (line-too-long)
+generate_test_pdfs.py:41:0: C0301: Line too long (136/100) (line-too-long)
+generate_test_pdfs.py:42:0: C0301: Line too long (130/100) (line-too-long)
+generate_test_pdfs.py:43:0: C0301: Line too long (133/100) (line-too-long)
+generate_test_pdfs.py:44:0: C0301: Line too long (132/100) (line-too-long)
+generate_test_pdfs.py:47:0: C0301: Line too long (141/100) (line-too-long)
+generate_test_pdfs.py:48:0: C0301: Line too long (127/100) (line-too-long)
+generate_test_pdfs.py:49:0: C0301: Line too long (128/100) (line-too-long)
+generate_test_pdfs.py:50:0: C0301: Line too long (128/100) (line-too-long)
+generate_test_pdfs.py:51:0: C0301: Line too long (127/100) (line-too-long)
+generate_test_pdfs.py:52:0: C0301: Line too long (137/100) (line-too-long)
+generate_test_pdfs.py:55:0: C0301: Line too long (140/100) (line-too-long)
+generate_test_pdfs.py:56:0: C0301: Line too long (143/100) (line-too-long)
+generate_test_pdfs.py:57:0: C0301: Line too long (149/100) (line-too-long)
+generate_test_pdfs.py:58:0: C0301: Line too long (126/100) (line-too-long)
+generate_test_pdfs.py:59:0: C0301: Line too long (134/100) (line-too-long)
+generate_test_pdfs.py:60:0: C0301: Line too long (126/100) (line-too-long)
+generate_test_pdfs.py:173:0: C0301: Line too long (101/100) (line-too-long)
+generate_test_pdfs.py:65:0: R0914: Too many local variables (16/15) (too-many-locals)
+generate_test_pdfs.py:76:14: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+generate_test_pdfs.py:118:11: W0718: Catching too general exception Exception (broad-exception-caught)
+generate_test_pdfs.py:123:23: W0621: Redefining name 'output_dir' from outer scope (line 173) (redefined-outer-name)
+generate_test_pdfs.py:123:40: W0621: Redefining name 'num_pdfs' from outer scope (line 174) (redefined-outer-name)
+generate_test_pdfs.py:15:4: W0611: Unused Table imported from reportlab.platypus (unused-import)
+generate_test_pdfs.py:15:4: W0611: Unused TableStyle imported from reportlab.platypus (unused-import)
+
+-----------------------------------
+Your code has been rated at 5.38/10
+
+
+============================================================
+FILE: hardware_utils.py
+============================================================
+
+************* Module hardware_utils
+hardware_utils.py:31:8: C0415: Import outside toplevel (psutil) (import-outside-toplevel)
+hardware_utils.py:43:8: C0415: Import outside toplevel (psutil) (import-outside-toplevel)
+hardware_utils.py:66:8: C0415: Import outside toplevel (psutil) (import-outside-toplevel)
+hardware_utils.py:85:17: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+hardware_utils.py:140:8: C0415: Import outside toplevel (psutil) (import-outside-toplevel)
+hardware_utils.py:153:0: R0913: Too many arguments (6/5) (too-many-arguments)
+hardware_utils.py:153:0: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
+hardware_utils.py:168:4: C0415: Import outside toplevel (sys) (import-outside-toplevel)
+hardware_utils.py:158:4: W0613: Unused argument 'is_tty' (unused-argument)
+hardware_utils.py:243:10: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+
+-----------------------------------
+Your code has been rated at 9.05/10
+
+
+============================================================
+FILE: markup_extractor.py
+============================================================
+
+************* Module markup_extractor
+markup_extractor.py:138:11: W0718: Catching too general exception Exception (broad-exception-caught)
+markup_extractor.py:256:11: W0718: Catching too general exception Exception (broad-exception-caught)
+
+-----------------------------------
+Your code has been rated at 9.87/10
+
+
+============================================================
+FILE: odf_extractor.py
+============================================================
+
+************* Module odf_extractor
+odf_extractor.py:100:0: R0912: Too many branches (14/12) (too-many-branches)
+odf_extractor.py:181:0: R0914: Too many local variables (17/15) (too-many-locals)
+odf_extractor.py:181:0: R0912: Too many branches (13/12) (too-many-branches)
+odf_extractor.py:299:11: W0718: Catching too general exception Exception (broad-exception-caught)
+
+-----------------------------------
+Your code has been rated at 9.77/10
+
+
+============================================================
+FILE: pdf_extractor.py
+============================================================
+
+************* Module pdf_extractor
+pdf_extractor.py:225:0: C0301: Line too long (103/100) (line-too-long)
+pdf_extractor.py:164:13: W0511: TODO: investigate exact trigger for pathological behavior on files (fixme)
+pdf_extractor.py:18:0: C0103: Variable name "HAS_PDFPLUMBER" doesn't conform to snake_case naming style (invalid-name)
+pdf_extractor.py:19:0: C0103: Variable name "HAS_PYPDF" doesn't conform to snake_case naming style (invalid-name)
+pdf_extractor.py:22:4: C0103: Variable name "HAS_PDFPLUMBER" doesn't conform to snake_case naming style (invalid-name)
+pdf_extractor.py:28:4: C0103: Variable name "HAS_PYPDF" doesn't conform to snake_case naming style (invalid-name)
+pdf_extractor.py:32:8: C0103: Variable name "HAS_PYPDF" doesn't conform to snake_case naming style (invalid-name)
+pdf_extractor.py:101:4: W0621: Redefining name 'result' from outer scope (line 301) (redefined-outer-name)
+pdf_extractor.py:119:4: C0103: Variable name "OBJECT_COUNT_THRESHOLD" doesn't conform to snake_case naming style (invalid-name)
+pdf_extractor.py:142:11: W0718: Catching too general exception Exception (broad-exception-caught)
+pdf_extractor.py:122:8: R1705: Unnecessary "elif" after "return", remove the leading "el" from "elif" (no-else-return)
+pdf_extractor.py:132:23: W0718: Catching too general exception Exception (broad-exception-caught)
+pdf_extractor.py:147:40: W0621: Redefining name 'result' from outer scope (line 301) (redefined-outer-name)
+pdf_extractor.py:211:11: W0718: Catching too general exception Exception (broad-exception-caught)
+pdf_extractor.py:174:23: W0718: Catching too general exception Exception (broad-exception-caught)
+pdf_extractor.py:184:27: W0718: Catching too general exception Exception (broad-exception-caught)
+pdf_extractor.py:197:23: W0718: Catching too general exception Exception (broad-exception-caught)
+pdf_extractor.py:147:0: R0912: Too many branches (13/12) (too-many-branches)
+pdf_extractor.py:216:35: W0621: Redefining name 'result' from outer scope (line 301) (redefined-outer-name)
+pdf_extractor.py:251:11: W0718: Catching too general exception Exception (broad-exception-caught)
+pdf_extractor.py:236:23: W0718: Catching too general exception Exception (broad-exception-caught)
+pdf_extractor.py:311:14: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+pdf_extractor.py:9:0: W0611: Unused import io (unused-import)
+pdf_extractor.py:12:0: W0611: Unused Optional imported from typing (unused-import)
+pdf_extractor.py:12:0: W0611: Unused Tuple imported from typing (unused-import)
+
+-----------------------------------
+Your code has been rated at 8.55/10
+
+
+============================================================
+FILE: platform_paths.py
+============================================================
+
+************* Module platform_paths
+platform_paths.py:72:0: C0116: Missing function or method docstring (missing-function-docstring)
+platform_paths.py:83:0: C0116: Missing function or method docstring (missing-function-docstring)
+platform_paths.py:94:0: C0116: Missing function or method docstring (missing-function-docstring)
+platform_paths.py:151:12: C0415: Import outside toplevel (psutil) (import-outside-toplevel)
+platform_paths.py:156:8: C0415: Import outside toplevel (ctypes) (import-outside-toplevel)
+platform_paths.py:157:8: C0415: Import outside toplevel (ctypes.wintypes) (import-outside-toplevel)
+platform_paths.py:158:8: C0103: Variable name "PROCESS_QUERY_LIMITED_INFORMATION" doesn't conform to snake_case naming style (invalid-name)
+platform_paths.py:159:8: C0103: Variable name "STILL_ACTIVE" doesn't conform to snake_case naming style (invalid-name)
+platform_paths.py:137:0: R0911: Too many return statements (8/6) (too-many-return-statements)
+platform_paths.py:208:11: W0718: Catching too general exception Exception (broad-exception-caught)
+platform_paths.py:201:8: C0415: Import outside toplevel (psutil) (import-outside-toplevel)
+platform_paths.py:234:8: C0415: Import outside toplevel (psutil) (import-outside-toplevel)
+platform_paths.py:224:0: R0912: Too many branches (14/12) (too-many-branches)
+platform_paths.py:283:8: C0415: Import outside toplevel (psutil) (import-outside-toplevel)
+platform_paths.py:287:4: R1702: Too many nested blocks (6/5) (too-many-nested-blocks)
+platform_paths.py:309:4: C0415: Import outside toplevel (subprocess) (import-outside-toplevel)
+platform_paths.py:311:17: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+platform_paths.py:329:15: W0718: Catching too general exception Exception (broad-exception-caught)
+platform_paths.py:326:16: W1510: 'subprocess.run' used without explicitly defining the value for 'check'. (subprocess-run-check)
+platform_paths.py:280:0: R0912: Too many branches (13/12) (too-many-branches)
+
+-----------------------------------
+Your code has been rated at 9.02/10
+
+
+============================================================
+FILE: populate_db.py
+============================================================
+
+************* Module populate_db
+populate_db.py:26:0: C0301: Line too long (149/100) (line-too-long)
+populate_db.py:27:0: C0301: Line too long (135/100) (line-too-long)
+populate_db.py:28:0: C0301: Line too long (129/100) (line-too-long)
+populate_db.py:29:0: C0301: Line too long (132/100) (line-too-long)
+populate_db.py:30:0: C0301: Line too long (127/100) (line-too-long)
+populate_db.py:31:0: C0301: Line too long (128/100) (line-too-long)
+populate_db.py:32:0: C0301: Line too long (132/100) (line-too-long)
+populate_db.py:33:0: C0301: Line too long (135/100) (line-too-long)
+populate_db.py:34:0: C0301: Line too long (115/100) (line-too-long)
+populate_db.py:35:0: C0301: Line too long (104/100) (line-too-long)
+populate_db.py:12:0: C0116: Missing function or method docstring (missing-function-docstring)
+populate_db.py:12:0: R0914: Too many local variables (18/15) (too-many-locals)
+populate_db.py:81:15: W0718: Catching too general exception Exception (broad-exception-caught)
+populate_db.py:98:10: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+populate_db.py:10:0: C0411: standard import "sys" should be placed before first party import "docubrowse_db.get_db"  (wrong-import-order)
+
+-----------------------------------
+Your code has been rated at 7.12/10
+
+
+============================================================
+FILE: pptx_extractor.py
+============================================================
+
+************* Module pptx_extractor
+pptx_extractor.py:24:0: C0116: Missing function or method docstring (missing-function-docstring)
+pptx_extractor.py:24:0: R0914: Too many local variables (20/15) (too-many-locals)
+pptx_extractor.py:94:11: W0718: Catching too general exception Exception (broad-exception-caught)
+pptx_extractor.py:37:8: C0415: Import outside toplevel (pptx.Presentation) (import-outside-toplevel)
+pptx_extractor.py:73:23: W0718: Catching too general exception Exception (broad-exception-caught)
+pptx_extractor.py:36:4: R1702: Too many nested blocks (7/5) (too-many-nested-blocks)
+pptx_extractor.py:18:0: W0611: Unused Path imported from pathlib (unused-import)
+
+-----------------------------------
+Your code has been rated at 8.57/10
+
+
+============================================================
+FILE: purge_pii.py
+============================================================
+
+************* Module purge_pii
+purge_pii.py:230:0: C0301: Line too long (106/100) (line-too-long)
+purge_pii.py:208:0: R0914: Too many local variables (21/15) (too-many-locals)
+purge_pii.py:298:15: W0718: Catching too general exception Exception (broad-exception-caught)
+purge_pii.py:208:0: R0915: Too many statements (80/50) (too-many-statements)
+purge_pii.py:330:0: C0116: Missing function or method docstring (missing-function-docstring)
+
+-----------------------------------
+Your code has been rated at 9.70/10
+
+
+============================================================
+FILE: rtf_extractor.py
+============================================================
+
+************* Module rtf_extractor
+rtf_extractor.py:45:8: C0415: Import outside toplevel (striprtf.striprtf.rtf_to_text) (import-outside-toplevel)
+rtf_extractor.py:55:11: W0718: Catching too general exception Exception (broad-exception-caught)
+
+-----------------------------------
+Your code has been rated at 9.20/10
+
+
+============================================================
+FILE: scan_docs.py
+============================================================
+
+************* Module scan_docs
+scan_docs.py:817:0: C0301: Line too long (102/100) (line-too-long)
+scan_docs.py:904:0: C0301: Line too long (115/100) (line-too-long)
+scan_docs.py:971:0: C0301: Line too long (110/100) (line-too-long)
+scan_docs.py:975:0: C0301: Line too long (111/100) (line-too-long)
+scan_docs.py:1091:0: C0301: Line too long (106/100) (line-too-long)
+scan_docs.py:1187:0: C0301: Line too long (112/100) (line-too-long)
+scan_docs.py:1190:0: C0301: Line too long (113/100) (line-too-long)
+scan_docs.py:1220:0: C0301: Line too long (112/100) (line-too-long)
+scan_docs.py:1:0: C0302: Too many lines in module (1240/1000) (too-many-lines)
+scan_docs.py:101:4: C0116: Missing function or method docstring (missing-function-docstring)
+scan_docs.py:101:31: C0321: More than one statement on a single line (multiple-statements)
+scan_docs.py:101:0: W0613: Unused argument 'kw' (unused-argument)
+scan_docs.py:232:11: W0718: Catching too general exception Exception (broad-exception-caught)
+scan_docs.py:182:0: R0911: Too many return statements (16/6) (too-many-return-statements)
+scan_docs.py:182:0: R0912: Too many branches (16/12) (too-many-branches)
+scan_docs.py:368:8: C0415: Import outside toplevel (resource) (import-outside-toplevel)
+scan_docs.py:377:4: C0103: Variable name "_6GB" doesn't conform to snake_case naming style (invalid-name)
+scan_docs.py:436:4: C0104: Disallowed name "bar" (disallowed-name)
+scan_docs.py:450:0: R0914: Too many local variables (35/15) (too-many-locals)
+scan_docs.py:450:18: W0621: Redefining name 'args' from outer scope (line 1229) (redefined-outer-name)
+scan_docs.py:642:11: W0718: Catching too general exception Exception (broad-exception-caught)
+scan_docs.py:497:12: C0415: Import outside toplevel (contextlib, io) (import-outside-toplevel)
+scan_docs.py:497:12: C0410: Multiple imports on one line (contextlib, io) (multiple-imports)
+scan_docs.py:498:12: C0415: Import outside toplevel (pdf_extractor.extract_pdf, pdf_extractor.generate_keywords) (import-outside-toplevel)
+scan_docs.py:504:12: C0415: Import outside toplevel (docx_extractor.extract_docx) (import-outside-toplevel)
+scan_docs.py:507:12: C0415: Import outside toplevel (pptx_extractor.extract_pptx) (import-outside-toplevel)
+scan_docs.py:510:12: C0415: Import outside toplevel (xlsx_extractor.extract_xlsx) (import-outside-toplevel)
+scan_docs.py:513:12: C0415: Import outside toplevel (odf_extractor.extract_odf) (import-outside-toplevel)
+scan_docs.py:516:12: C0415: Import outside toplevel (visio_extractor.extract_visio) (import-outside-toplevel)
+scan_docs.py:537:12: C0415: Import outside toplevel (markup_extractor.extract_markup) (import-outside-toplevel)
+scan_docs.py:540:12: C0415: Import outside toplevel (ebook_extractor.extract_ebook) (import-outside-toplevel)
+scan_docs.py:543:12: C0415: Import outside toplevel (eml_extractor.extract_eml) (import-outside-toplevel)
+scan_docs.py:546:12: C0415: Import outside toplevel (csv_extractor.extract_csv) (import-outside-toplevel)
+scan_docs.py:549:12: C0415: Import outside toplevel (rtf_extractor.extract_rtf) (import-outside-toplevel)
+scan_docs.py:604:12: C0415: Import outside toplevel (pdf_extractor.generate_keywords) (import-outside-toplevel)
+scan_docs.py:450:0: R0912: Too many branches (33/12) (too-many-branches)
+scan_docs.py:450:0: R0915: Too many statements (110/50) (too-many-statements)
+scan_docs.py:686:11: W0718: Catching too general exception Exception (broad-exception-caught)
+scan_docs.py:675:12: C0415: Import outside toplevel (re, html) (import-outside-toplevel)
+scan_docs.py:675:12: C0410: Multiple imports on one line (re, html) (multiple-imports)
+scan_docs.py:770:11: W0718: Catching too general exception Exception (broad-exception-caught)
+scan_docs.py:693:38: W0613: Unused argument 'doc_dir' (unused-argument)
+scan_docs.py:777:0: R0914: Too many local variables (55/15) (too-many-locals)
+scan_docs.py:927:4: C0103: Variable name "MAX_IN_FLIGHT" doesn't conform to snake_case naming style (invalid-name)
+scan_docs.py:1010:19: W0718: Catching too general exception Exception (broad-exception-caught)
+scan_docs.py:1043:31: W0718: Catching too general exception Exception (broad-exception-caught)
+scan_docs.py:1095:11: W0718: Catching too general exception Exception (broad-exception-caught)
+scan_docs.py:777:0: R0912: Too many branches (33/12) (too-many-branches)
+scan_docs.py:777:0: R0915: Too many statements (220/50) (too-many-statements)
+scan_docs.py:930:4: W0612: Unused variable 'width' (unused-variable)
+scan_docs.py:1206:0: C0116: Missing function or method docstring (missing-function-docstring)
+
+-----------------------------------
+Your code has been rated at 9.21/10
+
+
+============================================================
+FILE: setup_clean.py
+============================================================
+
+************* Module setup_clean
+setup_clean.py:59:0: C0301: Line too long (118/100) (line-too-long)
+setup_clean.py:79:0: C0303: Trailing whitespace (trailing-whitespace)
+setup_clean.py:81:39: C0303: Trailing whitespace (trailing-whitespace)
+setup_clean.py:87:0: C0303: Trailing whitespace (trailing-whitespace)
+setup_clean.py:99:6: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+setup_clean.py:102:6: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+setup_clean.py:103:6: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+setup_clean.py:6:0: W0611: Unused import os (unused-import)
+
+-----------------------------------
+Your code has been rated at 7.89/10
+
+
+============================================================
+FILE: setup_test_data.py
+============================================================
+
+************* Module setup_test_data
+setup_test_data.py:32:30: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+setup_test_data.py:91:15: W0718: Catching too general exception Exception (broad-exception-caught)
+setup_test_data.py:100:0: C0116: Missing function or method docstring (missing-function-docstring)
+setup_test_data.py:12:0: C0411: standard import "pathlib.Path" should be placed before third party imports "reportlab.lib.pagesizes.letter", "reportlab.pdfgen.canvas" (wrong-import-order)
+setup_test_data.py:15:0: C0411: standard import "sqlite3" should be placed before third party imports "reportlab.lib.pagesizes.letter", "reportlab.pdfgen.canvas" and first party imports "pdf_extractor.extract_pdf", "docubrowse_db.get_db"  (wrong-import-order)
+setup_test_data.py:15:0: W0611: Unused import sqlite3 (unused-import)
+
+-----------------------------------
+Your code has been rated at 9.12/10
+
+
+============================================================
+FILE: test_server.py
+============================================================
+
+************* Module test_server
+test_server.py:45:0: C0301: Line too long (144/100) (line-too-long)
+test_server.py:46:0: C0301: Line too long (127/100) (line-too-long)
+test_server.py:58:0: C0301: Line too long (134/100) (line-too-long)
+test_server.py:59:0: C0301: Line too long (143/100) (line-too-long)
+test_server.py:71:0: C0301: Line too long (134/100) (line-too-long)
+test_server.py:72:0: C0301: Line too long (137/100) (line-too-long)
+test_server.py:84:0: C0301: Line too long (126/100) (line-too-long)
+test_server.py:85:0: C0301: Line too long (127/100) (line-too-long)
+test_server.py:97:0: C0301: Line too long (127/100) (line-too-long)
+test_server.py:98:0: C0301: Line too long (133/100) (line-too-long)
+test_server.py:110:0: C0301: Line too long (127/100) (line-too-long)
+test_server.py:111:0: C0301: Line too long (123/100) (line-too-long)
+test_server.py:123:0: C0301: Line too long (137/100) (line-too-long)
+test_server.py:124:0: C0301: Line too long (124/100) (line-too-long)
+test_server.py:186:0: C0301: Line too long (108/100) (line-too-long)
+test_server.py:136:26: W0622: Redefining built-in 'format' (redefined-builtin)
+test_server.py:138:8: W0107: Unnecessary pass statement (unnecessary-pass)
+test_server.py:140:4: C0103: Method name "do_GET" doesn't conform to snake_case naming style (invalid-name)
+test_server.py:147:11: R1714: Consider merging these comparisons with 'in' by using 'path in ('/', '/index.html')'. Use a set instead if elements are hashable. (consider-using-in)
+test_server.py:175:4: C0103: Method name "do_POST" doesn't conform to snake_case naming style (invalid-name)
+test_server.py:188:12: W0702: No exception type(s) specified (bare-except)
+test_server.py:254:15: W0718: Catching too general exception Exception (broad-exception-caught)
+test_server.py:275:15: W0718: Catching too general exception Exception (broad-exception-caught)
+test_server.py:12:0: W0611: Unused import os (unused-import)
+
+-----------------------------------
+Your code has been rated at 8.25/10
+
+
+============================================================
+FILE: test_theme_responsive.py
+============================================================
+
+************* Module test_theme_responsive
+test_theme_responsive.py:304:0: C0301: Line too long (103/100) (line-too-long)
+test_theme_responsive.py:308:0: C0301: Line too long (161/100) (line-too-long)
+test_theme_responsive.py:311:0: C0301: Line too long (149/100) (line-too-long)
+test_theme_responsive.py:49:0: C0115: Missing class docstring (missing-class-docstring)
+test_theme_responsive.py:97:15: W0718: Catching too general exception Exception (broad-exception-caught)
+test_theme_responsive.py:327:4: R0914: Too many local variables (23/15) (too-many-locals)
+test_theme_responsive.py:347:25: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+test_theme_responsive.py:399:25: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+test_theme_responsive.py:327:4: R0912: Too many branches (13/12) (too-many-branches)
+test_theme_responsive.py:327:4: R0915: Too many statements (52/50) (too-many-statements)
+test_theme_responsive.py:410:40: W0613: Unused argument 'docs' (unused-argument)
+test_theme_responsive.py:472:4: R0914: Too many local variables (25/15) (too-many-locals)
+test_theme_responsive.py:476:13: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)
+test_theme_responsive.py:526:24: W1309: Using an f-string that does not have any interpolated variables (f-string-without-interpolation)
+test_theme_responsive.py:472:4: R0912: Too many branches (16/12) (too-many-branches)
+test_theme_responsive.py:472:4: R0915: Too many statements (94/50) (too-many-statements)
+test_theme_responsive.py:11:0: W0611: Unused import sys (unused-import)
+test_theme_responsive.py:12:0: W0611: Unused import json (unused-import)
+test_theme_responsive.py:15:0: W0611: Unused Path imported from pathlib (unused-import)
+
+-----------------------------------
+Your code has been rated at 9.29/10
+
+
+============================================================
+FILE: visio_extractor.py
+============================================================
+
+************* Module visio_extractor
+visio_extractor.py:203:11: W0718: Catching too general exception Exception (broad-exception-caught)
+visio_extractor.py:265:11: W0718: Catching too general exception Exception (broad-exception-caught)
+visio_extractor.py:293:11: W0718: Catching too general exception Exception (broad-exception-caught)
+visio_extractor.py:298:11: W0718: Catching too general exception Exception (broad-exception-caught)
+visio_extractor.py:311:19: W0718: Catching too general exception Exception (broad-exception-caught)
+visio_extractor.py:316:11: W0718: Catching too general exception Exception (broad-exception-caught)
+visio_extractor.py:322:11: W0718: Catching too general exception Exception (broad-exception-caught)
+visio_extractor.py:274:0: R0911: Too many return statements (8/6) (too-many-return-statements)
+visio_extractor.py:338:4: C0415: Import outside toplevel (re) (import-outside-toplevel)
+visio_extractor.py:339:4: C0415: Import outside toplevel (html) (import-outside-toplevel)
+visio_extractor.py:416:11: W0718: Catching too general exception Exception (broad-exception-caught)
+visio_extractor.py:377:19: W0718: Catching too general exception Exception (broad-exception-caught)
+visio_extractor.py:375:16: C0415: Import outside toplevel (gzip) (import-outside-toplevel)
+visio_extractor.py:382:15: W0718: Catching too general exception Exception (broad-exception-caught)
+
+-----------------------------------
+Your code has been rated at 9.45/10
+
+
+============================================================
+FILE: xlsx_extractor.py
+============================================================
+
+************* Module xlsx_extractor
+xlsx_extractor.py:24:0: C0116: Missing function or method docstring (missing-function-docstring)
+xlsx_extractor.py:24:0: R0914: Too many local variables (18/15) (too-many-locals)
+xlsx_extractor.py:83:11: W0718: Catching too general exception Exception (broad-exception-caught)
+xlsx_extractor.py:37:8: C0415: Import outside toplevel (openpyxl) (import-outside-toplevel)
+xlsx_extractor.py:18:0: W0611: Unused Path imported from pathlib (unused-import)
+
+-----------------------------------
+Your code has been rated at 8.86/10
+

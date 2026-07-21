@@ -23,6 +23,25 @@ Commands:
   dupclean    Interactively review and remove duplicate documents
 """
 
+# One CLI module by design — dispatch, config parsing, and the cmd_*
+# handlers stay together for locality. Splitting is feasible (cmd_start /
+# stop / status vs. scan / embed vs. dup vs. purge) but would fragment the
+# argparse subparser tree.
+# pylint: disable=too-many-lines
+#
+# Every open() in this file targets local user-provided files where the OS
+# default encoding matches; forcing utf-8 would break files written in
+# latin-1 (rare but seen in the wild).  pylint: disable=unspecified-encoding
+#
+# Every subprocess.run() here shells out to optional external tools; non-zero
+# exit codes are inspected explicitly at each call site.
+# pylint: disable=subprocess-run-check
+#
+# The many small internal helpers (server_stats, server_url, etc.) and the
+# cmd_* argparse handlers derive their user-facing docs from the argparse
+# subparser help strings; adding one-line python docstrings would be redundant.
+# pylint: disable=missing-function-docstring
+
 # Lazy annotations so `int | None` hints don't crash Python 3.9 (the floor
 # advertised by every installer; macOS CLT and RHEL 9 still ship 3.9).
 from __future__ import annotations
@@ -38,15 +57,34 @@ import subprocess
 import sys
 import textwrap
 import time
+import webbrowser
+from collections import Counter
 from pathlib import Path
 from urllib.request import urlopen
 from urllib.error import URLError
 
+from docubrowse_db import (
+    ensure_db, get_db, check_missing_path, delete_document, delete_documents,
+)
+from dup_detect import find_exact_dups, find_near_dups, fmt_size, group_label
+from hardware_utils import (
+    print_hardware_summary,
+    recommended_scan_workers,
+    recommended_embed_workers,
+)
 from platform_paths import (
     IS_WINDOWS, pid_file, scan_pid_file, log_file,
     kill_process_tree, kill_pid, find_procs_by_script, kill_port, pid_exists,
 )
-
+from purge_pii import run_purge
+from scan_docs import (
+    DEFAULT_EXTENSIONS,
+    IGNORE_DIRS_FILENAME,
+    _load_ignore_dirs,
+    _load_scan_dirs,
+    purge_path_prefix,
+    scan_single_file,
+)
 VERSION = "0.9.3"
 
 # ─── Paths ───────────────────────────────────────────────────────────────────
@@ -148,7 +186,6 @@ def resolve_doc_dirs(args, config) -> list:
     if primary:
         dirs.append(primary)
     try:
-        from scan_docs import _load_scan_dirs
         for d in sorted(_load_scan_dirs(Path(config.get("db_path") or DEFAULT_DB))):
             d = (d or "").strip()
             if d and d not in dirs:
@@ -209,7 +246,6 @@ def ensure_ollama() -> bool:
 def server_stats(port: int, timeout: float = 2.0) -> dict | None:
     """Fetch /api/stats from the running server. Returns dict or None.
     Tries HTTPS first (self-signed cert), then falls back to HTTP."""
-    import ssl
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
@@ -229,7 +265,6 @@ def is_server_running(port: int) -> bool:
 
 def server_url(port: int) -> str:
     """Return the base URL (https or http) for the running server."""
-    import ssl
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
@@ -320,7 +355,6 @@ def cmd_start(config: dict, args):
     # shows a banner guiding the user to configure a document directory.
     if not Path(db_path).exists():
         try:
-            from docubrowse_db import ensure_db
             ensure_db(db_path)
         except Exception as exc:
             print(f"ERROR: Database not found and could not be created: {db_path}")
@@ -376,7 +410,7 @@ def cmd_start(config: dict, args):
     for _ in range(10):
         time.sleep(0.5)
         if is_server_running(port):
-            print(f"DocuBrowse is running.")
+            print("DocuBrowse is running.")
             print(f"  UI:       http://localhost:{port}")
             print(f"  Database: {db_path}")
             return
@@ -413,7 +447,7 @@ def cmd_stop(config: dict, args):
             if not pid_exists(pid):  # Still alive? (Windows-safe)
                 break
         else:
-            print(f"Server did not stop gracefully; force-killing.")
+            print("Server did not stop gracefully; force-killing.")
             try:
                 kill_pid(pid, force=True)
             except (ProcessLookupError, PermissionError):
@@ -545,7 +579,7 @@ def cmd_status(config: dict, args):
     if pid:
         print(f"  PID:      {pid}")
     else:
-        print(f"  PID:      (none)")
+        print("  PID:      (none)")
 
     stats = server_stats(port)
     if stats:
@@ -614,6 +648,7 @@ _TYPE_MAP = {
 }
 
 
+# pylint: disable-next=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
 def cmd_rescan(config: dict, args):
     # Kill any scan already in progress (including orphaned workers) before starting.
     _stop_running_scans(verbose=True)
@@ -650,7 +685,6 @@ def cmd_rescan(config: dict, args):
     # Print hardware summary so users know what parallelism is active
     try:
         sys.path.insert(0, str(APP_DIR))
-        from hardware_utils import print_hardware_summary
         print_hardware_summary(workers, args.embed_workers)
     except Exception:
         print(f"Scan workers:  {workers}")
@@ -662,14 +696,12 @@ def cmd_rescan(config: dict, args):
     # breakdown before proceeding.  Small collections confirm quickly; large
     # mixed ones give the user a chance to add a type filter instead.
     if not scan_extensions:
-        from collections import Counter as _Counter
         print(f"No type filter specified — counting files in {len(doc_dirs)} "
               f"director{'y' if len(doc_dirs)==1 else 'ies'} ...")
         for _d in doc_dirs:
             print(f"  • {_d}")
-        from scan_docs import DEFAULT_EXTENSIONS as _DEFAULT_EXTENSIONS
-        _SUPPORTED = set(_DEFAULT_EXTENSIONS)
-        _counts: dict = _Counter()
+        supported_exts = set(DEFAULT_EXTENSIONS)
+        _counts: dict = Counter()
         _skipped = 0
         try:
             for _d in doc_dirs:
@@ -688,10 +720,10 @@ def cmd_rescan(config: dict, args):
                   "(broken symlinks, permission errors, etc.)")
 
         _total = sum(_counts.values())
-        _supported_total = sum(_counts.get(e, 0) for e in _SUPPORTED)
+        _supported_total = sum(_counts.get(e, 0) for e in supported_exts)
         _unscan_total = _total - _supported_total
         print()
-        for _ext in sorted(_SUPPORTED):
+        for _ext in sorted(supported_exts):
             _cnt = _counts.get(_ext, 0)
             if _cnt:
                 print(f"  {_ext:<14} {_cnt:>7,}  ◀ will scan")
@@ -795,8 +827,6 @@ def cmd_open(config: dict, args):
         print(f"Server is not running on port {port}.")
         print("Start it first with:  docubrowser start")
         sys.exit(1)
-
-    import webbrowser
     print(f"Opening {url} ...")
     webbrowser.open(url)
 
@@ -812,7 +842,6 @@ def _offer_purge(db_path: str):
     """
     try:
         sys.path.insert(0, str(APP_DIR))
-        from purge_pii import run_purge
     except ImportError:
         return  # purge_pii.py missing — silently skip
 
@@ -861,7 +890,6 @@ def cmd_purge(config: dict, args):
 
     try:
         sys.path.insert(0, str(APP_DIR))
-        from purge_pii import run_purge
     except ImportError as exc:
         print(f"ERROR: Could not load purge_pii.py: {exc}")
         sys.exit(1)
@@ -882,8 +910,6 @@ def cmd_ignore(config: dict, args):
     db_path = Path(args.db or config["db_path"])
 
     sys.path.insert(0, str(APP_DIR))
-    from scan_docs import IGNORE_DIRS_FILENAME, _load_ignore_dirs, purge_path_prefix
-
     ig_path = db_path.parent / IGNORE_DIRS_FILENAME
 
     if args.ignore_action == "list":
@@ -915,7 +941,6 @@ def cmd_ignore(config: dict, args):
 
         # Purge any previously-indexed documents under this directory
         if Path(db_path).exists():
-            from docubrowse_db import get_db
             conn = get_db(str(db_path))
             removed = purge_path_prefix(conn, target)
             conn.close()
@@ -937,17 +962,15 @@ def cmd_ignore(config: dict, args):
         print("Run 'rescan' to re-index this directory.")
 
 
+# pylint: disable-next=too-many-locals,too-many-branches
 def cmd_report(config: dict, args):
     """report — walk doc_dir and print a file-type breakdown, no DB changes."""
-    from collections import Counter
     doc_dir = require_doc_dir(args.doc_dir or config["doc_dir"])
     p = Path(doc_dir)
     if not p.exists() or not p.is_dir():
         print(f"ERROR: Directory not found: {doc_dir}")
         sys.exit(1)
-
-    from scan_docs import DEFAULT_EXTENSIONS
-    SUPPORTED = set(DEFAULT_EXTENSIONS)
+    supported = set(DEFAULT_EXTENSIONS)
 
     print(f"File type report: {doc_dir}")
     print("Scanning directory (no changes made)...")
@@ -983,7 +1006,7 @@ def cmd_report(config: dict, args):
     unscan_bytes = 0
     scannable_rows = []
     for ext, cnt in sorted(counts.items(), key=lambda x: x[1], reverse=True):
-        if ext in SUPPORTED:
+        if ext in supported:
             scannable_rows.append((ext, cnt, sizes[ext]))
         else:
             unscan_count += cnt
@@ -1007,8 +1030,8 @@ def cmd_report(config: dict, args):
     print()
     print(f"  Scannable: {supported_count:,}   Unscannable: {unscan_count:,}")
     print()
-    print(f"  Tip: run 'docubrowser scan pdf' to index PDFs only,")
-    print(f"       or   'docubrowser scan' to index all supported types.")
+    print("  Tip: run 'docubrowser scan pdf' to index PDFs only,")
+    print("       or   'docubrowser scan' to index all supported types.")
 
 
 def cmd_scan_file(config: dict, args):
@@ -1026,8 +1049,6 @@ def cmd_scan_file(config: dict, args):
     print()
 
     sys.path.insert(0, str(APP_DIR))
-    from scan_docs import scan_single_file
-
     result = scan_single_file(str(file_path), db_path, doc_dir=doc_dir)
 
     if result.get("removed_from_blacklist"):
@@ -1064,8 +1085,6 @@ def cmd_duplist(config: dict, args):
         sys.exit(1)
 
     sys.path.insert(0, str(APP_DIR))
-    from dup_detect import find_exact_dups, find_near_dups, fmt_size, group_label
-
     total_docs = _db_count(db_path)
     print(f"Scanning {total_docs:,} indexed documents for duplicates...")
     print()
@@ -1122,8 +1141,6 @@ def cmd_dupclean(config: dict, args):
         sys.exit(1)
 
     sys.path.insert(0, str(APP_DIR))
-    from dup_detect import find_exact_dups, find_near_dups, fmt_size, group_label
-
     total_docs = _db_count(db_path)
     print(f"Scanning {total_docs:,} indexed documents for duplicates...")
     print()
@@ -1219,8 +1236,7 @@ def cmd_dupclean(config: dict, args):
                 continue
 
             # Delete from disk and DB (commit per-doc to avoid disk/DB split)
-            from docubrowse_db import get_db as _get_db, delete_document
-            conn = _get_db(db_path)
+            conn = get_db(db_path)
             try:
                 for doc in targets:
                     path = doc['path']
@@ -1255,8 +1271,7 @@ def cmd_dupclean(config: dict, args):
 def _db_count(db_path: str) -> int:
     """Return total document count from the database."""
     try:
-        from docubrowse_db import get_db as _get_db
-        conn = _get_db(db_path)
+        conn = get_db(db_path)
         n = conn.execute('SELECT COUNT(*) FROM documents').fetchone()[0]
         conn.close()
         return n
@@ -1279,8 +1294,6 @@ def cmd_scan_missing(config: dict, args):
     (new/changed files); it never checks whether existing DB rows still
     have a file behind them.
     """
-    from docubrowse_db import get_db, check_missing_path, delete_documents
-
     db_path = args.db or config['db_path']
     if not Path(db_path).exists():
         print(f"ERROR: Database not found: {db_path}")
@@ -1441,7 +1454,6 @@ def build_parser() -> argparse.ArgumentParser:
     # Hardware-aware defaults
     try:
         sys.path.insert(0, str(APP_DIR))
-        from hardware_utils import recommended_scan_workers, recommended_embed_workers
         _default_scan_workers  = recommended_scan_workers()
         _default_embed_workers = recommended_embed_workers()
     except Exception:

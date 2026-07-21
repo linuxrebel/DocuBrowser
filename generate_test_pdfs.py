@@ -6,13 +6,18 @@ Generate synthetic test PDFs for E2E testing.
 Creates 100 PDFs with varying content, lengths, and topics.
 """
 
+# TOPICS / SAMPLE_PARAGRAPHS below are static data — each entry is a
+# single readable sentence that would only get worse from mechanical
+# 100-column wrapping.
+# pylint: disable=line-too-long
+
 import sys
 from pathlib import Path
 
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
     HAS_REPORTLAB = True
@@ -62,6 +67,7 @@ SAMPLE_PARAGRAPHS = {
 }
 
 
+# pylint: disable-next=too-many-locals
 def create_test_pdf(output_path: str, doc_number: int, topic: str, num_pages: int = 1):
     """
     Create a single test PDF.
@@ -73,7 +79,7 @@ def create_test_pdf(output_path: str, doc_number: int, topic: str, num_pages: in
         num_pages: Number of pages to generate
     """
     if not HAS_REPORTLAB:
-        print(f"ERROR: reportlab not installed. Install with: pip install reportlab")
+        print("ERROR: reportlab not installed. Install with: pip install reportlab")
         return False
 
     try:
@@ -115,7 +121,7 @@ def create_test_pdf(output_path: str, doc_number: int, topic: str, num_pages: in
         doc.build(story)
         return True
 
-    except Exception as e:
+    except (OSError, ValueError) as e:
         print(f"ERROR creating PDF: {e}")
         return False
 
@@ -170,12 +176,12 @@ def generate_test_pdfs(output_dir: str, num_pdfs: int = 100):
 
 
 if __name__ == '__main__':
-    output_dir = sys.argv[1] if len(sys.argv) > 1 else '/mnt/data/git/AI/DocuBrowse/test_pdfs_sample'
-    num_pdfs = int(sys.argv[2]) if len(sys.argv) > 2 else 100
+    _out_dir = sys.argv[1] if len(sys.argv) > 1 else '/mnt/data/git/AI/DocuBrowse/test_pdfs_sample'
+    _n = int(sys.argv[2]) if len(sys.argv) > 2 else 100
 
     if not HAS_REPORTLAB:
         print("reportlab is required. Install with:")
         print("  pip install reportlab")
         sys.exit(1)
 
-    generate_test_pdfs(output_dir, num_pdfs)
+    generate_test_pdfs(_out_dir, _n)

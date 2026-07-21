@@ -132,10 +132,11 @@ def _strip_markup(text: str) -> str:
 
 
 def _extract_xml_like(file_path: str, ext: str) -> dict:
+    """Tag-strip and metadata-sniff an XML/SGML-family file."""
     result = _empty_result(ext.lstrip("."))
     try:
         raw = _read_bounded(file_path)
-    except Exception as exc:
+    except (OSError, UnicodeError) as exc:
         result["error"] = str(exc)
         return result
 
@@ -250,10 +251,11 @@ def _sniff_latex_meta(text: str):
 
 
 def _extract_plain_markup(file_path: str, ext: str) -> dict:
+    """Passthrough-index a reST / AsciiDoc / LaTeX source file with a title sniff."""
     result = _empty_result(ext.lstrip("."))
     try:
         raw = _read_bounded(file_path)
-    except Exception as exc:
+    except (OSError, UnicodeError) as exc:
         result["error"] = str(exc)
         return result
 

@@ -38,12 +38,23 @@ REQUIRED_MODELS = [
 OLLAMA_API = 'http://localhost:11434'
 
 
-def ok(msg):   print(f'  ✓ {msg}')
-def info(msg): print(f'  → {msg}')
-def err(msg):  print(f'  ✗ {msg}', file=sys.stderr)
+def ok(msg):
+    """Print a green-check-style success line."""
+    print(f'  ✓ {msg}')
+
+
+def info(msg):
+    """Print an informational status line."""
+    print(f'  → {msg}')
+
+
+def err(msg):
+    """Print an error line to stderr."""
+    print(f'  ✗ {msg}', file=sys.stderr)
 
 
 def ask(question, default_yes=True) -> bool:
+    """Prompt the user for a yes/no answer; ^C or EOF returns False."""
     hint = '[Y/n]' if default_yes else '[y/N]'
     try:
         answer = input(f'  {question} {hint}: ').strip().lower()
@@ -54,6 +65,7 @@ def ask(question, default_yes=True) -> bool:
 
 
 def platform() -> str:
+    """Return the current OS as one of ``linux``/``macos``/``windows``/``unknown``."""
     if sys.platform == 'linux':
         return 'linux'
     if sys.platform == 'darwin':
@@ -66,10 +78,13 @@ def platform() -> str:
 # ── 1. Binary present? ───────────────────────────────────────────────────────
 
 def ollama_installed() -> bool:
+    """Return True if the ``ollama`` binary is on PATH."""
     return shutil.which('ollama') is not None
 
 
+# pylint: disable-next=too-many-statements
 def install_ollama():
+    """Interactively install ollama for the detected platform, or exit non-zero."""
     plat = platform()
     print()
     print('  Ollama is not installed. It is required for semantic search.')
@@ -81,7 +96,9 @@ def install_ollama():
             print('    curl -fsSL https://ollama.com/install.sh | sh', file=sys.stderr)
             sys.exit(1)
         print()
-        ret = subprocess.run('curl -fsSL https://ollama.com/install.sh | sh', shell=True)
+        ret = subprocess.run(
+            'curl -fsSL https://ollama.com/install.sh | sh', shell=True, check=False,
+        )
         if ret.returncode != 0 or not ollama_installed():
             err('Installation failed. Try manually:')
             print('    curl -fsSL https://ollama.com/install.sh | sh', file=sys.stderr)
@@ -97,7 +114,7 @@ def install_ollama():
                 print('    or download from: https://ollama.com/download', file=sys.stderr)
                 sys.exit(1)
             print()
-            ret = subprocess.run(['brew', 'install', 'ollama'])
+            ret = subprocess.run(['brew', 'install', 'ollama'], check=False)
             if ret.returncode != 0 or not ollama_installed():
                 err('Homebrew install failed. Try downloading directly:')
                 print('    https://ollama.com/download', file=sys.stderr)
@@ -129,15 +146,19 @@ def install_ollama():
 # ── 2. Service reachable? ────────────────────────────────────────────────────
 
 def ollama_reachable() -> bool:
+    """Return True if ``ollama serve`` is answering on the local API port."""
     try:
-        urlopen(f'{OLLAMA_API}/api/tags', timeout=3)
-        return True
+        with urlopen(f'{OLLAMA_API}/api/tags', timeout=3):
+            return True
     except URLError:
         return False
 
 
 def start_ollama():
+    """Spawn ``ollama serve`` as a detached background process and wait for it."""
     info('Ollama service not running — starting in background...')
+    # Detached background process — intentional: it must outlive this script.
+    # pylint: disable-next=consider-using-with
     subprocess.Popen(
         ['ollama', 'serve'],
         stdout=subprocess.DEVNULL,
@@ -159,19 +180,22 @@ def start_ollama():
 # ── 3. Models present? ───────────────────────────────────────────────────────
 
 def installed_models() -> set:
+    """Return the set of model names Ollama currently reports as installed."""
     try:
-        resp = urlopen(f'{OLLAMA_API}/api/tags', timeout=5)
-        data = json.loads(resp.read())
+        with urlopen(f'{OLLAMA_API}/api/tags', timeout=5) as resp:
+            data = json.loads(resp.read())
         return {m.get('name', '') for m in data.get('models', [])}
-    except Exception:
+    except (URLError, OSError, json.JSONDecodeError):
         return set()
 
 
 def model_present(model: str, names: set) -> bool:
+    """Return True if *model* (possibly with a :tag suffix) matches any name in *names*."""
     return any(model in name for name in names)
 
 
 def pull_model(model: str, size: str, purpose: str):
+    """Interactively pull an Ollama model, or exit non-zero if declined."""
     print()
     print(f'  The {model} model is not installed ({size} download).')
     print(f'  It is required for: {purpose}.')
@@ -181,7 +205,7 @@ def pull_model(model: str, size: str, purpose: str):
         print(f'    ollama pull {model}', file=sys.stderr)
         sys.exit(1)
     print()
-    ret = subprocess.run(['ollama', 'pull', model])
+    ret = subprocess.run(['ollama', 'pull', model], check=False)
     if ret.returncode != 0:
         err(f'Failed to pull {model}. Try manually: ollama pull {model}')
         sys.exit(1)
@@ -191,6 +215,7 @@ def pull_model(model: str, size: str, purpose: str):
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    """Verify Ollama binary, service, and required models — install / start / pull as needed."""
     print('Checking Ollama prerequisites...')
 
     if not ollama_installed():

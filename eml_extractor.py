@@ -57,7 +57,7 @@ def _decode_header(raw) -> str:
         return raw.strip()
     try:
         return str(raw).strip()
-    except Exception:
+    except (UnicodeError, ValueError):
         return ""
 
 
@@ -122,24 +122,24 @@ def _walk_body(msg) -> tuple[str, list[str]]:
         if ctype == "text/plain":
             try:
                 plain_parts.append(part.get_content())
-            except Exception:
+            except (LookupError, KeyError, UnicodeError, ValueError):
                 try:
                     payload = part.get_payload(decode=True) or b""
                     plain_parts.append(payload.decode(
                         part.get_content_charset() or "utf-8",
                         errors="replace"))
-                except Exception:
+                except (LookupError, UnicodeError, ValueError):
                     pass
         elif ctype == "text/html":
             try:
                 html_parts.append(part.get_content())
-            except Exception:
+            except (LookupError, KeyError, UnicodeError, ValueError):
                 try:
                     payload = part.get_payload(decode=True) or b""
                     html_parts.append(payload.decode(
                         part.get_content_charset() or "utf-8",
                         errors="replace"))
-                except Exception:
+                except (LookupError, UnicodeError, ValueError):
                     pass
 
     # Prefer plain text; fall back to stripped HTML
@@ -218,6 +218,6 @@ def extract_eml(file_path: str) -> dict:
         result["success"] = True
         return result
 
-    except Exception as exc:
+    except (OSError, ValueError, LookupError, UnicodeError) as exc:
         result["error"] = str(exc)
         return result

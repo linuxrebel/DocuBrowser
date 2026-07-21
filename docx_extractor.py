@@ -11,7 +11,10 @@ Returns a dict with the same shape as pdf_extractor.extract_pdf() so
 scan_docs._extract_file() can handle it uniformly.
 """
 
-from pathlib import Path
+try:
+    import docx as _docx           # python-docx package (imported as ``docx``)
+except ImportError:
+    _docx = None
 
 
 def extract_docx(file_path: str) -> dict:
@@ -35,10 +38,12 @@ def extract_docx(file_path: str) -> dict:
         "error":       None,
     }
 
-    try:
-        import docx  # python-docx
+    if _docx is None:
+        result["error"] = "python-docx not installed"
+        return result
 
-        doc = docx.Document(file_path)
+    try:
+        doc = _docx.Document(file_path)
 
         # ── Core properties (metadata) ────────────────────────────────────
         cp = doc.core_properties
@@ -78,6 +83,6 @@ def extract_docx(file_path: str) -> dict:
 
         return result
 
-    except Exception as exc:
+    except (OSError, ValueError, KeyError) as exc:
         result["error"] = str(exc)
         return result

@@ -29,11 +29,26 @@ System dependency (already installed on this machine):
 import contextlib
 import io
 import os
-import shutil
+import shutil     # noqa: F401  (kept for callers that already import from here)
 import subprocess
 import tempfile
 import warnings
 from pathlib import Path
+
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None
+try:
+    import ebooklib
+    from ebooklib import epub
+except ImportError:
+    ebooklib = None
+    epub = None
+try:
+    import mobi
+except ImportError:
+    mobi = None
 
 _TEXT_LIMIT = 5000
 _CALIBRE_TIMEOUT = 60   # seconds per file for ebook-convert
@@ -44,7 +59,7 @@ def extract_ebook(file_path: str) -> dict:
     ext = Path(file_path).suffix.lower()
     if ext == '.epub':
         return _extract_epub(file_path)
-    elif ext in ('.mobi', '.azw', '.azw3'):
+    if ext in ('.mobi', '.azw', '.azw3'):
         return _extract_mobi(file_path)
     return _make_result(error=f'Unsupported format: {ext}')
 
@@ -67,9 +82,10 @@ def _make_result(doc_type='ebook', error=None):
 
 def _html_to_text(html_bytes_or_str) -> str:
     """Strip HTML tags; return plain text."""
-    from bs4 import BeautifulSoup
     if isinstance(html_bytes_or_str, bytes):
         html_bytes_or_str = html_bytes_or_str.decode('utf-8', errors='replace')
+    if BeautifulSoup is None:
+        return html_bytes_or_str   # degraded — leaves markup, still searchable
     return BeautifulSoup(html_bytes_or_str, 'html.parser').get_text(' ', strip=True)
 
 
@@ -103,7 +119,7 @@ def _calibre_metadata(file_path: str) -> dict:
     try:
         proc = subprocess.run(
             ['ebook-meta', file_path],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True, text=True, timeout=15, check=False,
         )
         for line in proc.stdout.splitlines():
             if ':' not in line:
@@ -123,7 +139,7 @@ def _calibre_metadata(file_path: str) -> dict:
                 meta['subject'] = val
             elif key == 'publisher':
                 meta['description'] = f'Publisher: {val}'
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         pass
     return meta
 
@@ -139,13 +155,13 @@ def _calibre_convert_to_text(file_path: str) -> str:
         os.close(fd)
         proc = subprocess.run(
             ['ebook-convert', file_path, tmp_path],
-            capture_output=True, text=True, timeout=_CALIBRE_TIMEOUT,
+            capture_output=True, text=True, timeout=_CALIBRE_TIMEOUT, check=False,
         )
         if proc.returncode == 0 and os.path.exists(tmp_path):
             with open(tmp_path, encoding='utf-8', errors='replace') as f:
                 return f.read()
         return ''
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return ''
     finally:
         if tmp_path:
@@ -158,11 +174,12 @@ def _calibre_convert_to_text(file_path: str) -> str:
 # ── EPUB ──────────────────────────────────────────────────────────────────────
 
 def _extract_epub(file_path: str, doc_type: str = 'epub') -> dict:
+    """Extract EPUB (or MOBI-embedded EPUB) via ebooklib."""
     result = _make_result(doc_type=doc_type)
+    if ebooklib is None or epub is None:
+        result['error'] = 'ebooklib not installed'
+        return result
     try:
-        import ebooklib
-        from ebooklib import epub
-
         # ebooklib emits a FutureWarning about rootfile XPath — suppress it
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
@@ -183,7 +200,7 @@ def _extract_epub(file_path: str, doc_type: str = 'epub') -> dict:
                 if t:
                     parts.append(t)
                     total += len(t)
-            except Exception:
+            except (OSError, ValueError, UnicodeError):
                 pass
 
         full_text         = '\n'.join(parts)
@@ -192,13 +209,14 @@ def _extract_epub(file_path: str, doc_type: str = 'epub') -> dict:
         result['success'] = True
         return result
 
-    except Exception as exc:
+    except (OSError, ValueError, KeyError, epub.EpubException) as exc:
         result['error'] = str(exc)
         return result
 
 
 # ── MOBI / AZW / AZW3 ────────────────────────────────────────────────────────
 
+# pylint: disable-next=too-many-locals,too-many-branches,too-many-statements
 def _extract_mobi(file_path: str) -> dict:
     """
     Extraction pipeline for MOBI/AZW/AZW3:
@@ -217,8 +235,10 @@ def _extract_mobi(file_path: str) -> dict:
 
     # Step 2: Text via mobi package
     tempdir = None
+    if mobi is None:
+        result['error'] = 'mobi package not installed'
+        return result
     try:
-        import mobi
         _sink = io.StringIO()
         with contextlib.redirect_stdout(_sink), contextlib.redirect_stderr(_sink):
             tempdir, main_file = mobi.extract(file_path)
@@ -236,23 +256,26 @@ def _extract_mobi(file_path: str) -> dict:
             inner['doc_type'] = 'mobi'
             return inner
 
+        # mobi7 raw HTML — BeautifulSoup imported at module top
+        html = main_path.read_text(encoding='utf-8', errors='replace')
+        if BeautifulSoup is None:
+            body = html   # degraded — leaves markup, still searchable
+            title_text = None
         else:
-            # mobi7 raw HTML
-            html = main_path.read_text(encoding='utf-8', errors='replace')
-            from bs4 import BeautifulSoup
             soup = BeautifulSoup(html, 'html.parser')
-            if not result['title']:
-                t = soup.find('title')
-                result['title'] = t.get_text(strip=True) if t else None
+            t = soup.find('title')
+            title_text = t.get_text(strip=True) if t else None
             body = soup.get_text(' ', strip=True)
-            result['text']    = body[:_TEXT_LIMIT]
-            result['snippet'] = body[:500]
-            result['success'] = bool(body)
-            if not result['success']:
-                result['error'] = 'No text in mobi7 HTML'
-            return result
+        if not result['title']:
+            result['title'] = title_text
+        result['text']    = body[:_TEXT_LIMIT]
+        result['snippet'] = body[:500]
+        result['success'] = bool(body)
+        if not result['success']:
+            result['error'] = 'No text in mobi7 HTML'
+        return result
 
-    except Exception as mobi_err:
+    except (OSError, ValueError, KeyError, RuntimeError) as mobi_err:
         # Step 3: Fallback to ebook-convert
         text = _calibre_convert_to_text(file_path)
         if text.strip():

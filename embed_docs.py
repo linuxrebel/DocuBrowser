@@ -17,7 +17,6 @@ import argparse
 import itertools
 import json
 import os
-import signal
 import sqlite3
 import struct
 import sys
@@ -27,7 +26,6 @@ from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from datetime import datetime
 from pathlib import Path
 from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
 
 
 # embed_docs.py can be run standalone (not via docubrowser.py), so it sets its
@@ -56,7 +54,10 @@ try:
     DEFAULT_WORKERS = recommended_embed_workers()
 except ImportError:
     DEFAULT_WORKERS = 6
-    def wait_for_memory(**kw): return False
+
+    def wait_for_memory(**_kw):
+        """No-op fallback when hardware_utils is unavailable."""
+        return False
 
 # Progress display: compact bar in TTY, verbose per-file when piped/logged
 _IS_TTY = sys.stdout.isatty()
@@ -67,15 +68,15 @@ def _progress_bar(completed: int, total: int, start_time: float, errors: int = 0
     elapsed = time.time() - start_time + 0.001
     pct     = completed * 100 // total
     width   = 25
-    filled  = width * completed // total
-    bar     = "█" * filled + "░" * (width - filled)
-    rate    = completed / elapsed
-    remain  = (total - completed) / rate if rate > 0 else 0
-    eta     = (f"{int(remain // 60)}m{int(remain % 60):02d}s"
-               if remain > 60 else f"{remain:.0f}s")
-    err_str = f"  \033[91m{errors} err\033[0m" if errors else ""
+    filled     = width * completed // total
+    bar_glyph  = "█" * filled + "░" * (width - filled)
+    rate       = completed / elapsed
+    remain     = (total - completed) / rate if rate > 0 else 0
+    eta        = (f"{int(remain // 60)}m{int(remain % 60):02d}s"
+                  if remain > 60 else f"{remain:.0f}s")
+    err_str    = f"  \033[91m{errors} err\033[0m" if errors else ""
     return (
-        f"\r  [{bar}] {pct:3d}%  {completed}/{total}"
+        f"\r  [{bar_glyph}] {pct:3d}%  {completed}/{total}"
         f"  {rate:.1f}/s  ETA {eta}{err_str}  "
     )
 
@@ -104,7 +105,7 @@ def _embed_one(args: tuple) -> tuple:
             data      = json.loads(resp.read().decode("utf-8"))
             embedding = data.get("embedding") or (data.get("embeddings") or [None])[0]
             return (doc_id, name, embedding)
-    except Exception as e:
+    except (OSError, ValueError, json.JSONDecodeError):
         return (doc_id, name, None)
 
 
@@ -117,6 +118,7 @@ def vector_to_blob(vector: list) -> bytes:
 
 # ── Main entry point ──────────────────────────────────────────────────────────
 
+# pylint: disable-next=too-many-locals,too-many-statements
 def embed_docs(db_path: str, limit: int = None, workers: int = DEFAULT_WORKERS):
     """
     Embed all documents that lack embeddings (or have stale ones).
@@ -178,7 +180,7 @@ def embed_docs(db_path: str, limit: int = None, workers: int = DEFAULT_WORKERS):
     completed   = 0
     write_lock  = threading.Lock()
 
-    def _write(doc_id, embedding, completed_idx):
+    def _write(doc_id, embedding, _completed_idx):
         """Serialise DB write; called from main thread via lock."""
         nonlocal last_commit
         blob = vector_to_blob(embedding)
@@ -197,13 +199,13 @@ def embed_docs(db_path: str, limit: int = None, workers: int = DEFAULT_WORKERS):
 
     # Sliding-window: keep workers*3 requests in-flight (HTTP I/O, low memory
     # per item) with memory checks between fills.
-    MAX_IN_FLIGHT = workers * 3
+    max_in_flight = workers * 3
     work_iter     = iter(work_items)
     in_flight     = {}   # future -> name
     width         = len(str(total))
 
     def _fill_queue(executor):
-        for item in itertools.islice(work_iter, MAX_IN_FLIGHT - len(in_flight)):
+        for item in itertools.islice(work_iter, max_in_flight - len(in_flight)):
             wait_for_memory(is_tty=_IS_TTY)
             f = executor.submit(_embed_one, item)
             in_flight[f] = item[1]
@@ -272,6 +274,7 @@ def embed_docs(db_path: str, limit: int = None, workers: int = DEFAULT_WORKERS):
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def build_parser():
+    """Return the argparse parser for the ``embed_docs`` CLI."""
     p = argparse.ArgumentParser(
         description="Generate Ollama embeddings for DocuBrowse documents",
     )
@@ -284,9 +287,9 @@ def build_parser():
 
 
 if __name__ == "__main__":
-    args = build_parser().parse_args()
+    _cli_args = build_parser().parse_args()
     print(f"Ollama host:  {OLLAMA_HOST}")
     print(f"Model:        {EMBEDDING_MODEL}")
-    print(f"Workers:      {args.workers}")
+    print(f"Workers:      {_cli_args.workers}")
     print()
-    embed_docs(args.db_path, limit=args.limit, workers=args.workers)
+    embed_docs(_cli_args.db_path, limit=_cli_args.limit, workers=_cli_args.workers)

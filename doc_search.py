@@ -6,21 +6,27 @@ DocuBrowse search server.
 HTTP server on port 8643 with merged keyword + semantic search.
 """
 
+# Splitting doc_search into multiple modules is on the deferred list — the
+# HTTP handler, embedding cache, and Ollama client all share so much state
+# that a naive split would explode the import surface. Deferred.
+# pylint: disable=too-many-lines
+
 import errno
 import ipaddress
 import json
 import logging
+import math
+import mimetypes
 import os
+import re
 import secrets
 import shutil
-import math
-import re
 import socket
 import sqlite3
 import struct
-import threading
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -37,6 +43,29 @@ from urllib.error import URLError
 APP_DIR   = Path(__file__).resolve().parent
 USER_DATA = Path.home() / ".docubrowser"
 
+# sys.path insert MUST precede the scan_docs import (module isn't on the
+# system path when running from a checkout / installed via tarball).
+sys.path.insert(0, str(APP_DIR))
+
+# pylint: disable=wrong-import-position
+# These imports live below sys.path.insert on purpose; noqa: E402 covers pyflakes.
+from docubrowse_db import get_db, check_missing_path, delete_document   # noqa: E402
+from platform_paths import (                                             # noqa: E402
+    scan_pid_file as _scan_pid_file,
+    pid_exists as _pid_exists,
+)
+from scan_docs import (                                                  # noqa: E402
+    _load_ignore_dirs, _load_scan_dirs, _blacklist_add,
+    IGNORE_DIRS_FILENAME, SCAN_DIRS_FILENAME,
+    purge_path_prefix,
+)
+# pylint: enable=wrong-import-position
+
+try:
+    import numpy as _np                    # pylint: disable=invalid-name
+except ImportError:  # numpy normally present (dup_detect uses it); degrade gracefully
+    _np = None       # pylint: disable=invalid-name
+
 
 def _default_data_dir() -> Path:
     """APP_DIR if writable (dev mode), else ~/.docubrowser/ (packaged)."""
@@ -44,23 +73,6 @@ def _default_data_dir() -> Path:
         return APP_DIR
     USER_DATA.mkdir(parents=True, exist_ok=True)
     return USER_DATA
-
-
-from docubrowse_db import get_db, check_missing_path, delete_document
-
-# Lazy-loaded scan_docs helpers (avoids sys.path.insert per request).
-# scan_docs.py lives in the same directory as this file.
-sys.path.insert(0, str(APP_DIR))
-from scan_docs import (                     # noqa: E402
-    _load_ignore_dirs, _load_scan_dirs,
-    IGNORE_DIRS_FILENAME, SCAN_DIRS_FILENAME,
-    purge_path_prefix,
-)
-
-try:
-    import numpy as _np
-except Exception:  # numpy is normally present (dup_detect uses it); degrade gracefully
-    _np = None
 
 
 __all__ = [
@@ -106,12 +118,12 @@ SYNOPSIS_TIMEOUT_SECS = 90
 # scan/embed finishes (the embedding model is unloaded by Ollama once idle,
 # freeing RAM for dolphin3).
 
-_synopsis_warm = False   # set True once warmup succeeds
+SYNOPSIS_WARM = False   # set True once warmup succeeds
 
 
 def _warmup_synopsis_model():
     """Send a trivial prompt to dolphin3 so Ollama loads it into RAM."""
-    global _synopsis_warm
+    global SYNOPSIS_WARM   # pylint: disable=global-statement
     try:
         url = f"{OLLAMA_HOST}/api/generate"
         payload = json.dumps({
@@ -124,23 +136,22 @@ def _warmup_synopsis_model():
         request.add_header("Content-Type", "application/json")
         with urlopen(request, timeout=120) as resp:
             resp.read()
-        _synopsis_warm = True
+        SYNOPSIS_WARM = True
         print("  Synopsis model: OK (dolphin3 loaded)")
-    except Exception as exc:
+    except (URLError, socket.timeout, OSError) as exc:
         print(f"  Synopsis model: ⚠ warmup failed ({exc})")
 
 
 def _is_scan_running() -> bool:
     """Check if a scan/embed process is currently running."""
     try:
-        from platform_paths import scan_pid_file, pid_exists
-        pidfile = scan_pid_file()
+        pidfile = _scan_pid_file()
         if not pidfile.exists():
             return False
-        pid = int(pidfile.read_text().strip())
+        pid = int(pidfile.read_text(encoding="utf-8").strip())
         # Check if the process is actually alive (Windows-safe; a bare
         # os.kill(pid, 0) probe would kill the scan on Windows).
-        return pid_exists(pid)
+        return _pid_exists(pid)
     except (ValueError, OSError):
         return False
 
@@ -201,7 +212,7 @@ def embed_text(text: str) -> list:
             # Accept either shape so semantic search keeps working regardless
             # of the Ollama endpoint/version. (Matches embed_docs.py.)
             return data.get('embedding') or (data.get('embeddings') or [None])[0]
-    except Exception as e:
+    except (URLError, socket.timeout, OSError, json.JSONDecodeError) as e:
         sys.stderr.write(f"[embed_text] embedding request failed: {e}\n")
         return None
 
@@ -252,7 +263,7 @@ def generate_synopsis(title: str, description: str, snippet: str) -> tuple:
         if isinstance(e.reason, socket.timeout):
             return None, "timeout"
         return None, "error"
-    except Exception:
+    except (OSError, json.JSONDecodeError):
         return None, "error"
 
 
@@ -423,7 +434,15 @@ class DocuBrowseServer(ThreadingHTTPServer):
 
 
 class DocSearchHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for document search."""
+    """HTTP request handler for document search.
+
+    Method count intentionally exceeds pylint's 20-method ceiling: each
+    ``/api/*`` endpoint gets its own ``handle_*`` method for locality of
+    reasoning, and BaseHTTPRequestHandler contributes several inherited
+    methods (send_response, log_message, ...).  Splitting into multiple
+    handler classes would require per-endpoint routing at a lower layer.
+    """
+    # pylint: disable=too-many-public-methods
 
     db_path     = None          # Will be set by server
     server_port = DEFAULT_PORT  # Will be set by server
@@ -435,9 +454,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         base = configured_name.split(":")[0]
         return any(base == m.split(":")[0] for m in model_list)
 
-    def log_message(self, format, *args):
-        """Suppress default logging."""
-        pass
+    def log_message(self, format, *args):   # pylint: disable=redefined-builtin
+        """Suppress default access logging (framework API — ``format`` name required)."""
 
     def _host_allowed(self) -> bool:
         """Reject requests whose Host header isn't a local loopback name.
@@ -490,92 +508,101 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             return False
         return True
 
+    # ── Route tables — dict dispatch avoids a giant if/elif chain ──────────
+    # Routes that take (self)                     → handler bound method
+    # Routes that take (self, query)              → handler bound method
+    # Populated in __init_subclass__ lazily via property below.
+
+    def _serve_icon(self, path: str) -> None:
+        """Serve an icon asset, restricted to known safe extensions."""
+        fname = path[len('/icons/'):]
+        if '/' in fname or '..' in fname:
+            self.error_response(403, "Forbidden")
+        elif fname.endswith(('.png', '.svg', '.ico')):
+            self.serve_file(f'icons/{fname}')
+        else:
+            self.error_response(404, "Not found")
+
+    def _dispatch_get(self, path: str, query: dict) -> None:
+        """Look up *path* in the GET route table and invoke the handler."""
+        no_arg = {
+            '/':                lambda: self.serve_file('index.html'),
+            '/settings':        lambda: self.serve_file('settings.html'),
+            '/favicon.ico':     lambda: self.serve_file('icons/favicon.ico'),
+            '/api/stats':       self.handle_stats,
+            '/api/tags':        self.handle_tags,
+            '/api/letters':     self.handle_letters,
+            '/api/config':      self.handle_config,
+            '/api/ignore-dirs': self.handle_ignore_dirs,
+            '/api/scan-dirs':   self.handle_scan_dirs,
+            '/api/status':      self.handle_status,
+        }
+        with_query = {
+            '/api/search':      self.handle_search,
+            '/api/synopsis':    self.handle_synopsis_get,
+            '/api/browse':      self.handle_browse,
+        }
+        if path in no_arg:
+            no_arg[path]()
+        elif path in with_query:
+            with_query[path](query)
+        elif path.startswith('/icons/'):
+            self._serve_icon(path)
+        else:
+            self.error_response(404, "Not found")
+
+    def _dispatch_post(self, path: str, query: dict) -> None:
+        """Look up *path* in the POST route table and invoke the handler."""
+        no_arg = {
+            '/api/config':      self.handle_config_post,
+            '/api/ignore-dirs': self.handle_ignore_dirs_post,
+            '/api/scan-dirs':   self.handle_scan_dirs_post,
+        }
+        with_query = {
+            '/api/synopsis':    self.handle_synopsis,
+            '/api/delete':      self.handle_delete,
+            '/api/add-tags':    self.handle_add_tags,
+            '/api/remove-tag':  self.handle_remove_tag,
+            '/api/open':        self.handle_open,
+        }
+        if path in no_arg:
+            no_arg[path]()
+        elif path in with_query:
+            with_query[path](query)
+        else:
+            self.error_response(404, "Not found")
+
+    # pylint: disable=invalid-name
+    # do_GET / do_POST names are mandated by BaseHTTPRequestHandler.
     def do_GET(self):
-        """Handle GET requests."""
+        """Handle GET requests — dispatch via ``_dispatch_get``."""
         if not self._host_allowed():
             self.error_response(403, "Forbidden: invalid Host header")
             return
         parsed = urlparse(self.path)
-        path = parsed.path
-        query = parse_qs(parsed.query)
-
         try:
-            if path == '/':
-                self.serve_file('index.html')
-            elif path == '/settings':
-                self.serve_file('settings.html')
-            elif path == '/api/stats':
-                self.handle_stats()
-            elif path == '/api/tags':
-                self.handle_tags()
-            elif path == '/api/letters':
-                self.handle_letters()
-            elif path == '/api/search':
-                self.handle_search(query)
-            elif path == '/api/config':
-                self.handle_config()
-            elif path == '/api/synopsis':
-                # Read-only: return cached synopsis without generating
-                self.handle_synopsis_get(query)
-            elif path == '/api/ignore-dirs':
-                self.handle_ignore_dirs()
-            elif path == '/api/scan-dirs':
-                self.handle_scan_dirs()
-            elif path == '/api/browse':
-                self.handle_browse(query)
-            elif path == '/api/status':
-                self.handle_status()
-            elif path == '/favicon.ico':
-                self.serve_file('icons/favicon.ico')
-            elif path.startswith('/icons/'):
-                # Serve icon assets — restrict to known safe extensions
-                fname = path[len('/icons/'):]
-                if '/' in fname or '..' in fname:
-                    self.error_response(403, "Forbidden")
-                elif fname.endswith(('.png', '.svg', '.ico')):
-                    self.serve_file(f'icons/{fname}')
-                else:
-                    self.error_response(404, "Not found")
-            else:
-                self.error_response(404, "Not found")
-        except Exception:
+            self._dispatch_get(parsed.path, parse_qs(parsed.query))
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Top-level handler safety net: any handler crash must produce a
+            # 500 rather than take down the server thread.
             logging.exception("Unhandled error in do_GET: %s", self.path)
             self.error_response(500, "Internal server error")
 
     def do_POST(self):
-        """Handle POST requests."""
+        """Handle POST requests — dispatch via ``_dispatch_post``."""
         if not self._host_allowed():
             self.error_response(403, "Forbidden: invalid Host header")
             return
         parsed = urlparse(self.path)
-        path = parsed.path
-        query = parse_qs(parsed.query)
-
         try:
             # All POST routes are state-changing — gate them all against CSRF.
             if not self._guard_mutation():
                 return
-            if path == '/api/synopsis':
-                self.handle_synopsis(query)
-            elif path == '/api/config':
-                self.handle_config_post()
-            elif path == '/api/ignore-dirs':
-                self.handle_ignore_dirs_post()
-            elif path == '/api/scan-dirs':
-                self.handle_scan_dirs_post()
-            elif path == '/api/delete':
-                self.handle_delete(query)
-            elif path == '/api/add-tags':
-                self.handle_add_tags(query)
-            elif path == '/api/remove-tag':
-                self.handle_remove_tag(query)
-            elif path == '/api/open':
-                self.handle_open(query)
-            else:
-                self.error_response(404, "Not found")
-        except Exception:
+            self._dispatch_post(parsed.path, parse_qs(parsed.query))
+        except Exception:  # pylint: disable=broad-exception-caught
             logging.exception("Unhandled error in do_POST: %s", self.path)
             self.error_response(500, "Internal server error")
+    # pylint: enable=invalid-name
 
     def handle_stats(self):
         """GET /api/stats - Return database statistics."""
@@ -602,7 +629,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             "timestamp": datetime.now().isoformat()
         })
 
-    def handle_status(self):
+    def handle_status(self):   # pylint: disable=too-many-locals
         """GET /api/status - Health and readiness check for monitoring systems.
 
         No CSRF required — monitoring agents must be able to probe this endpoint
@@ -615,24 +642,23 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         """
         uptime = time.time() - (_SERVER_START_TIME or time.time())
 
-        # DB connectivity — use try/finally to guarantee close on any path
+        # DB connectivity — use try/finally to guarantee close on any path.
+        # We probe documents (round-trip validates the FTS-backing table) and
+        # embeddings; only the embedded count is surfaced in the response.
         db_ok = False
         db_error = None
-        doc_count = 0
         embedded_count = 0
         try:
             conn = get_db(self.db_path)
             try:
-                doc_count = conn.execute(
-                    "SELECT COUNT(*) FROM documents"
-                ).fetchone()[0]
+                conn.execute("SELECT COUNT(*) FROM documents").fetchone()
                 embedded_count = conn.execute(
                     "SELECT COUNT(*) FROM doc_embeddings"
                 ).fetchone()[0]
                 db_ok = True
             finally:
                 conn.close()
-        except Exception as e:
+        except sqlite3.Error as e:
             db_error = str(e)
 
         # Ollama connectivity — lightweight /api/tags hit, 5 s socket timeout
@@ -645,7 +671,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 data = json.loads(resp.read().decode("utf-8"))
                 ollama_models = [m.get("name", "") for m in data.get("models", [])]
                 ollama_ok = True
-        except Exception as e:
+        except (URLError, socket.timeout, OSError, json.JSONDecodeError) as e:
             ollama_error = str(e)
 
         # Normalize model names for comparison: strip tag suffix from both sides
@@ -711,8 +737,16 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         letters = sorted(r[0] for r in rows if r[0])
         self.json_response({"letters": letters})
 
+    # pylint: disable-next=too-many-locals,too-many-branches,too-many-statements
     def handle_search(self, query: dict):
-        """GET /api/search - Search documents."""
+        """GET /api/search - Search documents.
+
+        The three complexity metrics come from the two-mode branch (empty-vs
+        query), the score-merge logic (keyword-only / semantic-only / both
+        with the sem_floor gate), and the paged-metadata fetch. Splitting
+        would obscure the tight coupling between the mode branch and the
+        SQL it drives.
+        """
         q = query.get('q', [''])[0].strip()
         mode = query.get('mode', ['both'])[0]  # both, keyword, semantic
         offset = int(query.get('offset', ['0'])[0])
@@ -726,7 +760,10 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             where_clause = ''
             where_params = []
             if letter == '0-9':
-                where_clause = "WHERE upper(substr(COALESCE(d.title, d.name, ''), 1, 1)) NOT GLOB '[A-Z]'"
+                where_clause = (
+                    "WHERE upper(substr(COALESCE(d.title, d.name, ''), 1, 1))"
+                    " NOT GLOB '[A-Z]'"
+                )
             elif len(letter) == 1 and letter.isalpha():
                 where_clause = "WHERE upper(substr(COALESCE(d.title, d.name, ''), 1, 1)) = ?"
                 where_params.append(letter)
@@ -805,9 +842,9 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             # semantic score (>= 0.30) to appear in combined results.
             # Without this gate, every embedded document leaks in via
             # low-but-nonzero cosine similarity — burying keyword matches.
-            SEM_FLOOR = 0.30
+            sem_floor = 0.30
             all_ids = set(kw_scores) | {
-                did for did, s in sem_scores.items() if s >= SEM_FLOOR
+                did for did, s in sem_scores.items() if s >= sem_floor
             }
             for doc_id in all_ids:
                 fts = kw_scores.get(doc_id, 0.0)
@@ -815,7 +852,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 # Use max rather than weighted average so a strong keyword
                 # match isn't diluted by a zero semantic score (no embedding)
                 # and vice versa. When both are present, boost slightly.
-                if fts > 0 and sem >= SEM_FLOOR:
+                if fts > 0 and sem >= sem_floor:
                     final = min(max(fts, sem) + 0.1 * min(fts, sem), 1.0)
                 else:
                     final = max(fts, sem)
@@ -922,6 +959,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         return env
 
+    # pylint: disable-next=too-many-return-statements,too-many-branches,too-many-statements,too-many-locals
     def handle_open(self, query: dict):
         """POST /api/open?path=<encoded-path> — Open a file with the desktop default app.
 
@@ -932,6 +970,12 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         working handler exists.  This affects both Flatpak apps (whose .desktop
         MimeType list may omit specific subtypes) and native apps like GVim.
         See status_docs/DECISIONS.md — "xdg-mime false-negative on KDE".
+
+        Complexity in this function reflects the opener chain × platform
+        matrix (Windows fast-path, missing-file / unmounted checks, four
+        opener candidates, timeout vs. exit code disambiguation). Splitting
+        it further would fragment the control flow across many tiny helpers
+        without improving readability.
         """
         path = query.get('path', [''])[0].strip()
         if not path:
@@ -951,7 +995,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             status = check_missing_path(path)
             if status == "unmounted":
                 self.json_response({"ok": False, "error": "unmounted",
-                                     "message": f"Cannot verify — the device for this path does not appear to be mounted: {path}"})
+                                     "message": (f"Cannot verify — the device for this path"
+                                                 f" does not appear to be mounted: {path}")})
             else:
                 self.json_response({"ok": False, "error": "missing",
                                      "message": f"File not found on disk: {path}"})
@@ -962,15 +1007,15 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         # Detect MIME type for diagnostic messages only — NOT a gate for opening.
         mime = None
         try:
-            import mimetypes as _mt
-            mime, _ = _mt.guess_type(str(p))
+            mime, _ = mimetypes.guess_type(str(p))
             if not mime and shutil.which('xdg-mime'):
                 r = subprocess.run(
                     ['xdg-mime', 'query', 'filetype', str(p)],
                     capture_output=True, text=True, timeout=5, env=env,
+                    check=False,
                 )
                 mime = r.stdout.strip() or None
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             pass
 
         # Windows: os.startfile() is the native opener — no subprocess needed.
@@ -1005,7 +1050,10 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         last_err = "all openers failed"
         for opener in openers:
             try:
-                proc = subprocess.Popen(
+                # `with subprocess.Popen(...)` would auto-terminate the child
+                # on exit — but for the timeout path we intentionally let the
+                # GUI opener keep running after this function returns.
+                proc = subprocess.Popen(   # pylint: disable=consider-using-with
                     opener,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.PIPE,
@@ -1086,7 +1134,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         # leaves the harmless contentless-FTS orphan).
         try:
             delete_document(conn, doc_id)
-        except Exception as e:
+        except sqlite3.Error as e:
             conn.close()
             self.json_response({"ok": False, "error": f"DB delete failed: {e}"})
             return
@@ -1094,7 +1142,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         # Mode: blacklist — add to scan_blacklist.txt so future scans skip it
         if mode == 'blacklist':
-            from scan_docs import _blacklist_add
             _blacklist_add(Path(self.db_path), path, "removed via UI")
 
         self.json_response({"ok": True, "deleted": path, "mode": mode})
@@ -1230,7 +1277,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 "empty": "No description or text is available for this document to summarize.",
                 "timeout": "The AI model is still loading after a recent restart — this can "
                            "take a minute the first time. Please wait a moment and try again.",
-                "error": "Couldn't reach the AI model (Ollama). Make sure it's running, then try again.",
+                "error": ("Couldn't reach the AI model (Ollama)."
+                          " Make sure it's running, then try again."),
             }
             self.json_response({
                 "ok": False,
@@ -1277,7 +1325,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 "path": str(path_obj),
                 "entries": entries[:201],
             })
-        except Exception as e:
+        except (OSError, ValueError) as e:
             self.json_response({
                 "path": path_param,
                 "error": str(e),
@@ -1393,6 +1441,24 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                     sd_path.unlink(missing_ok=True)
             self.json_response({"ok": True, "dirs": sorted(dirs)})
 
+    @staticmethod
+    def _apply_config_line(line: str, config: dict) -> None:
+        """Parse one ``key = value`` line and merge into *config* in place."""
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            return
+        key, _, val = line.partition("=")
+        key, val = key.strip().lower(), val.strip()
+        if key == "doc_dir":
+            config["docPath"] = val
+        elif key == "work_dir":
+            config["workDir"] = val
+        elif key == "port":
+            try:
+                config["port"] = int(val)
+            except ValueError:
+                pass
+
     def handle_config(self):
         """GET /api/config - Return current configuration."""
         cfg_paths = [
@@ -1407,28 +1473,17 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             "configSource": None,
         }
         for cfg_path in cfg_paths:
-            if cfg_path.exists():
-                try:
-                    for line in cfg_path.read_text(encoding="utf-8").splitlines():
-                        line = line.strip()
-                        if not line or line.startswith("#") or "=" not in line:
-                            continue
-                        key, _, val = line.partition("=")
-                        key, val = key.strip().lower(), val.strip()
-                        if key == "doc_dir":
-                            config["docPath"] = val
-                        elif key == "work_dir":
-                            config["workDir"] = val
-                        elif key == "port":
-                            try:
-                                config["port"] = int(val)
-                            except ValueError:
-                                pass
-                    config["installed"]    = str(cfg_path) == "/etc/docubrowse.config"
-                    config["configSource"] = str(cfg_path)
-                    break   # only advance past this file on success
-                except Exception:
-                    pass
+            if not cfg_path.exists():
+                continue
+            try:
+                text = cfg_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for line in text.splitlines():
+                self._apply_config_line(line, config)
+            config["installed"]    = str(cfg_path) == "/etc/docubrowse.config"
+            config["configSource"] = str(cfg_path)
+            break   # first readable config wins
         self.json_response(config)
 
     def handle_config_post(self):
@@ -1516,7 +1571,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.send_header('Content-Length', len(content))
             self.end_headers()
             self.wfile.write(content)
-        except Exception as e:
+        except (OSError, ValueError) as e:
             self.error_response(500, str(e))
 
     def json_response(self, data: dict):
@@ -1538,16 +1593,16 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         self.wfile.write(content)
 
 
-def main():
+def main():   # pylint: disable=too-many-statements
     """Start the document search server."""
-    global _SERVER_START_TIME
+    global _SERVER_START_TIME   # pylint: disable=global-statement
     _SERVER_START_TIME = time.time()
 
     # Args: <database_path> [port]
     argv = sys.argv[1:]
     if not argv:
         print(f"Usage: {sys.argv[0]} <database_path> [port]")
-        print(f"\nExample:")
+        print("\nExample:")
         print(f"  {sys.argv[0]} /path/to/du-docs.db")
         print(f"  {sys.argv[0]} /path/to/du-docs.db 8643")
         sys.exit(1)
@@ -1574,19 +1629,19 @@ def main():
     except OSError as e:
         if e.errno == errno.EADDRINUSE:  # Address already in use
             print(f"ERROR: Port {port} is already in use.")
-            print(f"Please check if DocuBrowse is already running or choose another port.")
-            print(f"\nTo stop the running instance:")
-            print(f"  pkill -f 'doc_search.py'")
+            print("Please check if DocuBrowse is already running or choose another port.")
+            print("\nTo stop the running instance:")
+            print("  pkill -f 'doc_search.py'")
             sys.exit(1)
         else:
             raise
 
-    print(f"DocuBrowse Search Server")
+    print("DocuBrowse Search Server")
     print(f"  Database: {db_path}")
     print(f"  Ollama: {OLLAMA_HOST}")
     print(f"  Model: {EMBEDDING_MODEL}")
     print(f"  Listening on http://127.0.0.0/8:{port}  (loopback subnet only)")
-    print(f"  Any 127.x.x.x address works; all external interfaces rejected.")
+    print("  Any 127.x.x.x address works; all external interfaces rejected.")
 
     # Self-test: confirm semantic search will actually work. A silent
     # embed failure (e.g. wrong response key, Ollama down) degrades
