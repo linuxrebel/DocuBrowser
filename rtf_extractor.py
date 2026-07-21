@@ -14,6 +14,11 @@ package isn't installed at scan time, the file is indexed metadata-only
 
 from pathlib import Path
 
+try:
+    from striprtf.striprtf import rtf_to_text
+except ImportError:
+    rtf_to_text = None
+
 
 _TEXT_LIMIT    = 5000
 _SNIPPET_LIMIT = 500
@@ -41,9 +46,7 @@ def extract_rtf(file_path: str) -> dict:
     metadata-only degradation path.
     """
     result = _empty_result()
-    try:
-        from striprtf.striprtf import rtf_to_text
-    except ImportError:
+    if rtf_to_text is None:
         result["error"] = "striprtf not installed (pip install striprtf)"
         result["title"] = Path(file_path).stem
         return result
@@ -52,7 +55,7 @@ def extract_rtf(file_path: str) -> dict:
         with open(file_path, encoding="utf-8", errors="replace") as fh:
             raw = fh.read(500_000)      # RTF is bulky; read a generous head
         text = rtf_to_text(raw, errors="ignore").strip()
-    except Exception as exc:
+    except (OSError, UnicodeError, ValueError) as exc:
         result["error"] = str(exc)
         return result
 

@@ -20,6 +20,9 @@ next to the database so an operator can install libvisio-tools and rescan.
 """
 
 import base64
+import gzip
+import html as html_mod
+import re
 import shutil
 import subprocess
 import urllib.parse
@@ -200,7 +203,7 @@ def _extract_vsdx(file_path: str) -> dict:
     except zipfile.BadZipFile:
         result["error"] = "not a valid ZIP/VSDX file"
         return result
-    except Exception as exc:
+    except (OSError, ValueError, KeyError, ET.ParseError) as exc:
         result["error"] = str(exc)
         return result
 
@@ -262,7 +265,7 @@ def _extract_vsd_legacy(file_path: str) -> dict:
     except subprocess.TimeoutExpired:
         result["error"] = "vsd2xml timed out after 90s"
         return result
-    except Exception as exc:
+    except (OSError, ValueError, KeyError, ET.ParseError) as exc:
         result["error"] = str(exc)
         return result
 
@@ -271,6 +274,7 @@ def _extract_vsd_legacy(file_path: str) -> dict:
 # draw.io / diagrams.net (.drawio, .dio)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# pylint: disable-next=too-many-return-statements
 def _decompress_drawio_body(body: str) -> str:
     """Decompress a compressed <diagram> payload.
 
@@ -290,12 +294,12 @@ def _decompress_drawio_body(body: str) -> str:
 
     try:
         step1 = urllib.parse.unquote(body)
-    except Exception:
+    except (ValueError, UnicodeError):
         step1 = body
 
     try:
         raw = base64.b64decode(step1, validate=False)
-    except Exception:
+    except (ValueError, TypeError):
         return body
 
     try:
@@ -308,18 +312,18 @@ def _decompress_drawio_body(body: str) -> str:
             # Might be plain-base64 XML (some older exports)
             try:
                 return raw.decode("utf-8", "replace")
-            except Exception:
+            except (ValueError, KeyError, zlib.error, UnicodeError):
                 return body
 
     try:
         decoded = xml_bytes.decode("utf-8", "replace")
-    except Exception:
+    except (UnicodeError, LookupError):
         return body
 
     # draw.io wraps the inner XML in a URL-encoded string when compressed
     try:
         return urllib.parse.unquote(decoded)
-    except Exception:
+    except (ValueError, UnicodeError):
         return decoded
 
 
@@ -335,8 +339,6 @@ def _extract_drawio_cells(inner_xml: str) -> list:
 
     # mxCell value=... and object label=... hold user-visible text.
     # Values may contain HTML markup — strip tags cheaply.
-    import re
-    import html as html_mod
 
     def _clean(raw: str) -> str:
         if not raw:
@@ -372,14 +374,13 @@ def _extract_drawio(file_path: str) -> dict:
         # draw.io sometimes writes gzipped files (rare, but legal)
         if head[:2] == b"\x1f\x8b":
             try:
-                import gzip
                 raw = gzip.decompress(raw)
-            except Exception:
+            except (ValueError, KeyError, zlib.error, UnicodeError, ET.ParseError):
                 pass
 
         try:
             text = raw.decode("utf-8", "replace")
-        except Exception:
+        except (UnicodeError, LookupError):
             text = ""
 
         try:
@@ -413,7 +414,7 @@ def _extract_drawio(file_path: str) -> dict:
 
         return _finalize(result, parts)
 
-    except Exception as exc:
+    except (OSError, ValueError, KeyError, ET.ParseError) as exc:
         result["error"] = str(exc)
         return result
 

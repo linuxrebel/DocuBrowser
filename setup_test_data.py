@@ -7,12 +7,13 @@ Usage: python3 setup_test_data.py
 """
 
 import os
+from pathlib import Path
+
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from pathlib import Path
-from pdf_extractor import extract_pdf
+
 from docubrowse_db import get_db
-import sqlite3
+from pdf_extractor import extract_pdf
 
 def create_test_pdfs():
     """Generate 100 realistic test PDFs."""
@@ -29,7 +30,7 @@ def create_test_pdfs():
         c = canvas.Canvas(filename, pagesize=letter)
         c.drawString(50, 750, f'{topic} Document {i+1}')
         c.drawString(50, 730, f'This is a comprehensive guide to {topic}.')
-        c.drawString(50, 710, f'Key concepts, best practices, and implementation details.')
+        c.drawString(50, 710, 'Key concepts, best practices, and implementation details.')
         c.drawString(50, 690, f'Document version {i+1} - {topic} Series')
         c.showPage()
         c.save()
@@ -88,7 +89,7 @@ def populate_database():
                     print(f"  ✓ Processed {added}/100 PDFs")
             else:
                 failed += 1
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             failed += 1
             print(f"  ✗ Error processing {pdf_file.name}: {e}")
 
@@ -98,6 +99,7 @@ def populate_database():
     print(f"✓ Database populated: {added} PDFs added, {failed} failed\n")
 
 def main():
+    """Entry point — generate PDFs then populate the database."""
     print("=" * 60)
     print("DocuBrowse Test Data Setup")
     print("=" * 60 + "\n")

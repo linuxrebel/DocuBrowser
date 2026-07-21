@@ -3,7 +3,10 @@
 # Copyright (C) 2026 James Sparenberg
 """Clean setup: Remove old files and create fresh database with 100 documents."""
 
-import os
+# Long help / topic strings would only get worse from mechanical wrapping.
+# pylint: disable=line-too-long
+
+import shutil
 import sqlite3
 from pathlib import Path
 
@@ -17,7 +20,6 @@ for pattern in ['du-docs.db', 'test_du-docs.db', 'test_*.db']:
 for dir_name in ['test_pdfs_live', 'test_pdfs', 'test_docs']:
     dir_path = Path(dir_name)
     if dir_path.exists():
-        import shutil
         shutil.rmtree(dir_path)
         print(f"  Removed: {dir_name}/")
 
@@ -76,15 +78,15 @@ for i in range(1, 101):
     name = f'doc_{i:03d}_{topic}.pdf'
     title = f'{topic} Guide #{i}'
     desc = descriptions[topic]
-    
+
     # Insert document
-    db.execute('''INSERT INTO documents 
-        (name, path, size_bytes, file_ext, title, author, description, 
+    db.execute('''INSERT INTO documents
+        (name, path, size_bytes, file_ext, title, author, description,
          content_snippet, doc_type, created_at, modified_at, indexed_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))''',
         (name, f'/docs/{name}', 1000+i*100, '.pdf', title, 'Team',
          desc, desc[:100] + '...', 'pdf'))
-    
+
     # Add tags
     doc_id = db.execute('SELECT last_insert_rowid()').fetchone()[0]
     for tag in ['pdf', topic.lower()]:
@@ -96,8 +98,8 @@ db.commit()
 # Verify
 doc_count = db.execute('SELECT COUNT(*) FROM documents').fetchone()[0]
 tag_count = db.execute('SELECT COUNT(DISTINCT tag) FROM doc_tags').fetchone()[0]
-print(f"\n✓ Success!")
+print("\n✓ Success!")
 print(f"  Documents: {doc_count}")
 print(f"  Unique tags: {tag_count}")
-print(f"  Database: ./du-docs.db")
-print(f"\nReady! Run: python3 doc_search.py ./du-docs.db 8643")
+print("  Database: ./du-docs.db")
+print("\nReady! Run: python3 doc_search.py ./du-docs.db 8643")

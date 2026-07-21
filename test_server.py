@@ -8,8 +8,11 @@ Run: python3 test_server.py
 Then open: http://localhost:8001
 """
 
+# Mock document data below has long descriptions that would only get worse
+# from mechanical 100-column wrapping.
+# pylint: disable=line-too-long
+
 import json
-import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from pathlib import Path
@@ -133,10 +136,10 @@ MOCK_DOCUMENTS = [
 class MockAPIHandler(BaseHTTPRequestHandler):
     """Handle HTTP requests with mock API endpoints."""
 
-    def log_message(self, format, *args):
-        """Suppress default logging."""
-        pass
+    def log_message(self, format, *args):   # pylint: disable=redefined-builtin
+        """Suppress default access logging (framework API — ``format`` name required)."""
 
+    # pylint: disable-next=invalid-name
     def do_GET(self):
         """Handle GET requests."""
         parsed = urlparse(self.path)
@@ -144,7 +147,7 @@ class MockAPIHandler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
 
         # Serve index.html
-        if path == '/' or path == '/index.html':
+        if path in ('/', '/index.html'):
             self.serve_file('index.html')
         # API: /api/stats
         elif path == '/api/stats':
@@ -172,6 +175,7 @@ class MockAPIHandler(BaseHTTPRequestHandler):
         else:
             self.error_response(404, "Not found")
 
+    # pylint: disable-next=invalid-name
     def do_POST(self):
         """Handle POST requests."""
         parsed = urlparse(self.path)
@@ -185,7 +189,7 @@ class MockAPIHandler(BaseHTTPRequestHandler):
                 self.json_response({
                     "message": f"Config saved: docPath={data.get('docPath')}, workDir={data.get('workDir')}"
                 })
-            except:
+            except json.JSONDecodeError:
                 self.error_response(400, "Invalid JSON")
         else:
             self.error_response(404, "Not found")
@@ -251,7 +255,7 @@ class MockAPIHandler(BaseHTTPRequestHandler):
                 "path": str(path_obj),
                 "entries": entries[:20]  # Limit to 20 entries
             })
-        except Exception as e:
+        except (OSError, ValueError) as e:
             self.json_response({
                 "path": path_param,
                 "error": str(e),
@@ -272,7 +276,7 @@ class MockAPIHandler(BaseHTTPRequestHandler):
                 self.wfile.write(content)
             else:
                 self.error_response(404, f"File not found: {filename}")
-        except Exception as e:
+        except (OSError, ValueError) as e:
             self.error_response(500, str(e))
 
     def json_response(self, data):
