@@ -1,7 +1,7 @@
 # DocuBrowse Project Status
 
-**Version**: v0.9.3  
-**Status**: 🟢 **STABLE — daily use, packaged for distribution**  
+**Version**: v1.0.0  
+**Status**: 🟢 **v1.0.0 — feature-complete, production-tested, packaged for all platforms**  
 **Last Updated**: 2026-07-23  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
@@ -79,6 +79,17 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 ---
 
 ## Session History
+
+### 2026-07-23 — v1.0.0 feature-complete milestone release
+
+Bumped all version strings, documentation, and packaging to v1.0.0.
+This marks DocuBrowse as feature-complete: 40+ file formats across 15
+extractor modules, pylint 10/10 code quality, Python 3.9–3.14 tested,
+packaged for Linux (RPM/DEB/tarball), Windows (zip), and macOS (dmg),
+security hardened (CSRF, Host-header allowlist, PII validation), and
+AI-powered (semantic search + synopsis via local Ollama models).
+
+Also fixed `doc_search.py` SERVER_VERSION which was stale at "0.8.1".
 
 ### 2026-07-23 — Pylint cleanup + Python 3.14 compatibility fix
 

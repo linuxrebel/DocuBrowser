@@ -1,7 +1,7 @@
-# DocuBrowse v0.9.3 — Administrator Guide
+# DocuBrowse v1.0.0 — Administrator Guide
 
-**Date:** 2026-07-17
-**Version:** v0.9.3
+**Date:** 2026-07-23
+**Version:** v1.0.0
 **License:** GPL-3.0-or-later
 
 ---
@@ -122,18 +122,18 @@ Download the appropriate package from the
 
 **Fedora / RHEL:**
 ```bash
-sudo dnf install ./docubrowser-foss-0.9.3-1.noarch.rpm
+sudo dnf install ./docubrowser-foss-1.0.0-1.noarch.rpm
 ```
 
 **Debian / Ubuntu / Mint:**
 ```bash
-sudo apt install ./docubrowser-foss_0.9.3-1_all.deb
+sudo apt install ./docubrowser-foss_1.0.0-1_all.deb
 ```
 
 **Any Linux (tarball):**
 ```bash
-tar xzf docubrowser-foss-0.9.3-1.tar.gz
-cd docubrowser-foss-0.9.3-1
+tar xzf docubrowser-foss-1.0.0-1.tar.gz
+cd docubrowser-foss-1.0.0-1
 sudo ./install.sh
 ```
 
@@ -1211,5 +1211,5 @@ pdfinfo /path/to/file.pdf | grep -i objects
 
 ---
 
-*DocuBrowse v0.9.3 — Administrator Guide — 2026-07-17*
+*DocuBrowse v1.0.0 — Administrator Guide — 2026-07-23*
 *Copyright (C) 2026 James Sparenberg — GPL-3.0-or-later*
