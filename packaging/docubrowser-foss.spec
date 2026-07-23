@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        1.0.0
+Version:        1.0.1
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
@@ -42,6 +42,11 @@ install -m 644 pptx_extractor.py    %{buildroot}/opt/docubrowser/
 install -m 644 xlsx_extractor.py    %{buildroot}/opt/docubrowser/
 install -m 644 odf_extractor.py     %{buildroot}/opt/docubrowser/
 install -m 644 ebook_extractor.py   %{buildroot}/opt/docubrowser/
+install -m 644 visio_extractor.py   %{buildroot}/opt/docubrowser/
+install -m 644 markup_extractor.py  %{buildroot}/opt/docubrowser/
+install -m 644 eml_extractor.py     %{buildroot}/opt/docubrowser/
+install -m 644 csv_extractor.py     %{buildroot}/opt/docubrowser/
+install -m 644 rtf_extractor.py     %{buildroot}/opt/docubrowser/
 install -m 644 hardware_utils.py    %{buildroot}/opt/docubrowser/
 install -m 644 docubrowse_db.py     %{buildroot}/opt/docubrowser/
 install -m 644 purge_pii.py         %{buildroot}/opt/docubrowser/
@@ -179,6 +184,10 @@ fi
 
 
 %changelog
+* Thu Jul 23 2026 James Sparenberg <james@sparenbergs.us> - 1.0.1-1
+- Ship all extractor modules in packaging manifests (visio, markup, eml, csv, rtf)
+- Python 3.9 compatibility: lazy annotations in markup/eml extractors
+
 * Wed Jul 23 2026 James Sparenberg <james@sparenbergs.us> - 1.0.0-1
 - v1.0.0 feature-complete milestone release
 - All 28 Python source files score pylint 10.00/10

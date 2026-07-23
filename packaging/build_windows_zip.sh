@@ -66,6 +66,11 @@ APP_FILES=(
     xlsx_extractor.py
     odf_extractor.py
     ebook_extractor.py
+    visio_extractor.py
+    markup_extractor.py
+    eml_extractor.py
+    csv_extractor.py
+    rtf_extractor.py
     hardware_utils.py
     docubrowse_db.py
     purge_pii.py
