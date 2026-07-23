@@ -41,18 +41,18 @@ Download the appropriate package from the
 
 **Fedora / RHEL:**
 ```bash
-sudo dnf install ./docubrowser-foss-1.0.0-1.noarch.rpm
+sudo dnf install ./docubrowser-foss-<VERSION>-<RELEASE>.noarch.rpm
 ```
 
 **Debian / Ubuntu / Mint:**
 ```bash
-sudo apt install ./docubrowser-foss_1.0.0-1_all.deb
+sudo apt install ./docubrowser-foss_<VERSION>-<RELEASE>_all.deb
 ```
 
 **Any Linux (tarball):**
 ```bash
-tar xzf docubrowser-foss-1.0.0-1.tar.gz
-cd docubrowser-foss-1.0.0-1
+tar xzf docubrowser-foss-<VERSION>-<RELEASE>.tar.gz
+cd docubrowser-foss-<VERSION>-<RELEASE>
 sudo ./install.sh
 ```
 
@@ -145,8 +145,8 @@ cd DocuBrowser
 Or unpack the release tarball:
 
 ```bash
-tar xzf docubrowser-foss-1.0.0-1.tar.gz
-cd docubrowser-foss-1.0.0-1
+tar xzf docubrowser-foss-<VERSION>-<RELEASE>.tar.gz
+cd docubrowser-foss-<VERSION>-<RELEASE>
 ```
 
 ---
