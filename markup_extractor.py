@@ -30,6 +30,8 @@ Returns a dict with the same shape as pdf_extractor.extract_pdf() so
 scan_docs._extract_file() can handle it uniformly.
 """
 
+from __future__ import annotations
+
 import html as html_mod
 import re
 from pathlib import Path
