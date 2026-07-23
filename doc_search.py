@@ -99,7 +99,7 @@ def _is_loopback(hostname: str) -> bool:
 OLLAMA_HOST = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
-SERVER_VERSION = "1.0.0"
+SERVER_VERSION = "1.0.1"
 
 _SERVER_START_TIME = None  # set by main(); used by /api/status
 # Cold Ollama starts (e.g. right after a reboot) need to load the model into
