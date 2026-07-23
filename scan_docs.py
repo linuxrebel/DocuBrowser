@@ -961,7 +961,7 @@ def scan_directory(
         """Submit one new future per available worker slot, checking RAM first."""
         slots = max_in_flight - len(in_flight)
         for item in itertools.islice(work_iter, slots):
-            wait_for_memory(is_tty=_IS_TTY, logger=_log)
+            wait_for_memory(_is_tty=_IS_TTY, logger=_log)
             f = executor.submit(_extract_file, item)
             in_flight[f] = item[0]
 
