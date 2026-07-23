@@ -206,7 +206,7 @@ def embed_docs(db_path: str, limit: int = None, workers: int = DEFAULT_WORKERS):
 
     def _fill_queue(executor):
         for item in itertools.islice(work_iter, max_in_flight - len(in_flight)):
-            wait_for_memory(is_tty=_IS_TTY)
+            wait_for_memory(_is_tty=_IS_TTY)
             f = executor.submit(_embed_one, item)
             in_flight[f] = item[1]
 
