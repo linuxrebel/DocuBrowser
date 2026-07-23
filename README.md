@@ -786,6 +786,17 @@ extractor modules, all pure-Python / stdlib where possible.
 - **New sidecar files** (gitignored, informational): `visio_legacy_missing.txt`,
   `rtf_missing_striprtf.txt`.
 
+### Code quality — pylint 10/10 + Python 3.14 compatibility
+
+- **All 28 Python source files score pylint 10.00/10** — two cleanup passes
+  addressing unused imports, missing docstrings, broad exception catches,
+  line length, and naming conventions. No behavioral changes.
+- **Python 3.14 compatibility fix** — Python 3.14 enforces that parameters
+  prefixed with `_` cannot be passed by a different keyword name.
+  `scan_docs.py` and `embed_docs.py` called `wait_for_memory(is_tty=...)`
+  but the function defines `_is_tty`. Fixed — scans no longer crash on
+  Python 3.14+.
+
 ## v0.9.2 (2026-07-13)
 
 ### Bug fix
