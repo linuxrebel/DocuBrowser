@@ -2,7 +2,7 @@
 
 **Version**: v0.9.3  
 **Status**: 🟢 **STABLE — daily use, packaged for distribution**  
-**Last Updated**: 2026-07-17  
+**Last Updated**: 2026-07-23  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
@@ -14,7 +14,7 @@ using PDF/DOCX/EPUB/HTML/TXT/MD extraction, SQLite FTS5 keyword search, and Olla
 embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, config UI, delete from UI, and duplicate detection.
 
 **Key Metrics**:
-- Supported formats: PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown
+- Supported formats: PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, VSDX/VSDM, VSD/VSS/VST, VDX, draw.io, PlantUML, Mermaid, XML/XHTML/SGML, DocBook, SVG, RSS/Atom/OPML, reST, AsciiDoc, LaTeX, EML, RTF, CSV/TSV, EPUB, MOBI, AZW3, AZW, HTML, TXT, Markdown, INI/CONF/CFG/LOG/LST
 - Search latency: <150ms typical
 - Worker parallelism: physical-core-aware (tested up to 8 workers)
 - PDF resilience: pdfplumber primary, pypdf fallback for >8,000-object files, layout=False secondary fallback, scanned PDF detection
@@ -79,6 +79,20 @@ embeddings. The CLI is complete and in daily use. v0.6.0 adds format expansion, 
 ---
 
 ## Session History
+
+### 2026-07-23 — Pylint cleanup + Python 3.14 compatibility fix
+
+- **Pylint 10.00/10 across all 28 Python source files** — two cleanup
+  passes (17 files, then 11 files) addressing unused imports, missing
+  docstrings, broad exception catches, line length, naming conventions,
+  and `too-many-*` suppressions. No behavioral changes — pure code quality.
+- **Python 3.14 kwarg crash fixed** — Python 3.14 enforces that parameters
+  whose names start with `_` cannot be passed by a different keyword name.
+  `wait_for_memory()` in `hardware_utils.py` defines `_is_tty`, but
+  `scan_docs.py` and `embed_docs.py` called it with `is_tty`. Both callers
+  updated to `_is_tty=_IS_TTY`. Without this fix, `docubrowser rescan`
+  crashes with `TypeError: wait_for_memory() got an unexpected keyword
+  argument 'is_tty'` on Python 3.14+.
 
 ### 2026-07-17 — Email, RTF, CSV/TSV, config-ish plain text, .vdx
 
@@ -600,9 +614,13 @@ covering 8,258 files (87%). Sweep to close the gap:
 
 **Format Support**
 - [x] PDF (pdfplumber + pypdf fallback)
-- [x] DOCX (python-docx)
+- [x] DOCX (python-docx), PPTX (python-pptx), XLSX (openpyxl)
+- [x] ODT/ODS/ODP (stdlib zipfile + xml)
+- [x] VSDX/VSDM, VSD/VSS/VST (optional libvisio-tools), VDX, draw.io, PlantUML, Mermaid
+- [x] XML/XHTML/SGML, DocBook, SVG, RSS/Atom/OPML, reST, AsciiDoc, LaTeX
+- [x] EML (stdlib email), RTF (optional striprtf), CSV/TSV (stdlib csv)
 - [x] EPUB/MOBI/AZW3/AZW (ebooklib + Calibre)
-- [x] HTML, TXT, Markdown
+- [x] HTML, TXT, Markdown, INI/CONF/CFG/LOG/LST
 
 **Operations**
 - [x] PII purge (dry-run + live)
@@ -640,12 +658,23 @@ covering 8,258 files (87%). Sweep to close the gap:
 | `scan_docs.py` | Document discovery, extraction, DB writes |
 | `pdf_extractor.py` | PDF extraction (pdfplumber + pypdf) |
 | `docx_extractor.py` | Word document extraction (python-docx) |
+| `pptx_extractor.py` | PowerPoint extraction (python-pptx) |
+| `xlsx_extractor.py` | Excel extraction (openpyxl) |
+| `odf_extractor.py` | ODF extraction (ODT/ODS/ODP — stdlib only) |
 | `ebook_extractor.py` | EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre) |
+| `visio_extractor.py` | Visio VSDX/VSD, draw.io, PlantUML, Mermaid |
+| `markup_extractor.py` | XML/SGML/DocBook/SVG/reST/AsciiDoc/LaTeX |
+| `eml_extractor.py` | Email (.eml) extraction (stdlib email) |
+| `rtf_extractor.py` | RTF extraction (optional striprtf) |
+| `csv_extractor.py` | CSV/TSV extraction (stdlib csv) |
 | `dup_detect.py` | Exact (SHA256) and near-duplicate (cosine) detection |
 | `hardware_utils.py` | CPU/GPU/RAM detection, worker formula |
 | `embed_docs.py` | Ollama embedding pipeline |
 | `purge_pii.py` | PII scanner and purge |
 | `ensure_ollama.py` | Ollama prerequisite checker |
+| `platform_paths.py` | Cross-platform path resolution (Linux/macOS/Windows) |
+| `populate_db.py` | Test data population |
+| `backup_restore.py` | Database backup and restore |
 | `index.html` | Frontend UI |
 
 ---
