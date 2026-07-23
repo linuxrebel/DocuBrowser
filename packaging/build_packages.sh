@@ -17,7 +17,7 @@
 set -euo pipefail
 
 NAME="docubrowser-foss"
-VERSION="0.9.3"
+VERSION="1.0.0"
 RELEASE="${1:-1}"
 SPEC="packaging/docubrowser-foss.spec"
 

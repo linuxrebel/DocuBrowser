@@ -1,4 +1,4 @@
-# DocuBrowse v0.9.3
+# DocuBrowse v1.0.0
 
 <a name="top"></a>
 
@@ -153,14 +153,14 @@ Download the appropriate package from the
 
 ```bash
 # Fedora / RHEL
-sudo dnf install ./docubrowser-foss-0.9.3-1.noarch.rpm
+sudo dnf install ./docubrowser-foss-1.0.0-1.noarch.rpm
 
 # Debian / Ubuntu / Mint
-sudo apt install ./docubrowser-foss_0.9.3-1_all.deb
+sudo apt install ./docubrowser-foss_1.0.0-1_all.deb
 
 # Any Linux (tarball)
-tar xzf docubrowser-foss-0.9.3-1.tar.gz
-cd docubrowser-foss-0.9.3-1
+tar xzf docubrowser-foss-1.0.0-1.tar.gz
+cd docubrowser-foss-1.0.0-1
 sudo ./install.sh
 ```
 
@@ -746,6 +746,29 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+## v1.0.0 (2026-07-23) — Feature-complete milestone
+
+DocuBrowse reaches v1.0.0: feature-complete, production-tested, and packaged
+for all three desktop platforms. This release marks the culmination of 7 weeks
+of development from MVP (v0.1.0) through format expansion, security hardening,
+and code quality.
+
+- **40+ supported file formats** across 15 extractor modules — PDF, DOCX,
+  PPTX, XLSX, ODF, Visio, draw.io, SGML/XML family, email, RTF, CSV/TSV,
+  EPUB, MOBI, AZW, HTML, Markdown, LaTeX, reST, AsciiDoc, and config-ish
+  plain text.
+- **Pylint 10.00/10** on all 28 Python source files.
+- **Python 3.9 through 3.14 tested** — including a fix for Python 3.14's
+  stricter keyword argument handling.
+- **Packaged for Linux** (RPM, DEB, tarball), **Windows** (zip), and
+  **macOS** (dmg).
+- **Security hardened** — CSRF protection, Host-header allowlist, no
+  unauth GET mutations, PII detection with SSN/CC/routing number validation.
+- **AI-powered** — semantic search, hybrid keyword+semantic mode, and
+  on-demand AI synopsis generation, all running locally via Ollama.
+
+---
+
 ## v0.9.3 (2026-07-17)
 
 ### Format expansion — diagrams, markup, email, RTF, CSV, config-ish text
@@ -1125,4 +1148,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v0.9.3** — Fast, local, AI-powered document search.
+**DocuBrowse v1.0.0** — Fast, local, AI-powered document search.

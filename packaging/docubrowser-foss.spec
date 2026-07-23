@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        0.9.3
+Version:        1.0.0
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
@@ -179,6 +179,13 @@ fi
 
 
 %changelog
+* Wed Jul 23 2026 James Sparenberg <james@sparenbergs.us> - 1.0.0-1
+- v1.0.0 feature-complete milestone release
+- All 28 Python source files score pylint 10.00/10
+- Python 3.14 compatibility fix (wait_for_memory kwarg)
+- 40+ supported file formats across 15 extractor modules
+- Packaged for Linux (RPM/DEB/tarball), Windows (zip), macOS (dmg)
+
 * Fri Jul 17 2026 James Sparenberg <james@sparenbergs.us> - 0.9.3-1
 - Add Visio (.vsdx/.vsdm/.vsd/.vss/.vst/.vdx), draw.io (.drawio/.dio),
   PlantUML (.puml/.plantuml), and Mermaid (.mmd) diagram support
