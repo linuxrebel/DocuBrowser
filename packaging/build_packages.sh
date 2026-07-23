@@ -17,7 +17,7 @@
 set -euo pipefail
 
 NAME="docubrowser-foss"
-VERSION="1.0.0"
+VERSION="1.0.1"
 RELEASE="${1:-1}"
 SPEC="packaging/docubrowser-foss.spec"
 
@@ -51,7 +51,9 @@ mkdir -p "$STAGE_DIR"
 APP_FILES=(
     docubrowser.py doc_search.py scan_docs.py embed_docs.py
     pdf_extractor.py docx_extractor.py pptx_extractor.py xlsx_extractor.py
-    odf_extractor.py ebook_extractor.py hardware_utils.py docubrowse_db.py purge_pii.py
+    odf_extractor.py ebook_extractor.py visio_extractor.py markup_extractor.py
+    eml_extractor.py csv_extractor.py rtf_extractor.py
+    hardware_utils.py docubrowse_db.py purge_pii.py
     backup_restore.py ensure_ollama.py dup_detect.py platform_paths.py
     index.html settings.html
     requirements.txt du-docs.db.example
