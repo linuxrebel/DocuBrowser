@@ -1,7 +1,7 @@
-# DocuBrowse v1.0.0 — Administrator Guide
+# DocuBrowse v1.0.1 — Administrator Guide
 
 **Date:** 2026-07-23
-**Version:** v1.0.0
+**Version:** v1.0.1
 **License:** GPL-3.0-or-later
 
 ---
@@ -1211,5 +1211,5 @@ pdfinfo /path/to/file.pdf | grep -i objects
 
 ---
 
-*DocuBrowse v1.0.0 — Administrator Guide — 2026-07-23*
+*DocuBrowse v1.0.1 — Administrator Guide — 2026-07-23*
 *Copyright (C) 2026 James Sparenberg — GPL-3.0-or-later*

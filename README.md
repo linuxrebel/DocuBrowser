@@ -1148,4 +1148,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v1.0.0** — Fast, local, AI-powered document search.
+**DocuBrowse v1.0.1** — Fast, local, AI-powered document search.
