@@ -743,7 +743,7 @@ def cmd_rescan(config: dict, args):
             sys.exit(0)
         print()
 
-    type_str = ", ".join(scan_extensions) if scan_extensions else "all (pdf txt md html)"
+    type_str = ", ".join(scan_extensions) if scan_extensions else "all supported"
     print(f"Database: {db_path}")
     print(f"Types:    {type_str}")
     print()
@@ -1430,22 +1430,41 @@ def build_parser() -> argparse.ArgumentParser:
     p_rescan = sub.add_parser(
         "rescan",
         help="Scan documents and update the index\n"
-             "                          [TYPE: pdf txt md html]  [--workers N]  [--embed-workers N]  [--no-embed]",
+             "                          [TYPE ...]  [--workers N]  [--embed-workers N]  [--no-embed]",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
-            File types: pdf  txt  md  html  (default: all four)
+            Supported document families (default: all):
+
+              Office              pdf  docx  pptx  xlsx
+              OpenDocument        odt  ods  odp
+              Diagrams            vsdx  vsdm  vsd  vss  vst  drawio  dio
+                                  svg  vdx
+              Text diagrams       puml  plantuml  mmd
+              Ebooks              epub  mobi  azw  azw3
+              Email / rich text   eml  rtf
+              Tabular text        csv  tsv
+              Plain text          txt  md  html
+              Config-ish text     ini  conf  cfg  log  lst
+              XML / SGML markup   xml  xhtml  sgml  sgm  docbook  dbk
+                                  rss  atom  opml
+              Structured markup   rst  adoc  asciidoc  tex  latex
+              Code / data         json  yml  yaml  toml
+                                  py  sh  js  ts  tsx  jsx  css
+                                  rs  c  h  cpp  hpp  cc  go  java  rb  php
 
             Examples:
               rescan                        scan all supported types
               rescan pdf                    PDFs only
-              rescan pdf txt                PDFs and plain text
+              rescan pdf docx eml           mixed selection
               rescan --no-embed             scan without re-embedding
               rescan --workers 4            override CPU worker count
               rescan --embed-workers 8      override Ollama thread count
         """),
     )
     p_rescan.add_argument("types", nargs="*", metavar="TYPE",
-                          help="File type(s) to scan: pdf txt md html (default: all)")
+                          help="File type(s) to scan (default: all supported). "
+                               "Pass one or more extensions without the dot "
+                               "(e.g. pdf docx eml).")
     p_rescan.add_argument("--doc-dir", metavar="DIR", dest="doc_dir",
                           help="Document directory to scan")
     p_rescan.add_argument("--db", metavar="PATH", help="Database path")
@@ -1472,23 +1491,24 @@ def build_parser() -> argparse.ArgumentParser:
     # scan (scan + embed — same as rescan)
     p_scan = sub.add_parser(
         "scan",
-        help="Scan documents and generate embeddings  [TYPE: pdf txt md html | --workers N]",
+        help="Scan documents and generate embeddings  [TYPE ... | --workers N]",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
-            File types: pdf  txt  md  html  (default: all four)
             Equivalent to rescan — scans documents then generates embeddings.
-            Use --no-embed to skip the embedding step.
+            Use --no-embed to skip the embedding step. See 'rescan --help' for
+            the full list of supported document families.
 
             Examples:
               scan                  scan all supported types + embed
               scan pdf              PDFs only + embed
-              scan pdf txt          PDFs and plain text + embed
+              scan pdf docx eml     mixed selection + embed
               scan --no-embed       scan without generating embeddings
               scan --workers 4      override CPU worker count
         """),
     )
     p_scan.add_argument("types", nargs="*", metavar="TYPE",
-                        help="File type(s) to scan: pdf txt md html (default: all)")
+                        help="File type(s) to scan (default: all supported). "
+                             "See 'rescan --help' for the family list.")
     p_scan.add_argument("--doc-dir", metavar="DIR", dest="doc_dir",
                         help="Document directory to scan")
     p_scan.add_argument("--db", metavar="PATH", help="Database path")
