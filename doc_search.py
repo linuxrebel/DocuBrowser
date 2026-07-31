@@ -96,6 +96,74 @@ def _is_loopback(hostname: str) -> bool:
         return addr == _IPV6_LOOPBACK or addr in _LOOPBACK_NET
     except ValueError:
         return False
+
+
+def _parse_trusted_cidrs() -> list:
+    """Parse DOCUBROWSE_TRUSTED_CIDRS (comma-separated CIDRs / single IPs).
+
+    Empty / unset → no extra peers (loopback-only, the historical default).
+    Invalid entries are skipped with a warning so a typo cannot open the
+    whole internet by accident.
+    """
+    raw = os.environ.get("DOCUBROWSE_TRUSTED_CIDRS", "").strip()
+    if not raw:
+        return []
+    nets = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            nets.append(ipaddress.ip_network(part, strict=False))
+        except ValueError:
+            print(f"WARNING: ignoring invalid DOCUBROWSE_TRUSTED_CIDRS entry: {part!r}")
+    return nets
+
+
+def _parse_allowed_hosts() -> set:
+    """Parse DOCUBROWSE_ALLOWED_HOSTS (comma-separated hostnames, lowercased)."""
+    raw = os.environ.get("DOCUBROWSE_ALLOWED_HOSTS", "").strip()
+    if not raw:
+        return set()
+    return {h.strip().lower() for h in raw.split(",") if h.strip()}
+
+
+# Loaded once at import — restart the process after changing these env vars.
+_TRUSTED_CIDRS = _parse_trusted_cidrs()
+_ALLOWED_HOSTS = _parse_allowed_hosts()
+
+
+def _client_trusted(addr) -> bool:
+    """True if *addr* (ip_address) is loopback or in DOCUBROWSE_TRUSTED_CIDRS."""
+    if addr == _IPV6_LOOPBACK or addr in _LOOPBACK_NET:
+        return True
+    return any(addr in net for net in _TRUSTED_CIDRS)
+
+
+def _is_private_trusted_peer(addr) -> bool:
+    """True if *addr* is in DOCUBROWSE_TRUSTED_CIDRS but not loopback.
+
+    Used to relax CSRF for server-side BFFs on a Docker/private network.
+    Loopback browsers still require the CSRF token (DNS-rebinding / XSS
+    defense) — only non-loopback trusted peers skip it.
+    """
+    if addr is None:
+        return False
+    if addr == _IPV6_LOOPBACK or addr in _LOOPBACK_NET:
+        return False
+    return any(addr in net for net in _TRUSTED_CIDRS)
+
+
+def _hostname_allowed(hostname: str) -> bool:
+    """True if *hostname* is loopback or listed in DOCUBROWSE_ALLOWED_HOSTS."""
+    hostname = (hostname or "").strip("[]").lower()
+    if not hostname:
+        return False
+    if _is_loopback(hostname):
+        return True
+    return hostname in _ALLOWED_HOSTS
+
+
 OLLAMA_HOST = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
@@ -410,27 +478,22 @@ def _valid_doc_ids(conn) -> set:
 
 
 class DocuBrowseServer(ThreadingHTTPServer):
-    """ThreadingHTTPServer that enforces loopback-only access.
+    """ThreadingHTTPServer that enforces loopback-only access by default.
 
     Always binds to 0.0.0.0 so all 127.x.x.x addresses are reachable
     (the entire 127.0.0.0/8 subnet is loopback per RFC 5735).
     verify_request() drops any connection whose source IP is outside
-    127.0.0.0/8 at the TCP accept level — before a single byte of HTTP
-    is read.
+    127.0.0.0/8 (and ::1) at the TCP accept level — before a single byte
+    of HTTP is read — unless DOCUBROWSE_TRUSTED_CIDRS lists additional
+    private networks (e.g. a Docker bridge) that may reach the server.
     """
 
     def verify_request(self, request, client_address):
         try:
             addr = ipaddress.ip_address(client_address[0])
-            # Accept IPv6 loopback (::1) — localhost often resolves to it
-            if addr == ipaddress.ip_address('::1'):
-                return True
-            # Accept anything in 127.0.0.0/8; reject all other IPs
-            if addr not in _LOOPBACK_NET:
-                return False
+            return _client_trusted(addr)
         except (ValueError, TypeError):
             return False
-        return True
 
 
 class DocSearchHandler(BaseHTTPRequestHandler):
@@ -457,18 +520,26 @@ class DocSearchHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):   # pylint: disable=redefined-builtin
         """Suppress default access logging (framework API — ``format`` name required)."""
 
-    def _host_allowed(self) -> bool:
-        """Reject requests whose Host header isn't a local loopback name.
+    def _client_addr(self):
+        """Return the peer IP as an ``ipaddress`` object, or None."""
+        try:
+            return ipaddress.ip_address(self.client_address[0])
+        except (ValueError, TypeError, IndexError):
+            return None
 
-        The server binds to localhost only, but a browser tricked by DNS
+    def _host_allowed(self) -> bool:
+        """Reject requests whose Host header isn't a permitted name.
+
+        The server is loopback-only by default, but a browser tricked by DNS
         rebinding (attacker.com re-resolved to 127.0.0.1) would still send
-        requests here with a foreign Host header. Allow only loopback hosts,
+        requests here with a foreign Host header. Allow only loopback hosts
+        (plus DOCUBROWSE_ALLOWED_HOSTS when set for container service names),
         and if a port is present it must match the port we're serving on.
         """
         host = self.headers.get('Host', '')
         if not host:
-            # HTTP/1.0 clients may omit Host; only a local client can reach a
-            # loopback-bound socket without one.
+            # HTTP/1.0 clients may omit Host; only a local/trusted client can
+            # reach us without one when verify_request is enforced.
             return True
         hostname, _, port = host.rpartition(':')
         if not hostname:           # no colon → rpartition put it all in `port`
@@ -476,8 +547,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         hostname = hostname.strip('[]').lower()   # [::1] → ::1
         if port and port != str(self.server_port):
             return False
-        # Loopback is always allowed (entire 127.0.0.0/8 subnet + ::1).
-        return _is_loopback(hostname)
+        return _hostname_allowed(hostname)
 
     def _guard_mutation(self) -> bool:
         """Gate state-changing / sensitive endpoints against CSRF.
@@ -487,11 +557,31 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         that token (the HTML is same-origin protected, and the JSON API no
         longer returns Access-Control-Allow-Origin), so it cannot forge the
         X-CSRF-Token header this requires. As defense in depth, any Origin/
-        Referer that isn't same-origin with the addressed Host (or loopback)
-        is rejected.
+        Referer that isn't same-origin with the addressed Host (or loopback /
+        DOCUBROWSE_ALLOWED_HOSTS) is rejected.
+
+        Clients whose TCP peer is in DOCUBROWSE_TRUSTED_CIDRS (and is not
+        loopback) are treated as a private-network BFF/proxy: CSRF is
+        skipped so they can call mutating endpoints without scraping the
+        HTML meta tag. Those peers are fully trusted — do not list public
+        internet ranges. Loopback browsers still require the CSRF token.
 
         Sends a 403 and returns False on failure; returns True if allowed.
         """
+        addr = self._client_addr()
+        if _is_private_trusted_peer(addr):
+            host_hdr = self.headers.get('Host', '')
+            host_host = host_hdr.rsplit(':', 1)[0].strip('[]').lower() if host_hdr else ''
+            for hdr in ('Origin', 'Referer'):
+                val = self.headers.get(hdr)
+                if val:
+                    o = urlparse(val).hostname
+                    o = o.lower() if o else o
+                    if o != host_host and not _hostname_allowed(o or ''):
+                        self.error_response(403, "Forbidden: cross-origin request rejected")
+                        return False
+            return True
+
         host_hdr = self.headers.get('Host', '')
         host_host = host_hdr.rsplit(':', 1)[0].strip('[]').lower() if host_hdr else ''
         for hdr in ('Origin', 'Referer'):
@@ -499,7 +589,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             if val:
                 o = urlparse(val).hostname
                 o = o.lower() if o else o
-                if o != host_host and not _is_loopback(o or ''):
+                if o != host_host and not _hostname_allowed(o or ''):
                     self.error_response(403, "Forbidden: cross-origin request rejected")
                     return False
         token = self.headers.get('X-CSRF-Token', '')
@@ -1622,7 +1712,8 @@ def main():   # pylint: disable=too-many-statements
 
     # Always bind 0.0.0.0 so the entire 127.0.0.0/8 loopback subnet is
     # reachable (127.0.0.1, 127.0.1.1, etc.).  DocuBrowseServer.verify_request
-    # drops connections from outside 127.0.0.0/8.
+    # drops connections from outside 127.0.0.0/8 unless DOCUBROWSE_TRUSTED_CIDRS
+    # lists additional private networks.
     server_address = ('0.0.0.0', port)
     try:
         httpd = DocuBrowseServer(server_address, DocSearchHandler)
@@ -1640,8 +1731,15 @@ def main():   # pylint: disable=too-many-statements
     print(f"  Database: {db_path}")
     print(f"  Ollama: {OLLAMA_HOST}")
     print(f"  Model: {EMBEDDING_MODEL}")
-    print(f"  Listening on http://127.0.0.0/8:{port}  (loopback subnet only)")
-    print("  Any 127.x.x.x address works; all external interfaces rejected.")
+    if _TRUSTED_CIDRS:
+        cidrs = ", ".join(str(n) for n in _TRUSTED_CIDRS)
+        print(f"  Listening on 0.0.0.0:{port}  (loopback + trusted: {cidrs})")
+        if _ALLOWED_HOSTS:
+            print(f"  Allowed Hosts: {', '.join(sorted(_ALLOWED_HOSTS))}")
+        print("  WARNING: trusted peers can reach the API with no auth — keep CIDRs private.")
+    else:
+        print(f"  Listening on http://127.0.0.0/8:{port}  (loopback subnet only)")
+        print("  Any 127.x.x.x address works; all external interfaces rejected.")
 
     # Self-test: confirm semantic search will actually work. A silent
     # embed failure (e.g. wrong response key, Ollama down) degrades
