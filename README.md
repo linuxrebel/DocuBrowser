@@ -356,6 +356,15 @@ work_dir     = /home/user/DocuBrowse
 | `port` | `8643` |
 | `work_dir` | `<script dir>` |
 
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DOCUBROWSE_TRUSTED_CIDRS` | _(empty)_ | Comma-separated CIDRs/IPs allowed to reach the server in addition to loopback (e.g. `172.16.0.0/12` for Docker). Empty = loopback-only (historical default). **Not authentication** — only list private networks behind a reverse proxy / BFF. |
+| `DOCUBROWSE_ALLOWED_HOSTS` | _(empty)_ | Comma-separated Host header names accepted in addition to loopback (e.g. `docubrowse`). Needed when a container service name appears in `Host`. |
+
+There is still no user login. Trusted peers can call the full API; put auth in your reverse proxy or BFF and never publish DocuBrowse's port.
+
 ---
 
 ## Architecture
@@ -582,9 +591,14 @@ is hardened so a malicious web page you happen to visit can't reach it:
   numbers by ABA checksum + Federal Reserve prefix — so it both catches more
   real PII and avoids deleting docs over incidental number groups.
 
-The server is localhost-only — it binds the loopback subnet and rejects all
-non-loopback connections at the socket level. No authentication is needed
-because only the local user can reach the server.
+The server is localhost-only by default — it binds the loopback subnet and
+rejects all non-loopback connections at the socket level. No authentication
+is needed because only the local user can reach the server.
+
+Optional: set `DOCUBROWSE_TRUSTED_CIDRS` (and usually `DOCUBROWSE_ALLOWED_HOSTS`)
+to allow a private-network reverse proxy or BFF (e.g. Docker Compose) to reach
+the API. That is **not** public exposure and **not** authentication — keep the
+CIDR list private and put login in front of DocuBrowse.
 
 ---
 
