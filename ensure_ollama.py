@@ -11,10 +11,15 @@ Checks (in order):
   2. ollama service is reachable → starts `ollama serve` in background if not
   3. each model in REQUIRED_MODELS is present → prompts to pull if missing
 
+The Ollama API base URL defaults to http://localhost:11434 and can be
+overridden with OLLAMA_HOST or DOCUBROWSE_OLLAMA_HOST (useful when Ollama
+runs in another container or on a remote host).
+
 If the user declines any prompt, prints manual instructions and exits non-zero.
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -35,7 +40,22 @@ REQUIRED_MODELS = [
     ('dolphin3:latest', '~4.9 GB', 'document synopsis generation (operational AI)'),
 ]
 
-OLLAMA_API = 'http://localhost:11434'
+def _ollama_api() -> str:
+    """Resolve the Ollama base URL from the environment.
+
+    Prefer ``OLLAMA_HOST`` (Ollama ecosystem convention), then
+    ``DOCUBROWSE_OLLAMA_HOST``. Trailing slashes are stripped so URL
+    joins stay clean. Defaults to the local Ollama daemon.
+    """
+    host = (
+        os.environ.get('OLLAMA_HOST')
+        or os.environ.get('DOCUBROWSE_OLLAMA_HOST')
+        or 'http://localhost:11434'
+    )
+    return host.rstrip('/')
+
+
+OLLAMA_API = _ollama_api()
 
 
 def ok(msg):
@@ -217,6 +237,7 @@ def pull_model(model: str, size: str, purpose: str):
 def main():
     """Verify Ollama binary, service, and required models — install / start / pull as needed."""
     print('Checking Ollama prerequisites...')
+    info(f'API: {OLLAMA_API}')
 
     if not ollama_installed():
         install_ollama()
