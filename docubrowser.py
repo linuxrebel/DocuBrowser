@@ -131,6 +131,10 @@ def load_config() -> dict:
     Load configuration from the first config file found.
     Format: simple KEY=VALUE lines; lines starting with # are comments.
     Falls back to built-in defaults if no config file exists.
+
+    Environment variables override file values (useful for containers):
+      DOCUBROWSE_DOC_DIR, DOCUBROWSE_DB / DOCUBROWSE_DB_PATH,
+      DOCUBROWSE_PORT, DOCUBROWSE_WORK_DIR.
     """
     config = {
         "doc_dir": DEFAULT_DOC_DIR,
@@ -156,7 +160,30 @@ def load_config() -> dict:
     else:
         config["_config_source"] = "(built-in defaults)"
 
+    _apply_env_overrides(config)
     return config
+
+
+def _apply_env_overrides(config: dict) -> None:
+    """Overlay DOCUBROWSE_* environment variables onto *config* in place."""
+    doc_dir = os.environ.get("DOCUBROWSE_DOC_DIR")
+    if doc_dir:
+        config["doc_dir"] = doc_dir
+
+    db_path = os.environ.get("DOCUBROWSE_DB") or os.environ.get("DOCUBROWSE_DB_PATH")
+    if db_path:
+        config["db_path"] = db_path
+
+    work_dir = os.environ.get("DOCUBROWSE_WORK_DIR")
+    if work_dir:
+        config["work_dir"] = work_dir
+
+    port = os.environ.get("DOCUBROWSE_PORT")
+    if port:
+        try:
+            config["port"] = int(port)
+        except ValueError:
+            print(f"WARNING: ignoring invalid DOCUBROWSE_PORT={port!r}")
 
 
 def require_doc_dir(doc_dir: str) -> str:

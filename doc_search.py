@@ -1599,16 +1599,31 @@ def main():   # pylint: disable=too-many-statements
     _SERVER_START_TIME = time.time()
 
     # Args: <database_path> [port]
+    # Env fallbacks (DOCUBROWSE_DB / DOCUBROWSE_DB_PATH, DOCUBROWSE_PORT) let
+    # container entrypoints omit argv when paths are injected via Compose.
     argv = sys.argv[1:]
-    if not argv:
+    env_db = os.environ.get("DOCUBROWSE_DB") or os.environ.get("DOCUBROWSE_DB_PATH")
+    env_port = os.environ.get("DOCUBROWSE_PORT")
+
+    if not argv and not env_db:
         print(f"Usage: {sys.argv[0]} <database_path> [port]")
+        print("\nOr set DOCUBROWSE_DB / DOCUBROWSE_DB_PATH (and optional DOCUBROWSE_PORT).")
         print("\nExample:")
         print(f"  {sys.argv[0]} /path/to/du-docs.db")
         print(f"  {sys.argv[0]} /path/to/du-docs.db 8643")
         sys.exit(1)
 
-    db_path = argv[0]
-    port = int(argv[1]) if len(argv) > 1 else DEFAULT_PORT
+    db_path = argv[0] if argv else env_db
+    if len(argv) > 1:
+        port = int(argv[1])
+    elif env_port:
+        try:
+            port = int(env_port)
+        except ValueError:
+            print(f"ERROR: invalid DOCUBROWSE_PORT={env_port!r}")
+            sys.exit(1)
+    else:
+        port = DEFAULT_PORT
 
     db_path = Path(db_path)
     if not db_path.exists():

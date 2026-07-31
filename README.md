@@ -356,6 +356,21 @@ work_dir     = /home/user/DocuBrowse
 | `port` | `8643` |
 | `work_dir` | `<script dir>` |
 
+### Environment Variables
+
+Environment variables override the matching config-file keys (useful for
+containers). CLI flags still win when provided.
+
+| Variable | Overrides | Description |
+|----------|-----------|-------------|
+| `DOCUBROWSE_DOC_DIR` | `doc_dir` | Primary document directory to index |
+| `DOCUBROWSE_DB` / `DOCUBROWSE_DB_PATH` | `db_path` | Path to `du-docs.db` |
+| `DOCUBROWSE_PORT` | `port` | HTTP server port |
+| `DOCUBROWSE_WORK_DIR` | `work_dir` | Working directory for runtime data |
+
+`doc_search.py` also accepts `DOCUBROWSE_DB` / `DOCUBROWSE_PORT` when argv is
+omitted, so a container entrypoint can start the server with env alone.
+
 ---
 
 ## Architecture
