@@ -2,8 +2,24 @@
 
 **Version**: v1.0.1  
 **Status**: 🟢 **v1.0.1 — feature-complete, production-tested, packaged for all platforms**  
-**Last Updated**: 2026-07-23  
+**Last Updated**: 2026-08-19  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
+
+---
+
+## Open issue — v1.0.1 release .deb is stale (2026-08-19)
+
+Issue #3: the `.deb` attached to the v1.0.1 release is still the broken
+`docubrowser-foss_1.0.0-1_all.deb`, which crashes on start with
+`ModuleNotFoundError: No module named 'visio_extractor'` (v1.0.0 `APP_FILES`
+omitted five extractors; fixed in source at `94d0c44`). All other v1.0.1
+artifacts (rpm, tarball, Windows, macOS) verified correct. Pending: rebuild the
+deb as 1.0.1-1, replace the release asset, notify gemlog. See DECISIONS.md
+**D-103**.
+
+Concurrent GitHub review threads open: PR #9 (Intel Arc GPU detection — flagged
+a CPU-only crash + untested xpu-smi path) and PR #7 (opt-in trusted-peer CIDRs
+— proposed a /24 prefix-width cap; change staged in a local git stash).
 
 ---
 
