@@ -47,6 +47,7 @@ install -m 644 markup_extractor.py  %{buildroot}/opt/docubrowser/
 install -m 644 eml_extractor.py     %{buildroot}/opt/docubrowser/
 install -m 644 csv_extractor.py     %{buildroot}/opt/docubrowser/
 install -m 644 rtf_extractor.py     %{buildroot}/opt/docubrowser/
+install -m 644 djvu_extractor.py    %{buildroot}/opt/docubrowser/
 install -m 644 hardware_utils.py    %{buildroot}/opt/docubrowser/
 install -m 644 docubrowse_db.py     %{buildroot}/opt/docubrowser/
 install -m 644 purge_pii.py         %{buildroot}/opt/docubrowser/

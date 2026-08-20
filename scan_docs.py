@@ -64,6 +64,7 @@ from ebook_extractor import extract_ebook
 from eml_extractor import extract_eml
 from csv_extractor import extract_csv
 from rtf_extractor import extract_rtf
+from djvu_extractor import extract_djvu
 
 
 # HTtrack-mirrored sites save pages as extensionless files (e.g. "index"
@@ -75,6 +76,7 @@ DEFAULT_EXTENSIONS = [".pdf", ".docx", ".pptx", ".xlsx",
                       ".vsdx", ".vsdm", ".vsd", ".vss", ".vst",
                       ".drawio", ".dio",
                       ".epub", ".mobi", ".azw", ".azw3",
+                      ".djvu", ".djv",
                       ".eml", ".rtf", ".csv", ".tsv",
                       ".txt", ".md", ".html",
                       ".ini", ".conf", ".cfg", ".log", ".lst",
@@ -99,6 +101,8 @@ _VISIO_EXTENSIONS = frozenset({
 # Text-based diagram sources (PlantUML, Mermaid) — routed through the plain
 # text path but still counted as first-class scannable types.
 _TEXT_DIAGRAM_EXTENSIONS = frozenset({".puml", ".plantuml", ".mmd"})
+
+_DJVU_EXTENSIONS = frozenset({".djvu", ".djv"})
 
 # XML/SGML markup family — routed through markup_extractor.
 _MARKUP_XML_EXTENSIONS = frozenset({
@@ -158,6 +162,7 @@ PII_BLACKLIST_FILENAME = "pii_blacklist.txt"
 OCR_LIST_FILENAME      = "ocr_list_pdfs.txt"
 LEGACY_VISIO_LIST_FILENAME = "visio_legacy_missing.txt"
 RTF_MISSING_LIST_FILENAME  = "rtf_missing_striprtf.txt"
+DJVU_MISSING_LIST_FILENAME = "djvu_missing_djvulibre.txt"
 IGNORE_DIRS_FILENAME   = "ignore_dirs.txt"
 SCAN_DIRS_FILENAME     = "scan_dirs.txt"
 
@@ -361,6 +366,19 @@ def _rtf_missing_list_add(db_path: Path, file_path: str) -> None:
     """
     rm_path = db_path.parent / RTF_MISSING_LIST_FILENAME
     with open(rm_path, "a", encoding="utf-8") as fh:
+        fh.write(file_path + "\n")
+
+
+def _djvu_missing_list_add(db_path: Path, file_path: str) -> None:
+    """Append a .djvu/.djv path to djvu_missing_djvulibre.txt.
+
+    Populated when a DjVu file is encountered but DjVuLibre (``djvutxt``) is
+    not installed.  The file is still indexed metadata-only; installing
+    DjVuLibre and rescanning will extract body text.  Same convention as
+    ``visio_legacy_missing.txt``.
+    """
+    dm_path = db_path.parent / DJVU_MISSING_LIST_FILENAME
+    with open(dm_path, "a", encoding="utf-8") as fh:
         fh.write(file_path + "\n")
 
 
@@ -586,6 +604,19 @@ def _extract_file(args: tuple) -> dict:
                 result["title"]             = result.get("title") or file_path.stem
                 result["_needs_striprtf"]   = True
                 result["error"]             = None
+        elif effective_ext in _DJVU_EXTENSIONS:
+            result = extract_djvu(str(file_path))
+            # DjVuLibre missing: degrade to metadata-only and flag for the
+            # main process to append to djvu_missing_djvulibre.txt.
+            if (not result["success"]
+                    and (result.get("error") or "").startswith("djvulibre not found")):
+                result["success"]          = True
+                result["text"]             = ""
+                result["snippet"]          = ""
+                result["description"]      = "[DjVu — install djvulibre to index body]"
+                result["title"]            = result.get("title") or file_path.stem
+                result["_needs_djvulibre"] = True
+                result["error"]            = None
         elif detected_ext == "html":
             result = _extract_text_file(file_path, detected_ext="html")
         else:
@@ -627,6 +658,7 @@ def _extract_file(args: tuple) -> dict:
                              ".rss", ".atom", ".opml",
                              ".rst", ".adoc", ".asciidoc", ".tex", ".latex",
                              ".eml", ".rtf", ".csv", ".tsv",
+                             ".djvu", ".djv",
                              ".epub", ".mobi", ".azw", ".azw3"):
             keywords = generate_keywords(
                 result.get("text", ""), result.get("title", ""), max_keywords=5
@@ -660,6 +692,7 @@ def _extract_file(args: tuple) -> dict:
             "tags":            sorted(tags),
             "_needs_vsd2xml":  result.get("_needs_vsd2xml", False),
             "_needs_striprtf": result.get("_needs_striprtf", False),
+            "_needs_djvulibre": result.get("_needs_djvulibre", False),
         }
 
     except TimeoutError as exc:
@@ -1001,6 +1034,10 @@ def scan_directory(
                     extracted += 1
                     _rtf_missing_list_add(db_path, result["path"])
                     _log.info("RTF-NO-STRIPRTF  %s  (metadata-only; pip install striprtf to index body)", name)
+                elif result.get("_needs_djvulibre"):
+                    extracted += 1
+                    _djvu_missing_list_add(db_path, result["path"])
+                    _log.info("DJVU-NO-DJVULIBRE  %s  (metadata-only; install djvulibre to index body)", name)
                 else:
                     extracted += 1
                     _log.info("OK  %s  (%d tags)", name, len(result.get("tags", [])))
@@ -1216,6 +1253,9 @@ def scan_single_file(
         elif result.get("_needs_striprtf"):
             _rtf_missing_list_add(db_path, str(file_path))
             _log.info("RTF-NO-STRIPRTF  %s  (metadata-only; pip install striprtf to index body)", file_path.name)
+        elif result.get("_needs_djvulibre"):
+            _djvu_missing_list_add(db_path, str(file_path))
+            _log.info("DJVU-NO-DJVULIBRE  %s  (metadata-only; install djvulibre to index body)", file_path.name)
         else:
             _log.info("OK  %s  (%d tags)", file_path.name, len(result.get("tags", [])))
 
