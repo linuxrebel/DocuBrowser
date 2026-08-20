@@ -8,6 +8,9 @@ Extracts text and metadata from OpenDocument Format files:
   .odt  — text documents   (like .docx)
   .ods  — spreadsheets     (like .xlsx)
   .odp  — presentations    (like .pptx)
+  .ott / .ots / .otp — the template variants of the above; routed to the
+                       matching extractor by mimetype prefix (e.g. the
+                       text-template mimetype starts with the .odt mimetype).
 
 ODF files are ZIP archives containing XML.  This extractor reads content.xml
 and meta.xml directly with the stdlib — no third-party dependency required.

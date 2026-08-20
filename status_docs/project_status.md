@@ -1,25 +1,29 @@
 # DocuBrowse Project Status
 
-**Version**: v1.0.1  
-**Status**: 🟢 **v1.0.1 — feature-complete, production-tested, packaged for all platforms**  
+**Version**: v1.0.2  
+**Status**: 🟢 **v1.0.2 — DjVu + ODF templates; feature-complete, packaged for all platforms**  
 **Last Updated**: 2026-08-19  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
 
-## Open issue — v1.0.1 release .deb is stale (2026-08-19)
+## v1.0.2 (2026-08-19) — DjVu and ODF templates
 
-Issue #3: the `.deb` attached to the v1.0.1 release is still the broken
-`docubrowser-foss_1.0.0-1_all.deb`, which crashes on start with
-`ModuleNotFoundError: No module named 'visio_extractor'` (v1.0.0 `APP_FILES`
-omitted five extractors; fixed in source at `94d0c44`). All other v1.0.1
-artifacts (rpm, tarball, Windows, macOS) verified correct. Pending: rebuild the
-deb as 1.0.1-1, replace the release asset, notify gemlog. See DECISIONS.md
-**D-103**.
+- **DjVu** (`.djvu`/`.djv`) via DjVuLibre `djvutxt`/`djvused` (optional external
+  tool; graceful metadata-only degradation, `djvu_missing_djvulibre.txt`
+  breadcrumb). New `djvu_extractor.py`, added to all packaging manifests.
+- **ODF templates** (`.ott`/`.ots`/`.otp`) routed through the existing ODF
+  extractor by mimetype prefix — no extractor change, no new dependency.
+- QC-verified end-to-end against real sample files; pylint 10/10.
 
-Concurrent GitHub review threads open: PR #9 (Intel Arc GPU detection — flagged
-a CPU-only crash + untested xpu-smi path) and PR #7 (opt-in trusted-peer CIDRs
-— proposed a /24 prefix-width cap; change staged in a local git stash).
+The v1.0.2 release rebuilds all packages, which also resolves the stale-deb
+issue (#3, D-103) — the deb is rebuilt from the fixed tree. Confirm the correct
+deb is attached and notify gemlog.
+
+Concurrent GitHub review threads still open: PR #9 (Intel Arc GPU detection —
+flagged a CPU-only crash + untested xpu-smi path) and PR #7 (opt-in
+trusted-peer CIDRs — proposed a /24 prefix-width cap; change staged in a local
+git stash).
 
 ---
 

@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        1.0.1
+Version:        1.0.2
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
@@ -185,6 +185,11 @@ fi
 
 
 %changelog
+* Tue Aug 19 2026 James Sparenberg <james@sparenbergs.us> - 1.0.2-1
+- Add DjVu (.djvu/.djv) support via DjVuLibre (optional external tool)
+- Add ODF template support (.ott/.ots/.otp)
+- Ship djvu_extractor.py in all packaging manifests
+
 * Thu Jul 23 2026 James Sparenberg <james@sparenbergs.us> - 1.0.1-1
 - Ship all extractor modules in packaging manifests (visio, markup, eml, csv, rtf)
 - Python 3.9 compatibility: lazy annotations in markup/eml extractors

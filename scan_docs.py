@@ -73,6 +73,7 @@ from djvu_extractor import extract_djvu
 # and routes them through _extract_text_file.
 DEFAULT_EXTENSIONS = [".pdf", ".docx", ".pptx", ".xlsx",
                       ".odt", ".ods", ".odp",
+                      ".ott", ".ots", ".otp",
                       ".vsdx", ".vsdm", ".vsd", ".vss", ".vst",
                       ".drawio", ".dio",
                       ".epub", ".mobi", ".azw", ".azw3",
@@ -561,7 +562,10 @@ def _extract_file(args: tuple) -> dict:
             result = extract_pptx(str(file_path))
         elif effective_ext == ".xlsx":
             result = extract_xlsx(str(file_path))
-        elif effective_ext in (".odt", ".ods", ".odp"):
+        elif effective_ext in (".odt", ".ods", ".odp",
+                               ".ott", ".ots", ".otp"):
+            # ODF templates share their base flavor's structure; extract_odf
+            # routes them by mimetype prefix (text-template → odt, etc.).
             result = extract_odf(str(file_path))
         elif effective_ext in _VISIO_EXTENSIONS:
             result = extract_visio(str(file_path))
@@ -651,6 +655,7 @@ def _extract_file(args: tuple) -> dict:
 
         if effective_ext in (".pdf", ".docx", ".pptx", ".xlsx",
                              ".odt", ".ods", ".odp",
+                             ".ott", ".ots", ".otp",
                              ".vsdx", ".vsdm", ".drawio", ".dio",
                              ".xml", ".xhtml", ".sgml", ".sgm",
                              ".docbook", ".dbk",
