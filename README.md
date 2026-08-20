@@ -1,4 +1,4 @@
-# DocuBrowse v1.0.1
+# DocuBrowse v1.0.2
 
 <a name="top"></a>
 
@@ -50,12 +50,12 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
   Semantic search embeddings are produced by a second local model (`nomic-embed-text:latest`)
 
 ### 📚 Document Indexing
-- **Formats**: PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, VSDX/VSDM, VSD/VSS/VST (legacy Visio), VDX (Visio 2003 XML), draw.io/diagrams.net (.drawio/.dio), PlantUML (.puml/.plantuml), Mermaid (.mmd), SGML/XML family (.xml/.xhtml/.sgml/.sgm), DocBook (.docbook/.dbk), SVG, feeds (.rss/.atom/.opml), reStructuredText (.rst), AsciiDoc (.adoc/.asciidoc), LaTeX (.tex/.latex), Email (.eml), RTF (.rtf), CSV / TSV, EPUB, MOBI, AZW3, AZW, DjVu (.djvu/.djv), HTML, TXT, Markdown, plus config-ish plain text (.ini/.conf/.cfg/.log/.lst)
+- **Formats**: PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, OTT/OTS/OTP (ODF templates), VSDX/VSDM, VSD/VSS/VST (legacy Visio), VDX (Visio 2003 XML), draw.io/diagrams.net (.drawio/.dio), PlantUML (.puml/.plantuml), Mermaid (.mmd), SGML/XML family (.xml/.xhtml/.sgml/.sgm), DocBook (.docbook/.dbk), SVG, feeds (.rss/.atom/.opml), reStructuredText (.rst), AsciiDoc (.adoc/.asciidoc), LaTeX (.tex/.latex), Email (.eml), RTF (.rtf), CSV / TSV, EPUB, MOBI, AZW3, AZW, DjVu (.djvu/.djv), HTML, TXT, Markdown, plus config-ish plain text (.ini/.conf/.cfg/.log/.lst)
 - **PDF intelligence**: pdfplumber (preferred) with pypdf fallback for bloated-object files; `layout=False` retry for complex layouts; scanned (image-only) PDFs detected and routed to `ocr_list_pdfs.txt`
 - **Word documents**: python-docx extracts paragraphs, tables, and core properties (title, author, subject)
 - **Presentations**: python-pptx extracts slide text, notes, and core properties
 - **Spreadsheets**: openpyxl extracts cell values and sheet names
-- **OpenDocument**: ODF text documents (.odt), spreadsheets (.ods), and presentations (.odp) — paragraphs, headings, lists, tables, cell values, and slide text extracted via Python stdlib (`zipfile` + `xml.etree.ElementTree`). Metadata (title, author, subject, description, keywords) read from `meta.xml`. No extra dependency required.
+- **OpenDocument**: ODF text documents (.odt), spreadsheets (.ods), and presentations (.odp), plus their template variants (.ott/.ots/.otp) — paragraphs, headings, lists, tables, cell values, and slide text extracted via Python stdlib (`zipfile` + `xml.etree.ElementTree`). Templates route to the matching extractor by mimetype prefix. Metadata (title, author, subject, description, keywords) read from `meta.xml`. No extra dependency required.
 - **Visio and diagrams**:
   - Modern Visio (`.vsdx`/`.vsdm`) — OOXML zip parsed with the stdlib; shape text, page names, and core properties (title/author/subject/keywords) extracted with no third-party dependency.
   - Legacy Visio (`.vsd`/`.vss`/`.vst`) — binary compound document; requires the optional `vsd2xml` tool from **libvisio-tools** (`sudo dnf install libvisio-tools` / `sudo apt install libvisio-tools`). Without it, legacy files are indexed metadata-only (filename as title, no body) and the path is appended to `visio_legacy_missing.txt` so a rescan after install picks them up.
@@ -752,6 +752,20 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+## v1.0.2 (2026-08-19) — DjVu and ODF templates
+
+- **DjVu support** (`.djvu`/`.djv`) — text-layer extraction via **DjVuLibre**
+  (`djvutxt`/`djvused`, optional external tool). Without it, DjVu files are
+  indexed metadata-only and paths logged to `djvu_missing_djvulibre.txt`;
+  install DjVuLibre and rescan for body text. Image-only DjVu with no text
+  layer is indexed metadata-only (OCR deferred, same as scanned PDFs).
+- **ODF template support** (`.ott`/`.ots`/`.otp`) — the OpenDocument template
+  variants now index through the existing ODF extractor, routed by mimetype
+  prefix to the matching text/spreadsheet/presentation handler. No new
+  dependency.
+- **Packaging** — `djvu_extractor.py` added to all packaging manifests (RPM,
+  DEB, tarball, Windows, macOS).
+
 ## v1.0.0 (2026-07-23) — Feature-complete milestone
 
 DocuBrowse reaches v1.0.0: feature-complete, production-tested, and packaged
@@ -1154,4 +1168,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v1.0.1** — Fast, local, AI-powered document search.
+**DocuBrowse v1.0.2** — Fast, local, AI-powered document search.

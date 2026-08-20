@@ -11,7 +11,10 @@ resolved items keep their number.
 ## Open
 
 ### D-103: v1.0.1 release ships a stale 1.0.0 .deb (issue #3)
-**Status:** Open — deb rebuild + asset replace pending
+**Status:** Superseded by the v1.0.2 release — all packages (deb included)
+rebuilt from the fixed tree. A stopgap `1.0.1-2` deb was also built; the
+v1.0.2 release replaces it. Still verify the correct deb is attached to the
+release and notify gemlog on issue #3.
 **Priority:** High
 **Added:** 2026-08-19
 
