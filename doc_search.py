@@ -106,8 +106,13 @@ def _ollama_host() -> str:
         os.environ.get("OLLAMA_HOST")
         or os.environ.get("DOCUBROWSE_OLLAMA_HOST")
         or "http://localhost:11434"
-    )
-    return host.rstrip("/")
+    ).rstrip("/")
+    # OLLAMA_HOST follows the Ollama convention of a bare host[:port] with no
+    # scheme (e.g. "127.0.0.1:11434"); prepend http:// so f"{host}/api/..."
+    # stays a valid URL rather than raising "unknown url type".
+    if "://" not in host:
+        host = "http://" + host
+    return host
 
 
 OLLAMA_HOST = _ollama_host()
