@@ -96,10 +96,29 @@ def _is_loopback(hostname: str) -> bool:
         return addr == _IPV6_LOOPBACK or addr in _LOOPBACK_NET
     except ValueError:
         return False
-OLLAMA_HOST = "http://localhost:11434"
+def _ollama_host() -> str:
+    """Resolve the Ollama base URL from the environment.
+
+    Prefer ``OLLAMA_HOST`` (Ollama ecosystem convention), then
+    ``DOCUBROWSE_OLLAMA_HOST``. Defaults to the local Ollama daemon.
+    """
+    host = (
+        os.environ.get("OLLAMA_HOST")
+        or os.environ.get("DOCUBROWSE_OLLAMA_HOST")
+        or "http://localhost:11434"
+    ).rstrip("/")
+    # OLLAMA_HOST follows the Ollama convention of a bare host[:port] with no
+    # scheme (e.g. "127.0.0.1:11434"); prepend http:// so f"{host}/api/..."
+    # stays a valid URL rather than raising "unknown url type".
+    if "://" not in host:
+        host = "http://" + host
+    return host
+
+
+OLLAMA_HOST = _ollama_host()
 EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
-SERVER_VERSION = "1.0.1"
+SERVER_VERSION = "1.0.2"
 
 _SERVER_START_TIME = None  # set by main(); used by /api/status
 # Cold Ollama starts (e.g. right after a reboot) need to load the model into
@@ -1484,6 +1503,22 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             config["installed"]    = str(cfg_path) == "/etc/docubrowse.config"
             config["configSource"] = str(cfg_path)
             break   # first readable config wins
+
+        # Env overrides win over the file (same precedence as the CLI side's
+        # _apply_env_overrides) so a container that injects DOCUBROWSE_* — and
+        # may ship no config file at all — reports a consistent config here.
+        env_doc = os.environ.get("DOCUBROWSE_DOC_DIR")
+        if env_doc:
+            config["docPath"] = env_doc
+        env_work = os.environ.get("DOCUBROWSE_WORK_DIR")
+        if env_work:
+            config["workDir"] = env_work
+        env_port = os.environ.get("DOCUBROWSE_PORT")
+        if env_port:
+            try:
+                config["port"] = int(env_port)
+            except ValueError:
+                pass
         self.json_response(config)
 
     def handle_config_post(self):

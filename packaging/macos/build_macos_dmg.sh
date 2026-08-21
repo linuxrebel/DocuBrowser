@@ -81,6 +81,7 @@ APP_FILES=(
     eml_extractor.py
     csv_extractor.py
     rtf_extractor.py
+    djvu_extractor.py
     hardware_utils.py
     docubrowse_db.py
     purge_pii.py
