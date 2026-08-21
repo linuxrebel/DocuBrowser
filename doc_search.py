@@ -98,12 +98,21 @@ def _is_loopback(hostname: str) -> bool:
         return False
 
 
+# Widest trusted range accepted, per IP version. A /8 or /16 would trust an
+# entire corporate network rather than a single BFF/proxy, so anything broader
+# than /24 (IPv4, 256 hosts) or /120 (IPv6, 256 hosts) is refused. A single
+# host — /32 (IPv4) or /128 (IPv6) — is the preferred, tightest entry.
+_MIN_TRUSTED_PREFIX = {4: 24, 6: 120}
+
+
 def _parse_trusted_cidrs() -> list:
     """Parse DOCUBROWSE_TRUSTED_CIDRS (comma-separated CIDRs / single IPs).
 
     Empty / unset → no extra peers (loopback-only, the historical default).
     Invalid entries are skipped with a warning so a typo cannot open the
-    whole internet by accident.
+    whole internet by accident. Ranges broader than /24 (IPv4) or /120
+    (IPv6) are also skipped — trust a host or a small subnet, never a
+    whole network.
     """
     raw = os.environ.get("DOCUBROWSE_TRUSTED_CIDRS", "").strip()
     if not raw:
@@ -114,9 +123,19 @@ def _parse_trusted_cidrs() -> list:
         if not part:
             continue
         try:
-            nets.append(ipaddress.ip_network(part, strict=False))
+            net = ipaddress.ip_network(part, strict=False)
         except ValueError:
             print(f"WARNING: ignoring invalid DOCUBROWSE_TRUSTED_CIDRS entry: {part!r}")
+            continue
+        min_prefix = _MIN_TRUSTED_PREFIX[net.version]
+        if net.prefixlen < min_prefix:
+            print(
+                f"WARNING: ignoring DOCUBROWSE_TRUSTED_CIDRS entry {part!r} — "
+                f"range wider than /{min_prefix} is not allowed; trust a host "
+                f"(/32) or a small subnet, not a whole network."
+            )
+            continue
+        nets.append(net)
     return nets
 
 
@@ -164,10 +183,29 @@ def _hostname_allowed(hostname: str) -> bool:
     return hostname in _ALLOWED_HOSTS
 
 
-OLLAMA_HOST = "http://localhost:11434"
+def _ollama_host() -> str:
+    """Resolve the Ollama base URL from the environment.
+
+    Prefer ``OLLAMA_HOST`` (Ollama ecosystem convention), then
+    ``DOCUBROWSE_OLLAMA_HOST``. Defaults to the local Ollama daemon.
+    """
+    host = (
+        os.environ.get("OLLAMA_HOST")
+        or os.environ.get("DOCUBROWSE_OLLAMA_HOST")
+        or "http://localhost:11434"
+    ).rstrip("/")
+    # OLLAMA_HOST follows the Ollama convention of a bare host[:port] with no
+    # scheme (e.g. "127.0.0.1:11434"); prepend http:// so f"{host}/api/..."
+    # stays a valid URL rather than raising "unknown url type".
+    if "://" not in host:
+        host = "http://" + host
+    return host
+
+
+OLLAMA_HOST = _ollama_host()
 EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
-SERVER_VERSION = "1.0.1"
+SERVER_VERSION = "1.0.2"
 
 _SERVER_START_TIME = None  # set by main(); used by /api/status
 # Cold Ollama starts (e.g. right after a reboot) need to load the model into
@@ -1574,6 +1612,22 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             config["installed"]    = str(cfg_path) == "/etc/docubrowse.config"
             config["configSource"] = str(cfg_path)
             break   # first readable config wins
+
+        # Env overrides win over the file (same precedence as the CLI side's
+        # _apply_env_overrides) so a container that injects DOCUBROWSE_* — and
+        # may ship no config file at all — reports a consistent config here.
+        env_doc = os.environ.get("DOCUBROWSE_DOC_DIR")
+        if env_doc:
+            config["docPath"] = env_doc
+        env_work = os.environ.get("DOCUBROWSE_WORK_DIR")
+        if env_work:
+            config["workDir"] = env_work
+        env_port = os.environ.get("DOCUBROWSE_PORT")
+        if env_port:
+            try:
+                config["port"] = int(env_port)
+            except ValueError:
+                pass
         self.json_response(config)
 
     def handle_config_post(self):
@@ -1689,16 +1743,31 @@ def main():   # pylint: disable=too-many-statements
     _SERVER_START_TIME = time.time()
 
     # Args: <database_path> [port]
+    # Env fallbacks (DOCUBROWSE_DB / DOCUBROWSE_DB_PATH, DOCUBROWSE_PORT) let
+    # container entrypoints omit argv when paths are injected via Compose.
     argv = sys.argv[1:]
-    if not argv:
+    env_db = os.environ.get("DOCUBROWSE_DB") or os.environ.get("DOCUBROWSE_DB_PATH")
+    env_port = os.environ.get("DOCUBROWSE_PORT")
+
+    if not argv and not env_db:
         print(f"Usage: {sys.argv[0]} <database_path> [port]")
+        print("\nOr set DOCUBROWSE_DB / DOCUBROWSE_DB_PATH (and optional DOCUBROWSE_PORT).")
         print("\nExample:")
         print(f"  {sys.argv[0]} /path/to/du-docs.db")
         print(f"  {sys.argv[0]} /path/to/du-docs.db 8643")
         sys.exit(1)
 
-    db_path = argv[0]
-    port = int(argv[1]) if len(argv) > 1 else DEFAULT_PORT
+    db_path = argv[0] if argv else env_db
+    if len(argv) > 1:
+        port = int(argv[1])
+    elif env_port:
+        try:
+            port = int(env_port)
+        except ValueError:
+            print(f"ERROR: invalid DOCUBROWSE_PORT={env_port!r}")
+            sys.exit(1)
+    else:
+        port = DEFAULT_PORT
 
     db_path = Path(db_path)
     if not db_path.exists():

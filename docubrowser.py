@@ -85,7 +85,7 @@ from scan_docs import (
     purge_path_prefix,
     scan_single_file,
 )
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 # ─── Paths ───────────────────────────────────────────────────────────────────
 # APP_DIR  = where the code lives (scripts, HTML, icons).  Always the
@@ -131,6 +131,10 @@ def load_config() -> dict:
     Load configuration from the first config file found.
     Format: simple KEY=VALUE lines; lines starting with # are comments.
     Falls back to built-in defaults if no config file exists.
+
+    Environment variables override file values (useful for containers):
+      DOCUBROWSE_DOC_DIR, DOCUBROWSE_DB / DOCUBROWSE_DB_PATH,
+      DOCUBROWSE_PORT, DOCUBROWSE_WORK_DIR.
     """
     config = {
         "doc_dir": DEFAULT_DOC_DIR,
@@ -156,7 +160,30 @@ def load_config() -> dict:
     else:
         config["_config_source"] = "(built-in defaults)"
 
+    _apply_env_overrides(config)
     return config
+
+
+def _apply_env_overrides(config: dict) -> None:
+    """Overlay DOCUBROWSE_* environment variables onto *config* in place."""
+    doc_dir = os.environ.get("DOCUBROWSE_DOC_DIR")
+    if doc_dir:
+        config["doc_dir"] = doc_dir
+
+    db_path = os.environ.get("DOCUBROWSE_DB") or os.environ.get("DOCUBROWSE_DB_PATH")
+    if db_path:
+        config["db_path"] = db_path
+
+    work_dir = os.environ.get("DOCUBROWSE_WORK_DIR")
+    if work_dir:
+        config["work_dir"] = work_dir
+
+    port = os.environ.get("DOCUBROWSE_PORT")
+    if port:
+        try:
+            config["port"] = int(port)
+        except ValueError:
+            print(f"WARNING: ignoring invalid DOCUBROWSE_PORT={port!r}")
 
 
 def require_doc_dir(doc_dir: str) -> str:
@@ -615,6 +642,9 @@ _TYPE_MAP = {
     "rtf":   ".rtf",
     "csv":   ".csv",
     "tsv":   ".tsv",
+    # Either name scans both extensions — a user may have .djvu or .djv
+    "djvu":  (".djvu", ".djv"),
+    "djv":   (".djvu", ".djv"),
     # Visio / diagram formats
     "vsdx":   ".vsdx",
     "vsdm":   ".vsdm",
@@ -666,7 +696,12 @@ def cmd_rescan(config: dict, args):
             print(f"ERROR: Unknown file type(s): {', '.join(unknown)}")
             print(f"  Supported: {', '.join(sorted(set(_TYPE_MAP.keys())))}")
             sys.exit(1)
-        scan_extensions = [_TYPE_MAP[t.lower().lstrip(".")] for t in args.types]
+        # A _TYPE_MAP value is either one extension or a tuple of them
+        # (e.g. djvu → .djvu + .djv); flatten to a flat extension list.
+        scan_extensions = []
+        for t in args.types:
+            ext = _TYPE_MAP[t.lower().lstrip(".")]
+            scan_extensions.extend(ext if isinstance(ext, tuple) else (ext,))
         # Deduplicate while preserving order
         seen = set()
         scan_extensions = [e for e in scan_extensions if not (e in seen or seen.add(e))]
@@ -1436,11 +1471,12 @@ def build_parser() -> argparse.ArgumentParser:
             Supported document families (default: all):
 
               Office              pdf  docx  pptx  xlsx
-              OpenDocument        odt  ods  odp
+              OpenDocument        odt  ods  odp  ott  ots  otp
               Diagrams            vsdx  vsdm  vsd  vss  vst  drawio  dio
                                   svg  vdx
               Text diagrams       puml  plantuml  mmd
               Ebooks              epub  mobi  azw  azw3
+              DjVu                djvu  djv
               Email / rich text   eml  rtf
               Tabular text        csv  tsv
               Plain text          txt  md  html
