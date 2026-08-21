@@ -1,4 +1,4 @@
-# DocuBrowse v1.0.2 — Installation Guide
+# DocuBrowse v1.0.3 — Installation Guide
 
 This guide covers a fresh install on Linux (Fedora/RHEL/Debian/Ubuntu/Mint),
 Windows 10/11, or macOS. DocuBrowse runs entirely locally — no cloud
@@ -305,6 +305,24 @@ with an error explaining how to set it.
 
 The server is localhost-only — it binds the loopback subnet (`127.0.0.0/8`)
 and rejects all non-loopback connections at the socket level.
+
+### Environment variables (containers / no config file)
+
+For container images you can skip the config file entirely and inject settings
+via the environment. Env values override the matching config-file keys; CLI
+flags still win when provided.
+
+| Variable | Overrides | Notes |
+|----------|-----------|-------|
+| `DOCUBROWSE_DOC_DIR` | `doc_dir` | Document directory to index |
+| `DOCUBROWSE_DB` / `DOCUBROWSE_DB_PATH` | `db_path` | Path to `du-docs.db`; `doc_search.py` can also start from this alone (no argv) |
+| `DOCUBROWSE_PORT` | `port` | HTTP server port |
+| `DOCUBROWSE_WORK_DIR` | `work_dir` | Runtime data directory |
+| `OLLAMA_HOST` | — | Base URL for the Ollama API (embeddings + synopsis). A bare `host:port` works (scheme defaults to `http://`). Also `DOCUBROWSE_OLLAMA_HOST`. Set to e.g. `http://ollama:11434` for a sidecar. |
+| `DOCUBROWSE_TRUSTED_CIDRS` | — | Comma-separated private CIDRs/IPs allowed past the loopback-only gate (e.g. `172.17.0.2/32`). Ranges wider than `/24` (IPv4) / `/120` (IPv6) are refused. **Not authentication** — see the Security section of the README. |
+| `DOCUBROWSE_ALLOWED_HOSTS` | — | Extra `Host` header names (e.g. a Compose service name). |
+
+Restart the server after changing any of these — they are read once at startup.
 
 ---
 

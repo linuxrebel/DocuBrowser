@@ -1,11 +1,29 @@
 # DocuBrowse Project Status
 
-**Version**: v1.0.2  
-**Status**: 🟢 **v1.0.2 — DjVu + ODF templates; feature-complete, packaged for all platforms**  
-**Last Updated**: 2026-08-19  
+**Version**: v1.0.3  
+**Status**: 🟢 **v1.0.3 — container/env configuration; feature-complete, packaged for all platforms**  
+**Last Updated**: 2026-08-21  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
+
+## v1.0.3 (2026-08-21) — Container & environment configuration
+
+Landed Nuttymoon's three container-oriented PRs with fixes:
+
+- **PR #5** — `OLLAMA_HOST` / `DOCUBROWSE_OLLAMA_HOST` (+ scheme-normalize fix so
+  a bare `host:port` works).
+- **PR #6** — `DOCUBROWSE_DOC_DIR` / `DB` / `PORT` / `WORK_DIR` env overrides
+  (+ `handle_config` fix so `/api/config` honors them, not just the CLI side).
+- **PR #7** — `DOCUBROWSE_TRUSTED_CIDRS` / `ALLOWED_HOSTS` for private-network
+  access (+ a `/24` cap so a stray `/8` can't grant the whole network
+  unauthenticated API access).
+
+Default behavior unchanged (loopback-only, localhost Ollama, file config). Docs
+updated across README/INSTALL/Admin Guide/API Reference. Added `test_features.py`
+(end-to-end HTTP feature suite) and `status_docs/TESTING.md`. Full suite verified
+green against the real 8,331-doc DB. Only PR #9 (Intel Arc GPU) remains open,
+awaiting the author's hardware test.
 
 ## v1.0.2 (2026-08-19) — DjVu and ODF templates
 

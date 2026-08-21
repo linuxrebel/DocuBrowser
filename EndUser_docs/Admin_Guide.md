@@ -1,7 +1,7 @@
-# DocuBrowse v1.0.2 — Administrator Guide
+# DocuBrowse v1.0.3 — Administrator Guide
 
 **Date:** 2026-07-23
-**Version:** v1.0.2
+**Version:** v1.0.3
 **License:** GPL-3.0-or-later
 
 ---
@@ -617,6 +617,35 @@ allow_remote = false
 
 `doc_dir` is the primary scan directory. Additional scan directories are managed via the Settings page or `scan_dirs.txt` and are unified with `doc_dir` automatically on every `scan`/`rescan`.
 
+**Environment variable overrides (containers).** Every core setting can be
+supplied via the environment instead of a config file, which is convenient for
+container images that inject paths at runtime. Environment values override the
+config file; CLI flags still take precedence. Values are read once at startup —
+restart after changing them.
+
+| Variable | Overrides | Description |
+|----------|-----------|-------------|
+| `DOCUBROWSE_DOC_DIR` | `doc_dir` | Document directory to index |
+| `DOCUBROWSE_DB` / `DOCUBROWSE_DB_PATH` | `db_path` | Path to `du-docs.db`. `doc_search.py` can start from this alone when no argv is given. |
+| `DOCUBROWSE_PORT` | `port` | HTTP server port |
+| `DOCUBROWSE_WORK_DIR` | `work_dir` | Runtime data directory |
+| `OLLAMA_HOST` / `DOCUBROWSE_OLLAMA_HOST` | — | Base URL for the Ollama API. A bare `host:port` is accepted (scheme defaults to `http://`). Set for a sidecar Ollama, e.g. `http://ollama:11434`. |
+
+**Private-network access (reverse proxy / BFF).** By default the server is
+loopback-only. To let a private-network proxy or backend-for-frontend reach the
+API — a Docker/Compose sidecar, for instance — set:
+
+| Variable | Description |
+|----------|-------------|
+| `DOCUBROWSE_TRUSTED_CIDRS` | Comma-separated private CIDRs/IPs allowed past the loopback gate, e.g. `172.17.0.2/32`. Ranges wider than `/24` (IPv4) or `/120` (IPv6) are refused — a `/32` single host is preferred. |
+| `DOCUBROWSE_ALLOWED_HOSTS` | Extra `Host` header names to accept (e.g. a Compose service name). |
+
+This is **not** authentication and **not** public exposure. A non-loopback
+trusted peer skips the CSRF check (so a server-side proxy can call mutating
+endpoints), which means it has unauthenticated access to the full API — keep the
+CIDR list to hosts you fully trust and put login in front of DocuBrowse. Never
+list a public range, and never publish the port.
+
 ### 5.2 scan_dirs.txt
 
 Lists additional document directories to include in every scan, beyond the primary `doc_dir`. One absolute path per line.
@@ -1211,5 +1240,5 @@ pdfinfo /path/to/file.pdf | grep -i objects
 
 ---
 
-*DocuBrowse v1.0.2 — Administrator Guide — 2026-07-23*
+*DocuBrowse v1.0.3 — Administrator Guide — 2026-07-23*
 *Copyright (C) 2026 James Sparenberg — GPL-3.0-or-later*

@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        1.0.2
+Version:        1.0.3
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
@@ -185,6 +185,12 @@ fi
 
 
 %changelog
+* Thu Aug 21 2026 James Sparenberg <james@sparenbergs.us> - 1.0.3-1
+- Configurable Ollama host via OLLAMA_HOST / DOCUBROWSE_OLLAMA_HOST
+- Doc dir, DB, port, and work dir configurable via DOCUBROWSE_* environment
+- Opt-in private-network access via DOCUBROWSE_TRUSTED_CIDRS (capped at /24)
+  and DOCUBROWSE_ALLOWED_HOSTS; default remains loopback-only
+
 * Tue Aug 19 2026 James Sparenberg <james@sparenbergs.us> - 1.0.2-1
 - Add DjVu (.djvu/.djv) support via DjVuLibre (optional external tool)
 - Add ODF template support (.ott/.ots/.otp)
