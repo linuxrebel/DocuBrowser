@@ -1,4 +1,4 @@
-# DocuBrowse v1.0.1 — Installation Guide
+# DocuBrowse v1.0.2 — Installation Guide
 
 This guide covers a fresh install on Linux (Fedora/RHEL/Debian/Ubuntu/Mint),
 Windows 10/11, or macOS. DocuBrowse runs entirely locally — no cloud
@@ -205,6 +205,25 @@ Without it, DocuBrowse still indexes legacy Visio files metadata-only
 paths to `visio_legacy_missing.txt` next to `du-docs.db`. Install
 libvisio-tools and rescan those paths (or run `docubrowser rescan`) to
 extract body text.
+
+### DjVuLibre (optional — DjVu only)
+
+DjVu documents (`.djvu`/`.djv`, common for scanned/archived books) are
+indexed using the `djvutxt` and `djvused` tools from **DjVuLibre**:
+
+```bash
+sudo dnf install djvulibre       # Fedora / RHEL
+sudo apt install djvulibre-bin   # Debian / Ubuntu / Mint
+brew install djvulibre           # macOS (Homebrew)
+choco install djvu-libre         # Windows (Chocolatey; also Scoop)
+```
+
+Without it, DocuBrowse still indexes DjVu files metadata-only (filename
+becomes the title, no body text is searchable) and appends the paths to
+`djvu_missing_djvulibre.txt` next to `du-docs.db`. Install DjVuLibre and
+rescan those paths (or run `docubrowser rescan`) to extract body text. A
+DjVu file with no embedded text layer (image-only, never OCR'd) is indexed
+metadata-only regardless — OCR is not performed, the same as scanned PDFs.
 
 ### DRM-encrypted AZW files
 

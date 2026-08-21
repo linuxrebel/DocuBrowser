@@ -44,7 +44,26 @@ try:
 except ImportError:
     pass
 
-OLLAMA_HOST     = "http://localhost:11434"
+def _ollama_host() -> str:
+    """Resolve the Ollama base URL from the environment.
+
+    Prefer ``OLLAMA_HOST`` (Ollama ecosystem convention), then
+    ``DOCUBROWSE_OLLAMA_HOST``. Defaults to the local Ollama daemon.
+    """
+    host = (
+        os.environ.get("OLLAMA_HOST")
+        or os.environ.get("DOCUBROWSE_OLLAMA_HOST")
+        or "http://localhost:11434"
+    ).rstrip("/")
+    # OLLAMA_HOST follows the Ollama convention of a bare host[:port] with no
+    # scheme (e.g. "127.0.0.1:11434"); prepend http:// so f"{host}/api/..."
+    # stays a valid URL rather than raising "unknown url type".
+    if "://" not in host:
+        host = "http://" + host
+    return host
+
+
+OLLAMA_HOST     = _ollama_host()
 EMBEDDING_MODEL = "nomic-embed-text"
 BATCH_SIZE      = 25
 

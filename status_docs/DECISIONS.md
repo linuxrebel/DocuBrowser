@@ -10,6 +10,40 @@ resolved items keep their number.
 
 ## Open
 
+### D-103: v1.0.1 release ships a stale 1.0.0 .deb (issue #3)
+**Status:** Superseded by the v1.0.2 release — all packages (deb included)
+rebuilt from the fixed tree. A stopgap `1.0.1-2` deb was also built; the
+v1.0.2 release replaces it. Still verify the correct deb is attached to the
+release and notify gemlog on issue #3.
+**Priority:** High
+**Added:** 2026-08-19
+
+Issue #3 (gemlog / Paul Evans, Linux Mint): `docubrowser start` crashes at
+import with `ModuleNotFoundError: No module named 'visio_extractor'`
+(`scan_docs.py:61`).
+
+Root cause: v1.0.0's `packaging/build_packages.sh` `APP_FILES` list omitted
+five extractor modules — `visio_extractor.py`, `markup_extractor.py`,
+`eml_extractor.py`, `csv_extractor.py`, `rtf_extractor.py` — while
+`scan_docs.py` imports them unconditionally. Source fixed by commit `94d0c44`
+("add missing extractors to APP_FILES"), shipped in v1.0.1.
+
+But the `.deb` attached to the **v1.0.1 GitHub release was never rebuilt** — it
+is still `docubrowser-foss_1.0.0-1_all.deb`, so Debian/Mint users downloading
+the latest release still get the broken package. Verified 2026-08-19: the
+v1.0.1 rpm, tarball, Windows zip, and macOS dmg all contain the five
+extractors; only the deb is broken, so no full-suite reissue is needed.
+
+**TODO:** rebuild the deb as `1.0.1-1`, delete the stale `1.0.0-1` deb from the
+v1.0.1 release, upload the new one, then notify gemlog on issue #3 (James
+already replied promising a fixed deb).
+
+**Follow-up (fragility):** `APP_FILES` is a hand-maintained list; a new module
+that `scan_docs`/`doc_search` imports but that isn't added to `APP_FILES`
+ships a broken package silently. Consider globbing `*_extractor.py` in the
+build, or asserting at build time that every top-level import in `scan_docs.py`
+resolves to a staged file.
+
 ### D-14: Email, RTF, CSV, and config-ish plain text — coverage sweep
 **Status:** Decided — new dedicated extractors + trivial extension adds
 **Priority:** Low

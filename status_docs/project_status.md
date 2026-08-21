@@ -1,9 +1,29 @@
 # DocuBrowse Project Status
 
-**Version**: v1.0.1  
-**Status**: 🟢 **v1.0.1 — feature-complete, production-tested, packaged for all platforms**  
-**Last Updated**: 2026-07-23  
+**Version**: v1.0.2  
+**Status**: 🟢 **v1.0.2 — DjVu + ODF templates; feature-complete, packaged for all platforms**  
+**Last Updated**: 2026-08-19  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
+
+---
+
+## v1.0.2 (2026-08-19) — DjVu and ODF templates
+
+- **DjVu** (`.djvu`/`.djv`) via DjVuLibre `djvutxt`/`djvused` (optional external
+  tool; graceful metadata-only degradation, `djvu_missing_djvulibre.txt`
+  breadcrumb). New `djvu_extractor.py`, added to all packaging manifests.
+- **ODF templates** (`.ott`/`.ots`/`.otp`) routed through the existing ODF
+  extractor by mimetype prefix — no extractor change, no new dependency.
+- QC-verified end-to-end against real sample files; pylint 10/10.
+
+The v1.0.2 release rebuilds all packages, which also resolves the stale-deb
+issue (#3, D-103) — the deb is rebuilt from the fixed tree. Confirm the correct
+deb is attached and notify gemlog.
+
+Concurrent GitHub review threads still open: PR #9 (Intel Arc GPU detection —
+flagged a CPU-only crash + untested xpu-smi path) and PR #7 (opt-in
+trusted-peer CIDRs — proposed a /24 prefix-width cap; change staged in a local
+git stash).
 
 ---
 
