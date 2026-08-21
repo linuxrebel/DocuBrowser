@@ -1,4 +1,4 @@
-# DocuBrowse v1.0.2
+# DocuBrowse v1.0.3
 
 <a name="top"></a>
 
@@ -619,6 +619,14 @@ to allow a private-network reverse proxy or BFF (e.g. Docker Compose) to reach
 the API. That is **not** public exposure and **not** authentication — keep the
 CIDR list private and put login in front of DocuBrowse.
 
+Trusted peers are fully trusted: a non-loopback peer in `DOCUBROWSE_TRUSTED_CIDRS`
+skips the CSRF check so a server-side proxy can call mutating endpoints without
+scraping the HTML token (loopback browsers still require it). Because that grants
+unauthenticated access to the whole API, the parser refuses any range broader
+than `/24` (IPv4) or `/120` (IPv6) — trust a single host (`/32`) or a small
+subnet, never a `/8` or `/16` corporate network where one compromised host could
+reach DocuBrowse.
+
 ---
 
 ## File Structure
@@ -779,6 +787,26 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 ## Recent Changes
 
 [↑ Top](#top)
+
+## v1.0.3 (2026-08-21) — Container & environment configuration
+
+- **Configurable Ollama host** — `OLLAMA_HOST` (or `DOCUBROWSE_OLLAMA_HOST`)
+  points the embedder, search server, and prerequisite checker at a remote or
+  sidecar Ollama. A bare `host:port` is accepted; the scheme defaults to
+  `http://`. Default stays `http://localhost:11434`.
+- **Path/port/DB via environment** — `DOCUBROWSE_DOC_DIR`, `DOCUBROWSE_DB` /
+  `DOCUBROWSE_DB_PATH`, `DOCUBROWSE_PORT`, and `DOCUBROWSE_WORK_DIR` overlay the
+  config file (env overrides file; CLI still wins), so a container can run with
+  no `docubrowse.config`. `GET /api/config` reflects these too, and
+  `doc_search.py` can start from `DOCUBROWSE_DB` / `DOCUBROWSE_PORT` alone.
+- **Opt-in private-network access** — `DOCUBROWSE_TRUSTED_CIDRS` and
+  `DOCUBROWSE_ALLOWED_HOSTS` let a private reverse proxy / BFF reach the API
+  past the loopback-only gate. Trusted ranges are capped at `/24` (IPv4) /
+  `/120` (IPv6) — a `/32` host is preferred — so a stray `/8` can't grant the
+  whole network unauthenticated API access. Default remains loopback-only.
+- **Docs** — README, INSTALL, and the Administrator Guide document the full
+  environment-variable set and the trusted-peer security model; a repeatable
+  end-to-end feature test (`test_features.py`) and testing notes were added.
 
 ## v1.0.2 (2026-08-19) — DjVu and ODF templates
 
@@ -1196,4 +1224,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v1.0.2** — Fast, local, AI-powered document search.
+**DocuBrowse v1.0.3** — Fast, local, AI-powered document search.

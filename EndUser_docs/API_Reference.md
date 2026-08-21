@@ -1,4 +1,4 @@
-# DocuBrowse v1.0.2 — API Reference
+# DocuBrowse v1.0.3 — API Reference
 
 **Date:** 2026-07-23
 **Base URL:** `http://127.0.0.1:8643`
@@ -198,7 +198,7 @@ curl http://127.0.0.1:8643/api/status
 ```json
 {
   "ok": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "uptime_seconds": 3721.4,
   "timestamp": "2026-06-27T14:22:08.113245",
   "semantic_ready": true,
@@ -220,7 +220,7 @@ The `semantic_ready` field is `false` when any of these conditions are not met: 
 ```json
 {
   "ok": false,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "uptime_seconds": 42.1,
   "timestamp": "2026-06-27T09:00:42.000000",
   "components": {
@@ -508,6 +508,8 @@ curl http://127.0.0.1:8643/api/letters
 **CSRF required:** No
 
 Returns the current server configuration, read from `docubrowse.config`. The server checks `/etc/docubrowse.config` first, then the directory containing `doc_search.py`. If no config file is found, defaults are returned.
+
+The `DOCUBROWSE_DOC_DIR`, `DOCUBROWSE_WORK_DIR`, and `DOCUBROWSE_PORT` environment variables override the corresponding config-file values in this response, so a container that injects settings via the environment (with no config file) still reports them here. See the Administrator Guide, section 5.1, for the full list.
 
 **Parameters:** None
 
@@ -1158,7 +1160,7 @@ When `enterprise_mode` is `True`, the `GET /api/status` response includes additi
 ```json
 {
   "ok": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "uptime_seconds": 7200.0,
   "timestamp": "2026-06-27T16:00:00.000000",
   "components": {
