@@ -360,6 +360,14 @@ work_dir     = /home/user/DocuBrowse
 | `port` | `8643` |
 | `work_dir` | `<script dir>` |
 
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_HOST` | `http://localhost:11434` | Base URL for the Ollama HTTP API (embeddings + synopsis). Also accepted as `DOCUBROWSE_OLLAMA_HOST`. |
+
+Used by `doc_search.py`, `embed_docs.py`, and `ensure_ollama.py`. Set this when Ollama runs on another host or container (for example `http://ollama:11434` in Docker Compose).
+
 ---
 
 ## Architecture
