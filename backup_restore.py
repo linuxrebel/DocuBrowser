@@ -328,18 +328,36 @@ def _confirm_overwrites(members, data_dir: Path) -> None:
         sys.exit(0)
 
 
+def _reject_unsafe_members(tar, data_dir: Path) -> None:
+    """Raise ValueError if any tar member would escape *data_dir* or is a link.
+
+    Backports the essential checks of tarfile's ``filter='data'`` for Python
+    versions that lack it (< 3.12): reject absolute paths and ``..`` traversal
+    (member resolves outside data_dir) and reject symlink/hardlink members
+    (which could redirect a later write outside the tree).
+    """
+    dest = data_dir.resolve()
+    for member in tar.getmembers():
+        target = (data_dir / member.name).resolve()
+        if not target.is_relative_to(dest):
+            raise ValueError(f"Unsafe path in backup archive: {member.name!r}")
+        if member.issym() or member.islnk():
+            raise ValueError(f"Unsafe link in backup archive: {member.name!r}")
+
+
 def _extract_and_chown(selected: Path, data_dir: Path, members) -> None:
     """Extract the tarball and, if invoked under sudo, chown everything back
     to the invoking user."""
     # filter='data' rejects absolute paths, .., symlinks, and special members
-    # (Python 3.12+).  Older Pythons don't have the filter param; fall back
-    # to unfiltered extraction (our backups are self-created and contain only
-    # plain files with simple names).
+    # (Python 3.12+).  Older Pythons don't have the filter param; validate each
+    # member ourselves before extracting so a tampered backup can't traverse
+    # out of data_dir (restore may run under sudo).
     with tarfile.open(selected, "r:gz") as tar:
         try:
             tar.extractall(path=str(data_dir), filter="data")
         except TypeError:
-            tar.extractall(path=str(data_dir))       # Python < 3.12
+            _reject_unsafe_members(tar, data_dir)    # Python < 3.12
+            tar.extractall(path=str(data_dir))
 
     # Fix ownership — extraction under sudo creates root-owned files in the
     # real user's home.  Chown everything to the invoking user so the server
