@@ -21,9 +21,13 @@ Landed Nuttymoon's three container-oriented PRs with fixes:
 
 Default behavior unchanged (loopback-only, localhost Ollama, file config). Docs
 updated across README/INSTALL/Admin Guide/API Reference. Added `test_features.py`
-(end-to-end HTTP feature suite) and `status_docs/TESTING.md`. Full suite verified
+(end-to-end HTTP feature suite) and [[TESTING]]. Full suite verified
 green against the real 8,331-doc DB. Only PR #9 (Intel Arc GPU) remains open,
 awaiting the author's hardware test.
+
+**Next (v1.0.4, in design):** [[2026-08-21-deep-links-design]] — in-document
+passage search ("Deep Links"); plus the issue #10 tar-traversal fix already on
+`main`. See [[DECISIONS]] for the deferred-work log.
 
 ## v1.0.2 (2026-08-19) — DjVu and ODF templates
 

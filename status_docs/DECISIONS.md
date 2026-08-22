@@ -407,7 +407,8 @@ This should cover all platforms (Linux, Windows, macOS) and both install methods
 (package vs. manual/dev checkout).
 
 ### D-11: Chunk-level semantic search with in-document result locations
-**Status:** Open — design needed  
+**Status:** Open — design needed (an on-demand variant is designed in
+[[2026-08-21-deep-links-design]]; precomputed chunks remain future work)  
 **Priority:** Medium  
 **Added:** 2026-07-13
 
