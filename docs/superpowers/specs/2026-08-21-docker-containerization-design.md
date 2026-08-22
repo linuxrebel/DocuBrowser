@@ -106,6 +106,43 @@ way you don't write into an application binary. Concretely:
 Net: the only writable paths are the data volume and an in-memory `/tmp`. The
 image itself is never modified at runtime.
 
+## Data dir, permissions & non-root
+
+- **Location:** `$HOME/.docubrowser/docubrowser-data` on the host, bind-mounted
+  to `/data`. It is a subdir *inside* the native `~/.docubrowser/` directory —
+  shares the family for consistency, but its own subdir so it never collides
+  with a native install's files.
+- **The app container runs as the host user (`user: "${UID}:${GID}"`), not
+  root.** Everything written to `/data` is then owned by the user on the host —
+  no root-owned files, no chown dance. This is *why* the data dir lives in home:
+  a home path + run-as-host-user makes permissions line up automatically.
+- **Hardening on the app service:** `read_only: true`, `cap_drop: ALL`,
+  `security_opt: ["no-new-privileges:true"]`, `tmpfs: /tmp`,
+  `PYTHONDONTWRITEBYTECODE=1`, docs mounted `:ro`.
+- The host dir must exist and be user-owned before first run (Docker otherwise
+  creates a missing bind-mount source as root): a one-line
+  `mkdir -p ~/.docubrowser/docubrowser-data` in the run instructions.
+
+## Two Ollama options
+
+1. **Host Ollama (reuse existing).** Point `DOCUBROWSE_OLLAMA_HOST` at the
+   host's Ollama (`http://host.docker.internal:11434`; on Linux add
+   `--add-host=host.docker.internal:host-gateway`). No sidecar, no re-pull, uses
+   the models and GPU already there. Best for a machine that already runs
+   Ollama. **No non-root-Ollama work needed** — there is no Ollama container.
+2. **Ollama sidecar (portable).** Bundled `ollama/ollama:latest` service;
+   models pulled latest on first start into a data subdir owned by the run
+   user; GPU via `gpus: all`. **The non-root requirement applies here:** the
+   stock image is root-by-default, so the sidecar needs `user: "${UID}:${GID}"`
+   plus `HOME`/`OLLAMA_MODELS` pointed at the mounted models dir owned by that
+   UID (or a thin `FROM ollama/ollama` layer with a `USER` directive). GPU as
+   non-root is to be verified at build.
+
+Both use `ollama/ollama:latest` and pull the two models at latest — not pinned.
+Models change rarely and Ollama is updated frequently, so `latest` is the
+intended behavior. (The app's distroless base is still pinned for build
+stability.)
+
 ## The access gotcha (must-handle)
 
 DocuBrowse is loopback-only by default and drops non-loopback peers at the TCP
@@ -125,12 +162,16 @@ The Compose file will set an explicit `/24` network and a matching
 
 ## Environment wiring (Compose)
 
-- `DOCUBROWSE_OLLAMA_HOST=http://ollama:11434`
-- `DOCUBROWSE_DB=/data/db/du-docs.db` (named volume)
+- `DOCUBROWSE_OLLAMA_HOST=http://ollama:11434` (sidecar) **or** the host Ollama
+  (see "Two Ollama options" below)
+- `DOCUBROWSE_DB=/data/du-docs.db`
 - `DOCUBROWSE_DOC_DIR=/docs` (read-only bind mount of the user's documents)
-- `DOCUBROWSE_WORK_DIR=/data` (named volume — blacklists, etc.)
+- `DOCUBROWSE_WORK_DIR=/data`
 - `DOCUBROWSE_PORT=8643` (published to the host)
 - `DOCUBROWSE_TRUSTED_CIDRS=<the /24 of the Compose network>`
+
+`/data` is a **bind mount of `$HOME/.docubrowser/docubrowser-data`** on the host
+(see "Data dir, permissions & non-root").
 
 ## Required code changes (small)
 
@@ -149,8 +190,10 @@ The Compose file will set an explicit `/24` network and a matching
 
 - `Dockerfile` (multi-stage: slim builder → distroless final).
 - `docker-compose.yml` (docubrowse + ollama services, explicit `/24` network,
-  volumes, GPU stanza with a CPU-only note, `read_only: true` + `tmpfs: /tmp`
-  on the app service).
+  the `$HOME/.docubrowser/docubrowser-data` bind mount, `user: "${UID}:${GID}"`,
+  GPU stanza with a CPU-only note, `read_only: true` + `cap_drop: ALL` +
+  `no-new-privileges` + `tmpfs: /tmp` on the app service). Ships both Ollama
+  wirings — sidecar (default) and a commented host-Ollama override.
 - A model-pull step for the ollama service (idempotent, first-start).
 - `.dockerignore`.
 - Docs: a "Run with Docker" section in INSTALL.md / README, covering the
@@ -174,6 +217,10 @@ The Compose file will set an explicit `/24` network and a matching
   the builder stage.
 - How the ollama service pulls models on first start (entrypoint wrapper vs a
   one-shot init service) while keeping it idempotent.
+- **Ollama sidecar non-root** (sidecar variant only): pick between a runtime
+  `user:` + `HOME`/`OLLAMA_MODELS` on a user-owned mount, or a thin
+  `FROM ollama/ollama` image with a `USER` directive. Verify GPU access works
+  as a non-root container on the target host.
 - Whether to publish the image(s) to a registry or ship the Compose file + build
   instructions only.
 - Confirm the observed source IP for a published port on the target Docker
