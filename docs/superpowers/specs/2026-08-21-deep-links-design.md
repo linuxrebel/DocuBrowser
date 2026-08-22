@@ -3,7 +3,7 @@
 **Date:** 2026-08-21
 **Status:** Approved design; not yet implemented
 **Target release:** v1.0.4
-**Related:** DECISIONS.md D-11 (chunk-level semantic search) — see "Future work"
+**Related:** [[DECISIONS]] D-11 (chunk-level semantic search) — see "Future work"
 
 ## Summary
 
