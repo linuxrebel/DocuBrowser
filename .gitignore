@@ -37,6 +37,9 @@ env/
 *~
 .DS_Store
 
+# Obsidian (repo opened as a vault — local config, not shared)
+.obsidian/
+
 # Testing
 .pytest_cache/
 .coverage
