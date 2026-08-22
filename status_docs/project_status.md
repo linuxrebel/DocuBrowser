@@ -29,6 +29,10 @@ awaiting the author's hardware test.
 passage search ("Deep Links"); plus the issue #10 tar-traversal fix already on
 `main`. See [[DECISIONS]] for the deferred-work log.
 
+**Also in design:** [[2026-08-21-docker-containerization-design]] — distroless
+DocuBrowse app container + Ollama sidecar (Docker Compose), building on the
+v1.0.3 environment-variable configuration.
+
 ## v1.0.2 (2026-08-19) — DjVu and ODF templates
 
 - **DjVu** (`.djvu`/`.djv`) via DjVuLibre `djvutxt`/`djvused` (optional external
