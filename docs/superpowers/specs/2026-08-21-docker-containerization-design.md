@@ -84,6 +84,28 @@ sidecar split is what the v1.0.3 env work was built for.
 - **Size:** the two models are ~5.2 GB; baking them in makes a 5 GB+ image.
 - The v1.0.3 env features exist precisely to point the app at a separate Ollama.
 
+## Immutable container (read-only root filesystem)
+
+The app container is treated as immutable — you never write into it, the same
+way you don't write into an application binary. Concretely:
+
+- Run the docubrowse service with **`read_only: true`** (read-only root fs).
+- **All app-writable state goes to one mounted writable volume**, the data/work
+  dir, via `DOCUBROWSE_WORK_DIR` + `DOCUBROWSE_DB`. DocuBrowse writes more than
+  the DB into this dir: `du-docs.db` (+ `-wal`/`-shm`), `scan_blacklist.txt`,
+  `pii_blacklist.txt`, `ignore_dirs.txt`, `scan_dirs.txt`, `ocr_list_pdfs.txt`,
+  `visio_legacy_missing.txt`, `rtf_missing_striprtf.txt`,
+  `djvu_missing_djvulibre.txt`, `docubrowser.log`, pid files, and
+  `docubrowse.config` if written via Settings. One volume captures all of it.
+- **`tmpfs` for `/tmp`** — extractors write transient temp files; a read-only
+  rootfs needs a writable tmpfs there.
+- **`PYTHONDONTWRITEBYTECODE=1`** so Python does not try to write `.pyc` into the
+  read-only image.
+- The user's documents mount **read-only** at `/docs`.
+
+Net: the only writable paths are the data volume and an in-memory `/tmp`. The
+image itself is never modified at runtime.
+
 ## The access gotcha (must-handle)
 
 DocuBrowse is loopback-only by default and drops non-loopback peers at the TCP
@@ -127,7 +149,8 @@ The Compose file will set an explicit `/24` network and a matching
 
 - `Dockerfile` (multi-stage: slim builder → distroless final).
 - `docker-compose.yml` (docubrowse + ollama services, explicit `/24` network,
-  volumes, GPU stanza with a CPU-only note).
+  volumes, GPU stanza with a CPU-only note, `read_only: true` + `tmpfs: /tmp`
+  on the app service).
 - A model-pull step for the ollama service (idempotent, first-start).
 - `.dockerignore`.
 - Docs: a "Run with Docker" section in INSTALL.md / README, covering the
