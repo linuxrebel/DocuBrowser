@@ -1,0 +1,119 @@
+# DocuBrowse — two-service stack: the distroless app (docubrowse) + the Ollama
+# sidecar (ai_sidecar).
+#
+# Reusing an existing native index without a rescan? Run ./du-convert.sh
+# (Linux only). Docker runs in a Linux VM on macOS/Windows, so a native index's
+# absolute paths cannot be mounted 1:1 there — on those platforms install fresh
+# and do a full scan + configure document dirs in the web UI.
+#
+# Setup (run from this docker/ directory):
+#   1. Record your UID/GID for the non-root containers (bash UID is readonly,
+#      so an .env file is the reliable way to pass it to Compose):
+#        printf 'UID=%s\nGID=%s\n' "$(id -u)" "$(id -g)" > .env
+#   2. Create the host data dir so the bind mount is user-owned (Docker would
+#      otherwise create it as root):
+#        mkdir -p ~/.docubrowser/docubrowser-data/ollama
+#
+# Build both:   docker compose build
+# Run both:     DOCUBROWSE_DOC_DIR=~/Documents docker compose up -d
+#
+# Overridable at start (all have defaults):
+#   DOCUBROWSE_DOC_DIR    document root, mounted read-only at its OWN absolute
+#                         path (identity mount) so the absolute paths stored in
+#                         the DB resolve in the container.                (~/Documents)
+#   DOCUBROWSE_DATA_DIR   dir holding du-docs.db + work files            (~/.docubrowser)
+# e.g.  DOCUBROWSE_DOC_DIR=/mnt/data docker compose up -d
+#
+# The DB stores absolute host paths. Point DOCUBROWSE_DOC_DIR at the common
+# ancestor of every indexed root so they all resolve (e.g. /mnt/data covers
+# both /mnt/data/Documents and /mnt/data/PhonePDF). Separate trees with no
+# common ancestor need one extra identity mount line each under volumes.
+
+name: docubrowse
+
+networks:
+  docubrowse_net:
+    driver: bridge
+    ipam:
+      config:
+        # Pinned /24. The app's DOCUBROWSE_TRUSTED_CIDRS cap rejects anything
+        # wider than /24, and Docker's default bridge is a /16 — so the network
+        # is pinned here and the same /24 is trusted below.
+        - subnet: 172.28.5.0/24
+
+services:
+  docubrowse:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.docubrowse
+    image: docubrowse:latest
+    container_name: docubrowse
+    depends_on:
+      - ai_sidecar
+    # Run as the host user so everything written to /data is user-owned on the
+    # host (no root-owned files, no chown dance).
+    user: "${UID:-1000}:${GID:-1000}"
+    # Immutable container: read-only root fs, all writable state on /data + /tmp.
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
+    tmpfs:
+      - /tmp
+    environment:
+      DOCUBROWSE_OLLAMA_HOST: http://ai_sidecar:11434
+      DOCUBROWSE_DB: /data/du-docs.db
+      DOCUBROWSE_WORK_DIR: /data
+      # Doc dir is mounted at its own absolute path (identity mount, see
+      # volumes) so the absolute paths stored in the DB resolve inside the
+      # container exactly as on the host — no "not on disk" false negatives.
+      DOCUBROWSE_DOC_DIR: ${DOCUBROWSE_DOC_DIR:-${HOME}/Documents}
+      DOCUBROWSE_PORT: "8643"
+      # Trust the pinned /24 — the connection arrives from the bridge gateway
+      # (172.28.5.1), not loopback, when the port is published.
+      DOCUBROWSE_TRUSTED_CIDRS: 172.28.5.0/24
+      PYTHONDONTWRITEBYTECODE: "1"
+    ports:
+      - "8643:8643"
+    volumes:
+      # Data dir holding du-docs.db, mounted in place (used, not copied).
+      # Defaults to the native install dir ~/.docubrowser; override with
+      # DOCUBROWSE_DATA_DIR when starting. Container work files (wal/shm, logs,
+      # pid, txt lists) also land in this dir alongside the DB.
+      - ${DOCUBROWSE_DATA_DIR:-${HOME}/.docubrowser}:/data
+      # Identity mount: same path inside as on the host. The DB stores absolute
+      # host paths, so the doc tree must appear at that exact path in the
+      # container. For multiple document roots, add one identity line each.
+      - ${DOCUBROWSE_DOC_DIR:-${HOME}/Documents}:${DOCUBROWSE_DOC_DIR:-${HOME}/Documents}:ro
+    networks:
+      - docubrowse_net
+    restart: unless-stopped
+
+  ai_sidecar:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ai_sidecar
+    image: ai_sidecar:latest
+    container_name: ai_sidecar
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_MODELS: /models
+      HOME: /models
+    volumes:
+      - ${HOME}/.docubrowser/docubrowser-data/ollama:/models
+    networks:
+      - docubrowse_net
+    restart: unless-stopped
+    # GPU (NVIDIA): uncomment to give the sidecar the host GPU. Requires the
+    # NVIDIA Container Toolkit on the host. CPU-only works without this block
+    # (slower model inference). Non-root GPU access is to be verified on the
+    # target host.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]

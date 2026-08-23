@@ -1,0 +1,24 @@
+# syntax=docker/dockerfile:1
+#
+# Ollama sidecar image (container name: ai_sidecar).
+#
+# Thin layer over the official image so it can run as a non-root user (the
+# stock image is root-by-default). Models + Ollama's HOME live on a mounted,
+# user-owned volume (/models).
+#
+# Build context is the repository ROOT (see docker-compose.yml: context: ..).
+
+FROM ollama/ollama:latest
+
+COPY docker/ollama-entrypoint.sh /usr/local/bin/ollama-entrypoint.sh
+RUN chmod +x /usr/local/bin/ollama-entrypoint.sh
+
+# Listen on all interfaces so the app container can reach it; keep models and
+# HOME on the mounted volume so a non-root UID can write them.
+ENV OLLAMA_HOST=0.0.0.0:11434 \
+    OLLAMA_MODELS=/models \
+    HOME=/models
+
+EXPOSE 11434
+
+ENTRYPOINT ["/usr/local/bin/ollama-entrypoint.sh"]

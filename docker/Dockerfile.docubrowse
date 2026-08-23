@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1
+#
+# DocuBrowse application image (container name: docubrowse).
+#
+# App-not-VM: distroless final stage — no shell, no package manager, no build
+# tools. Ollama is NOT in this image; it runs as the ai_sidecar service.
+#
+# Build context is the repository ROOT (see docker-compose.yml: context: ..).
+
+# ---- builder: install deps into a relocatable target dir -------------------
+# 3.11 to match the distroless python3-debian12 (bookworm) ABI so cp311
+# manylinux wheels (numpy, pdfplumber, ...) install clean and copy over.
+FROM python:3.11-slim-bookworm AS builder
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --no-cache-dir --target=/install -r requirements.txt
+
+# ---- final: distroless, no shell, no pip ----------------------------------
+FROM gcr.io/distroless/python3-debian12:nonroot
+WORKDIR /app
+
+# Third-party deps (built above) + application code.
+COPY --from=builder /install /app/deps
+COPY . /app
+
+ENV PYTHONPATH=/app/deps \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    # HOME on writable tmpfs: the code derives a default data dir from ~ at
+    # import (mkdir), which would hit the read-only rootfs. Real DB/config come
+    # from DOCUBROWSE_* below, so this default dir is throwaway.
+    HOME=/tmp \
+    DOCUBROWSE_DB=/data/du-docs.db \
+    DOCUBROWSE_WORK_DIR=/data \
+    DOCUBROWSE_DOC_DIR=/docs \
+    DOCUBROWSE_PORT=8643
+
+EXPOSE 8643
+
+# docubrowser.py drives startup (creates the DB on first run, verifies the
+# remote Ollama) then execs the server in-process so it stays PID 1.
+# --foreground was added for exactly this deployment.
+ENTRYPOINT ["/usr/bin/python3.11", "/app/docubrowser.py", "start", "--foreground"]

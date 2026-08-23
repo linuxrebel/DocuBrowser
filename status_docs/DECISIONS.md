@@ -10,6 +10,41 @@ resolved items keep their number.
 
 ## Open
 
+### D-15: Docker deployment — CSRF parity + web download replace desktop-only actions
+**Status:** Implemented (not yet released)
+**Priority:** Medium
+**Added:** 2026-08-22
+
+The containerized deployment (see `docker/` and the
+`2026-08-21-docker-containerization-design` spec) runs the same `doc_search.py`
+as the native install but is reached through a published port, so the browser's
+connection arrives from the Docker bridge gateway — a non-loopback,
+trusted-CIDR peer — not loopback. Two behaviors changed so the container
+behaves identically to a native loopback install:
+
+1. **CSRF is now required for every peer.** Non-loopback trusted-CIDR peers were
+   previously treated as private-network BFFs with CSRF relaxed; under Docker
+   that silently dropped CSRF for the user's own browser. Removed the
+   trusted-peer bypass in `_guard_mutation` (and the now-unused
+   `_is_private_trusted_peer` / `_client_addr` helpers). The first-party UI
+   already carries the injected token, so it is unaffected; only headless BFF
+   proxies (not shipped here) lose the relaxation.
+
+2. **New `GET /api/download`** streams an indexed file to the browser — the
+   headless/web equivalent of the desktop "open" (xdg-open/gio can't run in a
+   distroless container). Gated exactly like the mutating endpoints (CSRF +
+   same-origin) and restricted to indexed paths, so it can never serve arbitrary
+   host files. The UI download button was already wired to it (previously 404).
+
+Verified with `test_features.py` at 20/20 against both the container (gateway
+peer) and a native loopback server.
+
+**Convert native → Docker without a rescan:** `docker/du-convert.sh` (Linux
+only) discovers indexed roots from `docubrowse.config` + `scan_dirs.txt` and
+identity-mounts each at its native absolute path, so the DB's absolute paths
+resolve unchanged. macOS/Windows run Docker in a VM and cannot mount native
+paths 1:1 — those users install fresh and do a full scan.
+
 ### D-103: v1.0.1 release ships a stale 1.0.0 .deb (issue #3)
 **Status:** Superseded by the v1.0.2 release — all packages (deb included)
 rebuilt from the fixed tree. A stopgap `1.0.1-2` deb was also built; the

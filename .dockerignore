@@ -1,0 +1,21 @@
+# Keep the app image small — only ship code the server needs.
+.git
+.github
+docker
+!docker/ollama-entrypoint.sh
+docs
+status_docs
+*.md
+test_*.py
+generate_test_pdfs.py
+setup_test_data.py
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+*.db
+*.db-wal
+*.db-shm
+*.log
+.cargo-targets

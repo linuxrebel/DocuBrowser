@@ -141,6 +141,25 @@ def run(base, skip_synopsis):
         skip("synopsis generate", "no documents to summarize")
         return
     path = first["documents"][0]["path"]
+
+    # ── Download: the headless/web equivalent of desktop "open" ──────────────
+    report("GET /api/download no CSRF -> 403",
+           status_code(base, "/api/download?path=" + urllib.parse.quote(path)) == 403)
+    if token:
+        dreq = urllib.request.Request(
+            base + "/api/download?path=" + urllib.parse.quote(path),
+            headers={"X-CSRF-Token": token, "Origin": base})
+        try:
+            dresp = urllib.request.urlopen(dreq, timeout=60)   # nosec B310 - localhost
+            blob = dresp.read()
+            report("GET /api/download streams file",
+                   dresp.getcode() == 200 and len(blob) > 0,
+                   f"{len(blob)} bytes, {dresp.headers.get('Content-Type')}")
+        except urllib.error.HTTPError as exc:
+            report("GET /api/download streams file", False, f"HTTP {exc.code}")
+    else:
+        skip("GET /api/download streams file", "no CSRF token")
+
     _, sg = get_json(base, "/api/synopsis?path=" + urllib.parse.quote(path))
     report("synopsis GET responds", "ok" in sg,
            f"cached={bool(sg.get('synopsis'))} needs_gen={sg.get('needs_generation')}")
