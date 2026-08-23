@@ -10,6 +10,21 @@ resolved items keep their number.
 
 ## Open
 
+### D-15: Docker deployment (experimental) — tracked on the `docker-experiment` branch
+**Status:** Experimental, off mainline — reference only
+**Priority:** Low
+**Added:** 2026-08-22
+
+A containerized deployment (distroless app + Ollama sidecar) is being tried on
+the **`docker-experiment`** branch. It is **not yet viable**: Docker/OS
+limitations plus DocuBrowse's security model mean opening a document in a
+desktop app does not work from a browser-based container (headless server,
+sandboxed browser). Current thinking is that Docker will only be viable as an
+**Enterprise** deployment, since a working "open" needs the desktop client.
+
+The full decision record, code, and `docker/README.md` live on that branch —
+this is only a pointer. Not recommended for use; for experimentation only.
+
 ### D-103: v1.0.1 release ships a stale 1.0.0 .deb (issue #3)
 **Status:** Superseded by the v1.0.2 release — all packages (deb included)
 rebuilt from the fixed tree. A stopgap `1.0.1-2` deb was also built; the
