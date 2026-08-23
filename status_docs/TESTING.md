@@ -26,6 +26,37 @@ The suite asserts on *shape and behavior*, not on a specific corpus, so it
 runs against any populated DB. DjVu/OTT checks self-skip if the sample content
 isn't indexed.
 
+## Unit tests (no server, no DB, no Ollama)
+
+Standalone `assert`-based scripts. Each builds its own fixtures in a tempdir
+and exits non-zero on failure — run directly, no framework:
+
+```bash
+python3 test_deep_links.py       # Deep Links passage locator (keyword mode)
+python3 test_backup_restore.py   # backup restore path-traversal guard
+```
+
+Format-writer libs some checks need (`reportlab`, `striprtf`) self-skip with a
+`SKIP:` line when absent, so the core still runs.
+
+## Manual testing against the real product
+
+- **Full app** — drive the repo code against a real or throwaway DB (see
+  "Which DB?" below), then open the UI in a browser:
+
+  ```bash
+  DOCUBROWSE_DB=~/.docubrowser/du-docs.db ./docubrowser.py start
+  # open http://localhost:8643 ; ./docubrowser.py stop when done
+  ```
+
+- **UI only, no real backend** — `test_server.py` is a mock API server that
+  serves `index.html` with canned `/api/search`, `/api/tags`, `/api/stats`
+  responses. Good for eyeballing UI changes without a scan/DB/Ollama:
+
+  ```bash
+  python3 test_server.py          # then open http://localhost:8001
+  ```
+
 ## Which DB? (dev vs installed — the #1 gotcha)
 
 `_default_data_dir()` (doc_search.py) returns the **code directory** when it's

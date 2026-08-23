@@ -47,11 +47,26 @@ existing `embed_text()` helper, and the existing modal/opener UI patterns.
   - **Prose formats** (extracted text reads as running text) → render + highlight
     in-app. PDF, TXT, MD, HTML, DOCX, ODT, EPUB/MOBI/AZW*, RTF, EML, LaTeX/reST/
     AsciiDoc, DjVu, and config-ish text.
+    - **Phase 1 (80/20) — ship these text formats first:** **PDF, TXT, DOCX,
+      RTF, ODT.** The remaining prose formats (MD, HTML, EPUB/MOBI/AZW*, EML,
+      LaTeX/reST/AsciiDoc, DjVu, config-ish text) are back-burner — added in later
+      passes behind the same API/UI. Until then they fall through to the same
+      "no results" empty path, not a special message.
   - **Non-prose formats** (extracted text is tabular/fragmented) → **do not**
     render. Show: *"Due to the document format and technical limitations, we
     can't display this document outside its reader."* with **[Open in reader]**
     and **[Back]** buttons. Applies to spreadsheets (XLSX/ODS/CSV/TSV),
     presentations (PPTX/ODP), and diagrams (Visio VSDX/VSD*, draw.io, VDX, SVG).
+  - **Prose/non-prose is decided by extension only** — no content sniffing.
+    A scanned/image-only PDF still counts as prose by extension; the empty-text
+    handling below covers the case where it yields no text.
+- **Empty / unextractable text within a prose doc:** skip pages/sections that
+  extract to nothing and rank whatever text remains. We do **not** judge document
+  quality or show a "can't read this" message — a doc that yields no usable text
+  simply produces zero passages, which the UI reports with the same "no results"
+  message used for any empty result. (Example: a PDF that is just a photo of a
+  face — its page(s) extract to nothing, so it yields no passages; no special
+  message.)
 
 ## Chosen approach: on-demand (Approach A)
 
@@ -78,14 +93,21 @@ speed optimization — user-facing behavior is identical.
 Pure functions, independently testable, no server/UI dependencies.
 
 - `locate_passages(path, query, mode, *, max_passages) -> dict`
-  - Returns either `{"unsupported": True, "reason": ...}` for non-prose
-    formats, or `{"passages": [Passage, ...], "truncated": bool}`.
+  - Returns `{"unsupported": True, "reason": ...}` for non-prose formats
+    (decided by extension), or `{"passages": [Passage, ...], "truncated": bool}`.
+    Pages/sections that extract to nothing are skipped; a doc that yields nothing
+    usable simply returns `passages: []` (no special "empty" state).
   - A `Passage` is `{sample, excerpt, location, score}` where:
-    - `sample` — 8–10 words around the best match in the passage.
-    - `excerpt` — the matched section + its surrounding paragraph (±1–2 lines
-      for non-paragraph docs), with the matched snippet marked for highlight
-      (the API returns the excerpt plus the match span; the UI draws the
-      `<mark>`).
+    - `sample` — 8–10 words around the best match in the passage. In semantic
+      mode there is no literal term, so the "best match" is the highest-scoring
+      **sub-unit** (sentence/phrase/section) within the passage — see Ranking.
+    - `excerpt` — enough of the document for the user to see *why* it was judged
+      a match: the matched section + its surrounding paragraph (±1–2 lines for
+      non-paragraph docs), with the matched snippet marked for highlight (the API
+      returns the excerpt plus the match span; the UI draws the `<mark>`). For
+      more, the user opens the full document. The excerpt is a reading view of
+      our extracted text — it does **not** navigate the external reader to a
+      line/page; `location` is an informational label only.
     - `location` — human label: `"p. 12"` (PDF), `"line 340"` (plain text),
       `"section 3"` / paragraph index (DOCX/ODT/EPUB, which lack real pages).
     - `score` — rank score (term score for keyword, cosine for semantic).
@@ -100,6 +122,10 @@ Pure functions, independently testable, no server/UI dependencies.
   - keyword → passages containing query terms, ranked by term frequency and
     proximity; tokenization consistent with how the UI query is entered.
   - semantic → `embed_text(query)` + one batched embed of all passages; cosine.
+    To pick the highlight span, sub-rank the winning passage's sentences (or
+    phrases/sections) by cosine against the query and `<mark>` the top sub-unit —
+    i.e. mark the portion that actually sparked the match, not the whole passage.
+    The `sample` is drawn from that same sub-unit.
 
 ### 2. API endpoint
 
@@ -108,8 +134,9 @@ Pure functions, independently testable, no server/UI dependencies.
 - Read-only GET, **no CSRF** (same class as `/api/search`).
 - Validates `path` is in the document index (same guard as `/api/open` /
   `/api/synopsis`) before touching the file.
-- Response: `{"ok": true, "passages": [...], "truncated": bool}` or
-  `{"ok": true, "unsupported": true}` for non-prose, or an error envelope.
+- Response: `{"ok": true, "passages": [...], "truncated": bool}` (a doc with no
+  usable text just returns `passages: []`), or `{"ok": true, "unsupported": true}`
+  for non-prose (by extension), or an error envelope.
 - Registered alongside the other GET handlers in `doc_search.py`.
 
 ### 3. UI (index.html)
@@ -118,12 +145,21 @@ Pure functions, independently testable, no server/UI dependencies.
   (index.html ~789), rendered only when the current query is non-empty.
 - **Modal:** mirror the existing synopsis modal. On open, show
   "Just a moment as we find your passage…", then fetch `/api/deep-links` with
-  the card's path, the current query, and the active search mode.
+  the card's path, the current query, and the active search mode. **The mode is
+  locked to the search that produced the result** — no in-modal toggle. To search
+  the other way, the user starts a new search from the top. The modal has a
+  simple close control (X in the upper-right / close button).
 - **Passage list:** one row per passage — the 8–10 word sample + location label.
 - **Excerpt view:** clicking a row reveals the excerpt with the snippet in a
   yellow `<mark>`, plus an **"Open full document"** button (calls `/api/open`).
+  - **Title:** *"This passage comes from page (X) of the document. Return to the
+    main page to open and read more."* — where the unit is templated off
+    `location`: "page 12" for PDF, "line 340" for plain text, "section 3" /
+    paragraph index for DOCX/ODT/EPUB.
 - **Non-prose / unsupported:** show the fixed message + **[Open in reader]**
   (→ `/api/open`) and **[Back]** (→ result list).
+- **No passages found** (empty result, incl. a doc that extracted no text): show
+  a single "no results" message. No document-quality judgment or can't-read text.
 - Escape document text for HTML; build the highlight from the returned match
   span, not by string-injecting the query, to avoid an XSS vector.
 
@@ -153,6 +189,9 @@ Pure functions, independently testable, no server/UI dependencies.
 
 ## Future work
 
+- **Expand format coverage (Phase 2+):** add the deferred prose formats — MD,
+  HTML, EPUB/MOBI/AZW*, EML, LaTeX/reST/AsciiDoc, DjVu, config-ish text — behind
+  the existing API/UI as extraction paths are added.
 - **Precomputed chunk embeddings (D-11):** store per-passage embeddings +
   page/offset in a new table so semantic Deep Links are instant on large
   documents. Slots in behind the same API/UI as a performance optimization;
