@@ -18,6 +18,14 @@ token budget. **Your data. Your AI.**
 Under the hood: SQLite FTS5 keyword search plus AI-powered semantic similarity and
 synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple document and source code types.
 
+> **Docker (experimental — not recommended yet):** A containerized deployment is
+> being tried out on the `docker-experiment` branch. Because of Docker/OS
+> limitations and DocuBrowse's security model, a fully working model has **not**
+> been achieved yet — notably, opening a document in your desktop app does not
+> work from a browser-based container (the server is headless and the browser is
+> sandboxed). It's available on that branch for anyone who wants to experiment,
+> but is **not recommended for use**. See `docker/README.md` on the branch.
+
 ---
 
 ## Navigation
