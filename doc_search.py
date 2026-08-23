@@ -159,20 +159,6 @@ def _client_trusted(addr) -> bool:
     return any(addr in net for net in _TRUSTED_CIDRS)
 
 
-def _is_private_trusted_peer(addr) -> bool:
-    """True if *addr* is in DOCUBROWSE_TRUSTED_CIDRS but not loopback.
-
-    Used to relax CSRF for server-side BFFs on a Docker/private network.
-    Loopback browsers still require the CSRF token (DNS-rebinding / XSS
-    defense) — only non-loopback trusted peers skip it.
-    """
-    if addr is None:
-        return False
-    if addr == _IPV6_LOOPBACK or addr in _LOOPBACK_NET:
-        return False
-    return any(addr in net for net in _TRUSTED_CIDRS)
-
-
 def _hostname_allowed(hostname: str) -> bool:
     """True if *hostname* is loopback or listed in DOCUBROWSE_ALLOWED_HOSTS."""
     hostname = (hostname or "").strip("[]").lower()
@@ -558,13 +544,6 @@ class DocSearchHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):   # pylint: disable=redefined-builtin
         """Suppress default access logging (framework API — ``format`` name required)."""
 
-    def _client_addr(self):
-        """Return the peer IP as an ``ipaddress`` object, or None."""
-        try:
-            return ipaddress.ip_address(self.client_address[0])
-        except (ValueError, TypeError, IndexError):
-            return None
-
     def _host_allowed(self) -> bool:
         """Reject requests whose Host header isn't a permitted name.
 
@@ -598,28 +577,14 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         Referer that isn't same-origin with the addressed Host (or loopback /
         DOCUBROWSE_ALLOWED_HOSTS) is rejected.
 
-        Clients whose TCP peer is in DOCUBROWSE_TRUSTED_CIDRS (and is not
-        loopback) are treated as a private-network BFF/proxy: CSRF is
-        skipped so they can call mutating endpoints without scraping the
-        HTML meta tag. Those peers are fully trusted — do not list public
-        internet ranges. Loopback browsers still require the CSRF token.
+        The token is required for every client — loopback and trusted-CIDR
+        peers alike — so a containerized deployment (reached via a published
+        port, i.e. from the bridge gateway) behaves identically to a native
+        loopback install. The first-party UI reads the token from the injected
+        HTML meta tag and sends it automatically.
 
         Sends a 403 and returns False on failure; returns True if allowed.
         """
-        addr = self._client_addr()
-        if _is_private_trusted_peer(addr):
-            host_hdr = self.headers.get('Host', '')
-            host_host = host_hdr.rsplit(':', 1)[0].strip('[]').lower() if host_hdr else ''
-            for hdr in ('Origin', 'Referer'):
-                val = self.headers.get(hdr)
-                if val:
-                    o = urlparse(val).hostname
-                    o = o.lower() if o else o
-                    if o != host_host and not _hostname_allowed(o or ''):
-                        self.error_response(403, "Forbidden: cross-origin request rejected")
-                        return False
-            return True
-
         host_hdr = self.headers.get('Host', '')
         host_host = host_hdr.rsplit(':', 1)[0].strip('[]').lower() if host_hdr else ''
         for hdr in ('Origin', 'Referer'):
@@ -669,6 +634,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             '/api/search':      self.handle_search,
             '/api/synopsis':    self.handle_synopsis_get,
             '/api/browse':      self.handle_browse,
+            '/api/download':    self.handle_download,
         }
         if path in no_arg:
             no_arg[path]()
@@ -1459,6 +1425,55 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 "error": str(e),
                 "entries": [],
             })
+
+    def handle_download(self, query: dict):
+        """GET /api/download?path=<encoded-path> — stream an indexed file to the
+        browser.
+
+        This is the headless/web equivalent of the desktop "open" action: on a
+        server (e.g. the Docker deployment) there is no desktop opener, so the
+        first-party UI downloads the file instead. Gated exactly like the
+        mutating endpoints (CSRF token + same-origin), and — like /api/open —
+        restricted to paths that are in the index, so it can never serve
+        arbitrary files off the host.
+        """
+        if not self._guard_mutation():
+            return
+
+        path = query.get('path', [''])[0].strip()
+        if not path:
+            self.error_response(400, "Missing path parameter")
+            return
+
+        # Security: only files already in the index may be served.
+        conn = get_db(self.db_path)
+        row = conn.execute('SELECT id FROM documents WHERE path = ?', (path,)).fetchone()
+        conn.close()
+        if not row:
+            self.error_response(404, "Path not in document index")
+            return
+
+        p = Path(path)
+        if not p.exists() or not p.is_file():
+            status = check_missing_path(path)
+            self.error_response(404, "unmounted" if status == "unmounted" else "File not found on disk")
+            return
+
+        ctype = mimetypes.guess_type(str(p))[0] or 'application/octet-stream'
+        # Quote-strip the filename so it cannot break the header.
+        fname = p.name.replace('"', '')
+        try:
+            size = p.stat().st_size
+            self.send_response(200)
+            self.send_header('Content-Type', ctype)
+            self.send_header('Content-Disposition', f'attachment; filename="{fname}"')
+            self.send_header('Content-Length', str(size))
+            self.end_headers()
+            with open(p, 'rb') as fh:
+                shutil.copyfileobj(fh, self.wfile)   # streamed, not read into memory
+        except (OSError, ValueError) as e:
+            # Headers may already be sent; log and stop. Can't send a clean error.
+            logging.exception("download failed for %s: %s", path, e)
 
     def handle_ignore_dirs(self):
         """GET /api/ignore-dirs - List directories excluded from scanning."""

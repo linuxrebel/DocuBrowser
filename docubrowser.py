@@ -268,6 +268,38 @@ def ensure_ollama() -> bool:
     return True
 
 
+def _ollama_is_remote() -> bool:
+    """True if Ollama is configured to a non-local host (sidecar/remote).
+
+    In that case the app must not try to install or launch a local Ollama —
+    it only verifies the remote is reachable.
+    """
+    host = (
+        os.environ.get("OLLAMA_HOST")
+        or os.environ.get("DOCUBROWSE_OLLAMA_HOST")
+        or ""
+    )
+    return bool(host) and not any(
+        h in host for h in ("localhost", "127.0.0.1", "::1")
+    )
+
+
+def _ollama_remote_reachable() -> bool:
+    """Verify the configured (remote/sidecar) Ollama answers, without managing it."""
+    host = (
+        os.environ.get("OLLAMA_HOST")
+        or os.environ.get("DOCUBROWSE_OLLAMA_HOST")
+        or ""
+    ).rstrip("/")
+    if "://" not in host:
+        host = "http://" + host
+    try:
+        with urlopen(f"{host}/api/tags", timeout=5):
+            return True
+    except (URLError, OSError):
+        return False
+
+
 # ─── Server health check ──────────────────────────────────────────────────────
 
 def server_stats(port: int, timeout: float = 2.0) -> dict | None:
@@ -374,8 +406,16 @@ def cmd_start(config: dict, args):
         print(f"  UI: {server_url(port)}")
         return
 
-    # Verify Ollama is available before starting (needed for semantic search)
-    if not ensure_ollama():
+    # Verify Ollama is available before starting (needed for semantic search).
+    # In container/remote mode (--foreground, or OLLAMA_HOST pointing off-box)
+    # do NOT manage a local Ollama — just confirm the remote sidecar answers.
+    if args.foreground or _ollama_is_remote():
+        if not _ollama_remote_reachable():
+            print("ERROR: configured Ollama is not reachable.")
+            print("  Set OLLAMA_HOST / DOCUBROWSE_OLLAMA_HOST to a running Ollama.")
+            sys.exit(1)
+        print("Using remote Ollama (skipping local Ollama management).")
+    elif not ensure_ollama():
         sys.exit(1)
 
     # First run: create an empty database instead of erroring — the web UI
@@ -423,6 +463,15 @@ def cmd_start(config: dict, args):
         sys.exit(1)
 
     server_cmd = [sys.executable, str(server_script), db_path, str(port)]
+
+    # Foreground mode: replace this process with the server so it becomes PID 1
+    # and receives SIGTERM directly (container / supervisor lifecycle). execv
+    # never returns, so nothing below runs.
+    if args.foreground:
+        print(f"Starting DocuBrowse server in foreground on port {port}...")
+        sys.stdout.flush()
+        os.execv(sys.executable, server_cmd)
+
     log_fh = open(LOG_FILE, "a")   # noqa: SIM115 — kept open for proc lifetime
     proc = subprocess.Popen(
         server_cmd,
@@ -1446,6 +1495,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_start = sub.add_parser("start", help="Start the DocuBrowse server")
     p_start.add_argument("--db",   metavar="PATH", help="Database path")
     p_start.add_argument("--port", metavar="PORT", type=int, help="Port to listen on")
+    p_start.add_argument(
+        "--foreground", action="store_true",
+        help="Run the server in this process (PID 1) instead of detaching — "
+             "for containers/service supervisors. Also skips local Ollama "
+             "management (verifies the configured remote Ollama instead).",
+    )
 
     # stop
     p_stop = sub.add_parser("stop", help="Stop the DocuBrowse server")
