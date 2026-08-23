@@ -185,6 +185,43 @@ def test_empty_doc_returns_no_passages():
     assert res.get("truncated") is False
 
 
+def _fake_embed(texts):
+    """Deterministic stand-in for Ollama: one-hot over alpha/beta/gamma markers.
+
+    Lets the semantic path be unit-tested without a live model — cosine picks
+    the text sharing the query's marker word.
+    """
+    out = []
+    for t in texts:
+        tl = t.lower()
+        out.append([
+            1.0 if "alpha" in tl else 0.0,
+            1.0 if "beta" in tl else 0.0,
+            1.0 if "gamma" in tl else 0.0,
+        ])
+    return out
+
+
+def test_semantic_ranks_passage_and_marks_nearest_sentence():
+    """Semantic mode picks the nearest passage and highlights the nearest sentence."""
+    body = (
+        "Intro sentence. The alpha protocol governs reactor startup. Closing remark.\n"
+        "Beta procedures cover shutdown and cooling.\n"
+        "Gamma notes discuss maintenance schedules.\n"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _write(tmp, "greek.txt", body)
+        res = locate_passages(path, "alpha", "semantic", embed_fn=_fake_embed)
+
+    passages = res.get("passages")
+    assert passages, f"expected a semantic passage, got {res!r}"
+    top = passages[0]
+    assert top["location"] == "line 1", f"location was {top['location']!r}"
+    span = top["excerpt"][top["match_start"]:top["match_end"]]
+    assert span == "The alpha protocol governs reactor startup.", \
+        f"highlight span was {span!r}"
+
+
 def test_max_passages_caps_and_flags_truncated():
     """More matches than max_passages → list is capped and truncated is True."""
     body = "".join(f"line {i} has the widget keyword\n" for i in range(5))
@@ -204,8 +241,9 @@ def main():
     test_keyword_pdf_page_location()
     test_non_prose_returns_unsupported()
     test_empty_doc_returns_no_passages()
+    test_semantic_ranks_passage_and_marks_nearest_sentence()
     test_max_passages_caps_and_flags_truncated()
-    print("PASS: deep_links keyword mode — txt/docx/rtf/odt/pdf, "
+    print("PASS: deep_links — keyword (txt/docx/rtf/odt/pdf) + semantic, "
           "unsupported, empty, truncation")
 
 

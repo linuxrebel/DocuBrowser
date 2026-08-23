@@ -27,12 +27,15 @@ Notes / small deferrals from Step 1:
 - Ranking is match-count only for now; proximity weighting can be added when tuning against the real corpus.
 - `excerpt` is the whole passage (paragraph/line/page-paragraph); the ±1–2 lines of surrounding context for line-based docs can be widened during UI tuning.
 
-## Step 2 — `deep_links.py`, semantic mode (needs Ollama)
+## Step 2 — `deep_links.py`, semantic mode (needs Ollama) — DONE
 
-- [ ] `embed_text(query)` + one batched embed of all passages; cosine rank.
-- [ ] Sub-unit (sentence/phrase) re-rank of the winning passage to pick the highlight span; `sample` drawn from that sub-unit.
-- [ ] Extend `test_deep_links.py`: semantic ranking over a small sample.
-- [ ] Tests pass.
+- [x] Batched embed of query + all passages via an injected `embed_fn` (list[str] -> list[vector]); cosine rank. `deep_links.py` stays dependency-free — the real Ollama-backed `embed_fn` is wired in from `doc_search` in Step 3 (avoids a circular import).
+- [x] Sub-unit (sentence) re-rank of each returned passage to pick the highlight span; `sample` = first ~10 words of that sentence.
+- [x] Extend `test_deep_links.py`: semantic ranking with a deterministic fake embedder (no live model), asserts passage selection + nearest-sentence highlight span.
+- [x] Tests pass (9 checks); pylint 10.00/10.
+- [x] Verified live against Ollama (`nomic-embed-text`): query "nuclear power plant safety" (no literal overlap) ranks the reactor passage top (cos 0.543).
+
+Note: `embed_fn` is dependency-injected so unit tests need no Ollama. Step 3 builds the real batch embedder (POST `/api/embed` with `input` as a list) from `doc_search`'s `OLLAMA_HOST` / `EMBEDDING_MODEL` and passes it in.
 
 ## Step 3 — API endpoint `GET /api/deep-links` (in `doc_search.py`)
 

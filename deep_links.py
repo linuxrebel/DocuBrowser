@@ -13,6 +13,7 @@ docs/superpowers/specs/2026-08-21-deep-links-design.md.
 Pure functions, independently testable — no server or UI dependencies.
 """
 
+import math
 import re
 from pathlib import Path
 
@@ -186,17 +187,93 @@ _UNIT_ITERATORS = {
 }
 
 
-def locate_passages(path, query, mode, *, max_passages=200):
+def _cosine(a, b):
+    """Cosine similarity of two equal-length vectors; 0 if either is zero."""
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def _sentence_spans(text):
+    """Yield (start, end, sentence) spans over *text*. Whole text if no breaks."""
+    spans = []
+    for m in re.finditer(r"[^.!?]*[.!?]+|[^.!?]+$", text):
+        s = m.group().strip()
+        if not s:
+            continue
+        start = text.index(s, m.start())
+        spans.append((start, start + len(s), s))
+    return spans or [(0, len(text), text)]
+
+
+def _keyword_passages(units, query, max_passages):
+    """Rank passages by whole-word query-term match count."""
+    tokens = _query_tokens(query)
+    scored = []
+    for location, text in units:
+        score, ms, me = _score_and_mark(text, tokens)
+        if score > 0:
+            scored.append(_passage(text, location, score, ms, me))
+    scored.sort(key=lambda p: p["score"], reverse=True)
+    truncated = len(scored) > max_passages
+    return {"passages": scored[:max_passages], "truncated": truncated}
+
+
+def _semantic_passage(text, location, score, qvec, embed_fn):
+    """Build a Passage, marking the sentence nearest the query for highlight."""
+    spans = _sentence_spans(text)
+    svecs = embed_fn([s for _, _, s in spans])
+    best = max(range(len(spans)), key=lambda i: _cosine(qvec, svecs[i]))
+    start, end, sentence = spans[best]
+    return {
+        "sample": " ".join(sentence.split()[:10]),
+        "excerpt": text,
+        "location": location,
+        "score": score,
+        "match_start": start,
+        "match_end": end,
+    }
+
+
+def _semantic_passages(units, query, embed_fn, max_passages):
+    """Rank passages by cosine similarity of their embeddings to the query."""
+    if embed_fn is None:
+        raise ValueError("semantic mode requires embed_fn")
+    if not units:
+        return {"passages": [], "truncated": False}
+
+    texts = [text for _, text in units]
+    vecs = embed_fn([query, *texts])
+    qvec, pvecs = vecs[0], vecs[1:]
+
+    scored = []
+    for (location, text), pvec in zip(units, pvecs):
+        sim = _cosine(qvec, pvec)
+        if sim > 0:
+            scored.append((sim, location, text))
+    scored.sort(key=lambda t: t[0], reverse=True)
+
+    truncated = len(scored) > max_passages
+    passages = [
+        _semantic_passage(text, location, sim, qvec, embed_fn)
+        for sim, location, text in scored[:max_passages]
+    ]
+    return {"passages": passages, "truncated": truncated}
+
+
+def locate_passages(path, query, mode, *, max_passages=200, embed_fn=None):
     """
     Locate the passages in *path* that match *query*.
 
-    mode is "keyword" or "semantic". Returns either
+    mode is "keyword" or "semantic". Semantic mode requires *embed_fn*, a
+    batch embedder (list[str] -> list[vector]); the caller supplies the real
+    Ollama-backed one. Returns either
     {"unsupported": True, "reason": ...} for non-prose formats, or
     {"passages": [Passage, ...], "truncated": bool}.
     """
-    # ponytail: only keyword mode is wired up in Phase 1; semantic ranking
-    # (embed + cosine) is added in Step 2 and will branch on `mode` here.
-    del mode
     ext = Path(path).suffix.lstrip(".").lower()
     if ext in _NON_PROSE_EXT:
         return {"unsupported": True, "reason": f"non-prose format: .{ext}"}
@@ -206,13 +283,7 @@ def locate_passages(path, query, mode, *, max_passages=200):
         # Formats not yet supported behave as an empty (no-passages) result.
         return {"passages": [], "truncated": False}
 
-    tokens = _query_tokens(query)
-    scored = []
-    for location, text in iterator(path):
-        score, ms, me = _score_and_mark(text, tokens)
-        if score > 0:
-            scored.append(_passage(text, location, score, ms, me))
-
-    scored.sort(key=lambda p: p["score"], reverse=True)
-    truncated = len(scored) > max_passages
-    return {"passages": scored[:max_passages], "truncated": truncated}
+    units = list(iterator(path))
+    if mode == "semantic":
+        return _semantic_passages(units, query, embed_fn, max_passages)
+    return _keyword_passages(units, query, max_passages)
