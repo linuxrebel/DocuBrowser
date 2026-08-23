@@ -114,3 +114,43 @@ docker compose --env-file ~/.docubrowser/docker.env down
 | `ollama-entrypoint.sh` | Sidecar: serve + idempotent model pull |
 | `du-convert.sh` | Linux: convert a native install to Docker without a rescan |
 | `test_du_convert.sh` | Test for the converter's root discovery |
+
+---
+
+## Path forward: Enterprise (client-based) — where the wall dissolves
+
+The open-in-app wall above is a **browser** limitation, not a container one. The
+Enterprise deployment has a **desktop client**, and a client is not sandboxed:
+it can write a temp file and invoke the OS opener. With a client in front of it,
+the containerized server becomes viable **with all features intact**.
+
+**Open flow (Enterprise):** the client requests the file over
+`GET /api/download` (already implemented on this branch) → streams it to a local
+temp file → invokes the local opener (`xdg-open` / `gio` / `start`). This is the
+"download to temp, then open" step a browser cannot do but a client can — so the
+container stays headless *by design*, not by limitation.
+
+### Design forks to settle before building this
+
+1. **Where the file bytes come from.**
+   - *Server-authoritative (preferred):* documents live on a share mounted into
+     the container; the server reads and streams them via `/api/download`. Works
+     even when the client has no direct file access — one index, one file source,
+     many thin clients — and it sidesteps the path-identity problem entirely.
+   - *Client-local:* the client already has the files; the server holds only the
+     index and "open" is a pure client-side path open. Reintroduces the
+     indexed-path vs client-mount mismatch, per client.
+
+2. **Multi-user auth + TLS — the real gap.** The current model is single-user
+   (loopback + trusted-CIDR, "trusted peers, no auth"). Remote Enterprise clients
+   need per-user authentication and TLS. This is now the **largest** problem —
+   larger than "open," which the client solves.
+
+3. **Token / credential in the client.** The client carries the CSRF token like
+   the web UI does today, or a proper per-user API token under (2). No blocker;
+   fold it into the auth design.
+
+**Summary:** everything built on this branch — distroless hardening, the Ollama
+sidecar, `/api/download`, CSRF-for-all-peers, no-rescan reuse — is the
+foundation. The remaining Enterprise work is **auth + TLS + the file-source
+model**, not desktop integration.
