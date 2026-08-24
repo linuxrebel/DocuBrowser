@@ -126,6 +126,8 @@
   .doc-dl-btn:hover { opacity:0.9; transform:translateY(-1px); }
   .doc-open-btn { background:var(--btn-open); border:none; color:#fff; border-radius:6px; padding:0.3rem 1rem; font-size:0.75rem; font-weight:700; cursor:pointer; font-family:'JetBrains Mono',monospace; transition:opacity 0.15s, transform 0.1s; box-shadow:0 2px 8px rgba(124,106,255,0.3), inset 0 1px 0 rgba(255,255,255,0.15); }
   .doc-open-btn:hover { opacity:0.9; transform:translateY(-1px); }
+  .doc-deeplinks-btn { background:var(--accent2); border:none; color:#fff; border-radius:6px; padding:0.3rem 1rem; font-size:0.75rem; font-weight:700; cursor:pointer; font-family:'JetBrains Mono',monospace; transition:opacity 0.15s, transform 0.1s; box-shadow:0 2px 8px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.15); }
+  .doc-deeplinks-btn:hover { opacity:0.9; transform:translateY(-1px); }
   .doc-desc { font-size:0.85rem; font-weight:500; color:var(--text); line-height:1.6; margin-bottom:0.7rem; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .doc-tags { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.6rem; }
   .tag { font-family:'JetBrains Mono',monospace; font-size:0.7rem; font-weight:600; background:var(--tag-bg); color:var(--tag-text); padding:3px 10px; border-radius:4px; cursor:pointer; transition:opacity 0.15s; }
@@ -205,6 +207,21 @@
   .synopsis-body.error { color:var(--accent3); }
   .modal label { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--text-dim); display:block; margin-bottom:0.3rem; }
   .modal-actions { display:flex; gap:0.8rem; margin-top:1.5rem; }
+  /* ── Deep Links modal ── */
+  .modal { position:relative; }
+  .dl-close { position:absolute; top:0.9rem; right:1rem; background:transparent; border:none; color:var(--text-dim); font-size:1.1rem; line-height:1; cursor:pointer; padding:0.2rem 0.4rem; border-radius:5px; }
+  .dl-close:hover { color:var(--text); background:var(--surface2); }
+  .dl-note { font-size:0.82rem; color:var(--text-dim); margin-bottom:1rem; line-height:1.5; }
+  .dl-message { font-size:0.9rem; color:var(--text-dim); line-height:1.6; }
+  .dl-message.error { color:var(--accent3); }
+  .dl-passages { display:flex; flex-direction:column; gap:0.45rem; max-height:52vh; overflow-y:auto; }
+  .dl-passage { text-align:left; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:0.55rem 0.75rem; cursor:pointer; transition:border-color 0.15s; font:inherit; color:inherit; }
+  .dl-passage:hover { border-color:var(--accent); }
+  .dl-passage-sample { font-size:0.9rem; color:var(--text); }
+  .dl-passage-loc { font-family:'JetBrains Mono',monospace; font-size:0.68rem; color:var(--text-dim); margin-top:0.25rem; }
+  .dl-excerpt { font-size:0.95rem; line-height:1.65; color:var(--text); white-space:pre-wrap; max-height:52vh; overflow-y:auto; }
+  .dl-mark { background:#ffe94d; color:#000; padding:0 2px; border-radius:2px; }
+  .dl-truncated { font-size:0.72rem; color:var(--text-dim); margin-top:0.7rem; }
   .btn-secondary {
     padding:0.6rem 1.5rem; background:transparent; color:var(--text-dim); border:1px solid var(--border);
     border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:0.85rem; cursor:pointer;
@@ -327,6 +344,16 @@
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeSynopsis()">Close</button>
     </div>
+  </div>
+</div>
+
+<!-- Deep Links Modal -->
+<div class="modal-overlay" id="deepLinksModal">
+  <div class="modal">
+    <button class="dl-close" onclick="closeDeepLinks()" title="Close" aria-label="Close">✕</button>
+    <h2 id="deepLinksTitle">Deep Links</h2>
+    <div id="deepLinksBody"></div>
+    <div class="modal-actions" id="deepLinksActions"></div>
   </div>
 </div>
 
@@ -787,6 +814,7 @@ function renderDocs(docs, showScore, append = false) {
       </div>
       <div class="doc-file-actions">
         ${(isLocal || isTauri) ? `<button class="doc-open-btn" data-path="${esc(d.path)}">Open</button>` : ''}
+        ${currentQuery && currentQuery.trim() ? `<button class="doc-deeplinks-btn" data-path="${esc(d.path)}" data-title="${esc(titleText)}">Deep Links</button>` : ''}
         ${(!isLocal || isTauri) ? `<button class="doc-dl-btn" data-path="${esc(d.path)}">Download</button>` : ''}
         <span class="doc-action-icon doc-copy-btn" data-path="${esc(d.path)}" title="Copy link">📋</span>
         <span class="doc-action-icon doc-tag-btn" data-path="${esc(d.path)}" title="Add tags">🔖</span>
@@ -936,6 +964,8 @@ grid.addEventListener('click', (e) => {
   if (openEl) return openFile(openEl.dataset.path, openEl);
   const dlEl = e.target.closest('.doc-dl-btn');
   if (dlEl) return downloadFile(dlEl.dataset.path);
+  const dlnEl = e.target.closest('.doc-deeplinks-btn');
+  if (dlnEl) return showDeepLinks(dlnEl.dataset.path, dlnEl.dataset.title);
 });
 
 async function downloadFile(path) {
@@ -1018,6 +1048,121 @@ async function showSynopsis(path, title) {
 
 function closeSynopsis() {
   document.getElementById('synopsisModal').classList.remove('open');
+}
+
+// ── Deep Links: in-document passage locator ──────────────────────
+// Mode is locked to the search that produced the result (design decision):
+// semantic search → semantic passages; keyword or "both" → keyword passages.
+// The user starts a fresh search to change mode.
+let dlState = { path: '', title: '', passages: [], truncated: false };
+
+function closeDeepLinks() {
+  document.getElementById('deepLinksModal').classList.remove('open');
+}
+
+// "p. 12" → "page 12"; "line 340" / "section 3" pass through.
+function dlLocationLabel(loc) { return (loc || '').replace(/^p\.\s*/, 'page '); }
+
+// Build the yellow highlight from the returned match span — never by injecting
+// the query — escaping every slice of document text (same XSS reasoning as the
+// delegated card handlers).
+function dlHighlight(excerpt, s, e) {
+  if (typeof s !== 'number' || typeof e !== 'number' || s < 0 || e <= s || e > excerpt.length) {
+    return esc(excerpt);
+  }
+  return esc(excerpt.slice(0, s)) + '<mark class="dl-mark">' +
+         esc(excerpt.slice(s, e)) + '</mark>' + esc(excerpt.slice(e));
+}
+
+async function showDeepLinks(path, title) {
+  const overlay  = document.getElementById('deepLinksModal');
+  const titleEl  = document.getElementById('deepLinksTitle');
+  const bodyEl   = document.getElementById('deepLinksBody');
+  const actionsEl = document.getElementById('deepLinksActions');
+  const q = (currentQuery || '').trim();
+
+  dlState = { path, title: title || 'this document', passages: [], truncated: false };
+  titleEl.textContent = 'Deep Links';
+  bodyEl.innerHTML = '<div class="dl-message">Just a moment as we find your passage…</div>';
+  actionsEl.innerHTML = '';
+  overlay.classList.add('open');
+
+  const mode = searchMode === 'semantic' ? 'semantic' : 'keyword';
+  try {
+    const res = await fetch(`/api/deep-links?path=${encodeURIComponent(path)}&q=${encodeURIComponent(q)}&mode=${mode}`);
+    const data = await res.json();
+    if (!data.ok) {
+      bodyEl.innerHTML = `<div class="dl-message error">${esc(data.error || 'Deep Links failed.')}</div>`;
+      dlSetActions([['Close', closeDeepLinks, 'btn-secondary']]);
+      return;
+    }
+    if (data.unsupported) { renderDeepLinksUnsupported(); return; }
+    dlState.passages = data.passages || [];
+    dlState.truncated = !!data.truncated;
+    renderDeepLinksList();
+  } catch (e) {
+    bodyEl.innerHTML = `<div class="dl-message error">${esc(e instanceof TypeError ? friendlyError(e) : e.message)}</div>`;
+    dlSetActions([['Close', closeDeepLinks, 'btn-secondary']]);
+  }
+}
+
+// Build the footer buttons and wire handlers programmatically (no data-in-HTML,
+// so no string-injection surface). Each spec is [label, handler, className].
+function dlSetActions(specs) {
+  const actionsEl = document.getElementById('deepLinksActions');
+  actionsEl.innerHTML = '';
+  specs.forEach(([label, handler, cls]) => {
+    const b = document.createElement('button');
+    b.className = cls;
+    b.textContent = label;
+    b.onclick = handler;
+    actionsEl.appendChild(b);
+  });
+}
+
+function renderDeepLinksList() {
+  document.getElementById('deepLinksTitle').textContent = 'Deep Links';
+  const bodyEl = document.getElementById('deepLinksBody');
+  if (!dlState.passages.length) {
+    bodyEl.innerHTML = '<div class="dl-message">No matching passages found in this document.</div>';
+    dlSetActions([['Close', closeDeepLinks, 'btn-secondary']]);
+    return;
+  }
+  const rows = dlState.passages.map((p, i) =>
+    `<button class="dl-passage" data-idx="${i}">
+       <div class="dl-passage-sample">${esc(p.sample)}</div>
+       <div class="dl-passage-loc">${esc(dlLocationLabel(p.location))}</div>
+     </button>`).join('');
+  bodyEl.innerHTML = `<div class="dl-passages">${rows}</div>` +
+    (dlState.truncated ? '<div class="dl-truncated">Showing the top matches; more exist in this document.</div>' : '');
+  bodyEl.querySelectorAll('.dl-passage').forEach(el => {
+    el.onclick = () => showDeepLinksExcerpt(parseInt(el.dataset.idx, 10));
+  });
+  dlSetActions([['Close', closeDeepLinks, 'btn-secondary']]);
+}
+
+function showDeepLinksExcerpt(idx) {
+  const p = dlState.passages[idx];
+  if (!p) return;
+  document.getElementById('deepLinksTitle').textContent =
+    `This passage comes from ${dlLocationLabel(p.location)} of the document. Return to the main page to open and read more.`;
+  document.getElementById('deepLinksBody').innerHTML =
+    `<div class="dl-excerpt">${dlHighlight(p.excerpt, p.match_start, p.match_end)}</div>`;
+  dlSetActions([
+    ['Open full document', () => openFile(dlState.path), 'doc-open-btn'],
+    ['Back', renderDeepLinksList, 'btn-secondary'],
+  ]);
+}
+
+function renderDeepLinksUnsupported() {
+  document.getElementById('deepLinksTitle').textContent = 'Deep Links';
+  document.getElementById('deepLinksBody').innerHTML =
+    '<div class="dl-message">Due to the document format and technical limitations, ' +
+    'we can\'t display this document outside its reader.</div>';
+  dlSetActions([
+    ['Open in reader', () => openFile(dlState.path), 'doc-open-btn'],
+    ['Back', closeDeepLinks, 'btn-secondary'],
+  ]);
 }
 
 // CSRF token injected into the page <head> by the server. Mutating

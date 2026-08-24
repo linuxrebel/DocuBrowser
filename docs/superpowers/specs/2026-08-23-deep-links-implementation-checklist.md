@@ -49,16 +49,19 @@ Note: `embed_fn` is dependency-injected so unit tests need no Ollama. Step 3 bui
 
 Note: the `test_features.py` HTTP suite is operator-run against a live server + real DB (per `status_docs/TESTING.md`); it was not run in-session because the server tooling wouldn't start in the sandbox. The handler itself was verified directly through its real dependencies.
 
-## Step 4 — UI (`index.html`)
+## Step 4 — UI (`index.html`) — DONE
 
-- [ ] `Deep Links` button right of `Open` (index.html ~789), rendered only when the query is non-empty.
-- [ ] Modal mirrors the synopsis modal; loading state "Just a moment as we find your passage…".
-- [ ] Fetch `/api/deep-links` with the card's path, current query, active search mode (mode locked to the originating search — no toggle).
-- [ ] Passage list: one row per passage — 8–10 word sample + location label.
-- [ ] Excerpt view: reveal excerpt with snippet in yellow `<mark>`; title *"This passage comes from page (X) of the document. Return to the main page to open and read more."* with unit templated off `location` (page/line/section); **Open full document** → `/api/open`.
-- [ ] Close control (X upper-right / close button).
-- [ ] No-results message on empty; non-prose message + [Open in reader] / [Back].
-- [ ] Build highlight from the returned match span, not by injecting the query (XSS guard); escape document text for HTML.
+- [x] `Deep Links` button right of `Open`, rendered only when `currentQuery` is non-empty. Distinct `--accent2` styling.
+- [x] Modal mirrors the synopsis modal; loading state "Just a moment as we find your passage…".
+- [x] Fetch `/api/deep-links` with the card's path, current query, active search mode. **Mode mapping:** semantic search → `semantic`; keyword **or `both`** → `keyword` (no in-modal toggle). See note below on `both`.
+- [x] Passage list: one row per passage — sample + location label (`page N` / `line N` / `section N`); truncation note when `truncated`.
+- [x] Excerpt view: excerpt with the match span in yellow `<mark>`; title *"This passage comes from {page N/line N/section N} of the document. Return to the main page to open and read more."*; **Open full document** → `/api/open`.
+- [x] Close control (X upper-right + Close button); **Back** returns from excerpt to the passage list.
+- [x] No-results message on empty; non-prose message + [Open in reader] / [Back]; error envelope surfaced.
+- [x] Highlight built from the returned match span (not query injection); every document-text slice escaped via `esc()`. Footer buttons wired programmatically (no data-in-HTML), so no string-injection surface.
+- [x] Verified visually: served `index.html` statically, stubbed `/api/deep-links`, drove the real modal code — passage list, excerpt+highlight, templated title, and the card button (right of Open, gated on query) all render correctly. JS passes `node --check`.
+
+**Decision — `both` mode:** the design specified mode locked to the originating search, but search offers three modes (keyword / semantic / **both**), and `both` isn't a valid Deep Links mode. Chose `both` → `keyword` (instant, no GPU). Revisit if semantic-for-both proves more useful.
 
 ## Wrap-up
 
