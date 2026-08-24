@@ -10,6 +10,28 @@ resolved items keep their number.
 
 ## Open
 
+### D-16: Deep Links — `both` search mode maps to keyword passages
+**Status:** By design
+**Priority:** Informational
+**Added:** 2026-08-23
+
+The Deep Links feature (v1.0.4; design in
+`docs/superpowers/specs/2026-08-21-deep-links-design.md`) locks the in-document
+passage mode to the search that produced the result: a **Semantic** search
+opens semantic passages, a **Keyword** search opens keyword passages, with no
+toggle inside the modal. Search, however, has a third mode — **Both** — which
+is not a valid Deep Links mode (the endpoint accepts only `keyword` |
+`semantic`).
+
+**Decision:** a result found via **Both** opens **keyword** Deep Links. Rationale:
+keyword is instant and needs no GPU, so it is the safe default for the common
+case; explicit Semantic search still gets the semantic passage view. To change
+the passage mode, the user re-runs the search in the mode they want.
+
+Revisit if semantic-for-both proves more useful in practice. If chunk-level
+precomputed embeddings (D-11) land later, semantic Deep Links become cheap
+enough that `both` → semantic could be reconsidered behind the same UI.
+
 ### D-15: Docker deployment (experimental) — tracked on the `docker-experiment` branch
 **Status:** Experimental, off mainline — reference only
 **Priority:** Low

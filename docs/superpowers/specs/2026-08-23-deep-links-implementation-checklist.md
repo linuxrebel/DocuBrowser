@@ -65,5 +65,11 @@ Note: the `test_features.py` HTTP suite is operator-run against a live server + 
 
 ## Wrap-up
 
-- [ ] Run the QA agent after code changes, before calling it ready (project rule).
-- [ ] Commit on `development`, push; merge `--ff-only` to `main`, push; back to `development`.
+- [x] QA run (local): pylint 9.99/10 (only pre-existing `main()` R0912), `test_deep_links.py` 9/9, endpoint handler + live Ollama, `index.html` JS `node --check`, `test_backup_restore.py` regression — all pass. The `test_features.py` HTTP suite is operator-run against a live server.
+- [x] Committed on `development` (4 commits, dc3d455 → e24a211). **Local only — not pushed, not merged to `main`** (per instruction to keep local).
+- [x] `both` search-mode decision recorded in `status_docs/DECISIONS.md` (D-16).
+
+Remaining (operator / when ready to release):
+- [ ] Run `python3 test_features.py` against a live server (E2E `check_deep_links`).
+- [ ] Push `development` + merge `--ff-only` to `main` when you decide to ship.
+- [ ] Sync the D-16 entry into the Enterprise repo's `status_docs/DECISIONS.md`.
