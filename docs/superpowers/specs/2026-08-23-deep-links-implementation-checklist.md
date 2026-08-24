@@ -37,15 +37,17 @@ Notes / small deferrals from Step 1:
 
 Note: `embed_fn` is dependency-injected so unit tests need no Ollama. Step 3 builds the real batch embedder (POST `/api/embed` with `input` as a list) from `doc_search`'s `OLLAMA_HOST` / `EMBEDDING_MODEL` and passes it in.
 
-## Step 3 — API endpoint `GET /api/deep-links` (in `doc_search.py`)
+## Step 3 — API endpoint `GET /api/deep-links` (in `doc_search.py`) — DONE
 
-- [ ] Route: `GET /api/deep-links?path=<enc>&q=<query>&mode=keyword|semantic`.
-- [ ] Read-only GET, no CSRF (same class as `/api/search`).
-- [ ] Validate `path` is in the document index (same guard as `/api/open` / `/api/synopsis`) before touching the file.
-- [ ] Response envelope: `{"ok": true, "passages": [...], "truncated": bool}` / `{"ok": true, "unsupported": true}` / error envelope.
-- [ ] Register alongside the other GET handlers.
-- [ ] Extend `test_features.py`: passages for a prose doc; `unsupported` for an XLSX; against the running server.
-- [ ] Tests pass.
+- [x] Route: `GET /api/deep-links?path=<enc>&q=<query>&mode=keyword|semantic` (registered in the GET `with_query` table).
+- [x] Read-only GET, no CSRF (same class as `/api/search`).
+- [x] Validate `path` is in the document index (same guard as `/api/open` / `/api/synopsis`) + on-disk existence check before reading the file.
+- [x] Response envelope: `{"ok": true, "passages": [...], "truncated": bool}` / `{"ok": true, "unsupported": true}` / `{"ok": false, "error": ...}`.
+- [x] `embed_texts()` added to `doc_search.py` — one batched `/api/embed` call for query + all passages; passed as `embed_fn` only for semantic mode.
+- [x] Extend `test_features.py`: `check_deep_links()` — keyword envelope + passage shape, semantic envelope (when embeddings present), `unsupported` for a spreadsheet. Self-skipping, DB-independent.
+- [x] Verified: handler exercised through the real code path (get_db guard → locate_passages → live `embed_texts` against Ollama) via a direct-call harness — keyword `line 2`, semantic `line 2` cos 0.537, xlsx `unsupported`, unknown-path rejected. pylint clean on new code (`main()`'s pre-existing R0912 left untouched).
+
+Note: the `test_features.py` HTTP suite is operator-run against a live server + real DB (per `status_docs/TESTING.md`); it was not run in-session because the server tooling wouldn't start in the sandbox. The handler itself was verified directly through its real dependencies.
 
 ## Step 4 — UI (`index.html`)
 

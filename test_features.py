@@ -83,6 +83,62 @@ def csrf_token(base):
     return match.group(1) if match else None
 
 
+def check_deep_links(base, embedded):
+    """Best-effort Deep Links checks against whatever docs this DB holds."""
+    prose_ext = ("pdf", "txt", "docx", "rtf", "odt")
+    nonprose_ext = ("xlsx", "ods", "csv", "tsv", "pptx", "odp")
+    _, corpus = get_json(base, "/api/search?q=&mode=keyword")
+    docs = corpus.get("documents", [])
+
+    def first_by_ext(exts):
+        return next(
+            (d for d in docs
+             if d.get("path", "").rsplit(".", 1)[-1].lower() in exts),
+            None,
+        )
+
+    prose = first_by_ext(prose_ext)
+    if not prose:
+        for name in ("deep-links keyword envelope",
+                     "deep-links passage has location + span",
+                     "deep-links semantic envelope"):
+            skip(name, "no prose doc in this DB")
+    else:
+        # Query a word from the doc's own name so a match is likely; the check
+        # still passes on an empty result — it asserts the envelope, not a hit.
+        word = next(iter(re.findall(r"[A-Za-z]{4,}", prose.get("name", ""))), "the")
+        dl = "/api/deep-links?path=" + urllib.parse.quote(prose["path"])
+        _, kw = get_json(base, f"{dl}&q={urllib.parse.quote(word)}&mode=keyword")
+        report("deep-links keyword envelope",
+               kw.get("ok") is True and ("passages" in kw or kw.get("unsupported")),
+               f"{prose['name']!r} q={word!r} passages={len(kw.get('passages', []))}")
+        if kw.get("passages"):
+            p0 = kw["passages"][0]
+            report("deep-links passage has location + span",
+                   bool(p0.get("location")) and "match_start" in p0,
+                   f"{p0.get('location')!r}")
+        else:
+            skip("deep-links passage has location + span", "no keyword hit in sample doc")
+
+        if embedded > 0:
+            _, sem = get_json(base, f"{dl}&q={urllib.parse.quote(word)}&mode=semantic")
+            report("deep-links semantic envelope",
+                   sem.get("ok") is True and ("passages" in sem or sem.get("unsupported")),
+                   f"passages={len(sem.get('passages', []))}")
+        else:
+            skip("deep-links semantic envelope", "no embeddings in this DB")
+
+    nonprose = first_by_ext(nonprose_ext)
+    if nonprose:
+        dl = "/api/deep-links?path=" + urllib.parse.quote(nonprose["path"])
+        _, un = get_json(base, f"{dl}&q=data&mode=keyword")
+        report("deep-links non-prose -> unsupported",
+               un.get("ok") is True and un.get("unsupported") is True,
+               nonprose["name"])
+    else:
+        skip("deep-links non-prose -> unsupported", "no spreadsheet/slide doc in this DB")
+
+
 def run(base, skip_synopsis):
     """Execute every feature check against the server at *base*."""
     # ── Core endpoints ───────────────────────────────────────────────────────
@@ -125,6 +181,8 @@ def run(base, skip_synopsis):
         report("ODF template (.ott) searchable", True, [n for n in ot if "ott" in n.lower()][:1])
     else:
         skip("ODF template (.ott) searchable", "no .ott sample content in this DB")
+
+    check_deep_links(base, embedded)
 
     # ── Security guards (DB-independent) ─────────────────────────────────────
     report("foreign Host -> 403", status_code(base, "/api/stats", {"Host": "evil.example"}) == 403)
