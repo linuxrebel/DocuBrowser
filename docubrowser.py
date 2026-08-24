@@ -1735,6 +1735,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan_missing.add_argument("--dry-run", action="store_true", dest="dry_run",
                                  help="Show what would be removed without changing the DB")
 
+    # argparse subparser-default clobber: --db / --port exist both globally
+    # (usable before the subcommand, e.g. `docubrowser --db PATH start`) and on
+    # each subcommand. When placed before the subcommand, the top parser sets
+    # them, then the subparser re-parses and its own default (None) OVERWRITES
+    # the value back to None. Making the per-subcommand copies default to
+    # SUPPRESS means an omitted one is left out of the namespace entirely, so the
+    # global value survives; an explicitly-supplied one still wins.
+    for _subparser in sub.choices.values():
+        for _action in _subparser._actions:  # pylint: disable=protected-access
+            if _action.dest in ("db", "port"):
+                _action.default = argparse.SUPPRESS
+
     return parser
 
 
