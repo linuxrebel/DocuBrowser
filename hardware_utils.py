@@ -13,6 +13,7 @@ All functions are safe to call at module import time (no heavy imports).
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -73,17 +74,23 @@ def recommended_scan_workers(cap: int = 8, mem_gb_per_worker: float = 4.0) -> in
 
 # ── GPU ───────────────────────────────────────────────────────────────────────
 
-def detect_nvidia_gpu() -> dict | None:
+def detect_gpu() -> dict | None:
     """
-    Detect primary NVIDIA GPU via nvidia-smi.
+    Detect primary NVIDIA GPU via nvidia-smi or Intel GPU via xpu-smi.
 
     Returns dict with keys: name, total_mb, free_mb
-    Returns None if no NVIDIA GPU is found or nvidia-smi unavailable.
+    Returns None if no NVIDIA GPU or Intel GPU is found or nvidia-smi / xpu-smi unavailable.
     """
     try:
+        if shutil.which("nvidia-smi"):
+            smi_cmd = "nvidia-smi"
+        elif shutil.which("xpu-smi"):
+            smi_cmd = "xpu-smi"
+        else:
+            return None
         result = subprocess.run(
             [
-                "nvidia-smi",
+                smi_cmd,
                 "--query-gpu=name,memory.total,memory.free",
                 "--format=csv,noheader,nounits",
             ],
@@ -99,9 +106,9 @@ def detect_nvidia_gpu() -> dict | None:
             if len(parts) >= 3:
                 try:
                     return {
-                        "name":     parts[0],
-                        "total_mb": int(parts[1]),
-                        "free_mb":  int(parts[2]),
+                        "name": parts[0],
+                        "total_mb": int(float(parts[1])),
+                        "free_mb": int(float(parts[2])),
                     }
                 except ValueError:
                     pass
@@ -117,7 +124,7 @@ def recommended_embed_workers() -> int:
     With GPU (Ollama uses CUDA):  6 workers — GPU queues and batches internally
     Without GPU (CPU inference):  3 workers — avoid overwhelming CPU Ollama
     """
-    gpu = detect_nvidia_gpu()
+    gpu = detect_gpu()
     return 6 if gpu else 3
 
 
@@ -210,7 +217,7 @@ def print_hardware_summary(scan_workers: int, embed_workers: int):
     """
     phys    = physical_cpu_cores()
     logical = logical_cpu_cores()
-    gpu     = detect_nvidia_gpu()
+    gpu     = detect_gpu()
 
     mem = memory_status()
     if mem["total_gb"] > 0:
