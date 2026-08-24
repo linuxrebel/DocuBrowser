@@ -46,7 +46,7 @@
     position:sticky; top:0; background:var(--header-bg); z-index:100;
     backdrop-filter:blur(12px);
   }
-  .logo { white-space:nowrap; line-height:0; }
+  .logo { white-space:nowrap; line-height:0; text-decoration:none; cursor:pointer; }
   .logo img { height:2rem; width:auto; vertical-align:middle; }
   .search-wrap { flex:1; max-width:600px; position:relative; }
   .search-wrap svg { position:absolute; left:12px; top:50%; transform:translateY(-50%); width:18px; height:18px; stroke:var(--text-dim); }
@@ -310,7 +310,7 @@
 </head>
 <body>
 <div class="header">
-  <div class="logo"><img src="icons/docubrowse.svg" alt="DocuBrowse"></div>
+  <a class="logo" href="https://github.com/linuxrebel/DocuBrowser" target="_blank" rel="noopener noreferrer" title="DocuBrowse on GitHub"><img src="icons/docubrowse.svg" alt="DocuBrowse"></a>
   <div class="search-wrap">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input class="search-input" id="searchInput" type="text" placeholder="Search documents… e.g. 'quarterly report' or 'budget analysis'" autofocus>

@@ -121,6 +121,20 @@ Click any thumbnail to view full size.
 |---|---|
 | [![Settings page](screenshots/screenshot-settings-page.png)](screenshots/screenshot-settings-page.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
 
+### Deep Links — in-document passage search
+
+From any keyword or semantic result, **Deep Links** finds the matching passages *inside* that document, jumps to one, and highlights the matched text.
+
+| Semantic search results | Matched passage (highlighted) |
+|---|---|
+| [![Semantic search results with Deep Links](screenshots/deep-links-semantic-results.png)](screenshots/deep-links-semantic-results.png) | [![Semantic Deep Links passage](screenshots/deep-links-semantic-passage.png)](screenshots/deep-links-semantic-passage.png) |
+
+| Keyword search results | Matched passage (highlighted) |
+|---|---|
+| [![Keyword search results with Deep Links](screenshots/deep-links-keyword-results.png)](screenshots/deep-links-keyword-results.png) | [![Keyword Deep Links passage](screenshots/deep-links-keyword-passage.png)](screenshots/deep-links-keyword-passage.png) |
+
+> Deep Links renders the document's extracted text with the matched snippet in yellow, labelled by its location (page / line / section). Mode follows the search: semantic search opens semantic passages, keyword opens keyword passages.
+
 > Settings is a standalone page at `/settings` (opened in a new tab via the gear icon). The General panel covers the document directory (with live directory browser, plus any number of additional scan directories), working directory, and port; the Ignored Directories panel manages scan exclusions, each with a directory browser, add/clear controls, and confirmation before removal.
 
 ---
