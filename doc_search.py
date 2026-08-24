@@ -59,6 +59,7 @@ from scan_docs import (                                                  # noqa:
     IGNORE_DIRS_FILENAME, SCAN_DIRS_FILENAME,
     purge_path_prefix,
 )
+from deep_links import locate_passages                                   # noqa: E402
 # pylint: enable=wrong-import-position
 
 try:
@@ -321,6 +322,27 @@ def embed_text(text: str) -> list:
     except (URLError, socket.timeout, OSError, json.JSONDecodeError) as e:
         sys.stderr.write(f"[embed_text] embedding request failed: {e}\n")
         return None
+
+
+def embed_texts(texts: list) -> list:
+    """Batch-embed a list of strings via Ollama; returns a list of vectors.
+
+    One /api/embed call for all inputs (the endpoint accepts a list), used by
+    Deep Links semantic mode to embed the query plus every passage at once.
+    Raises on transport failure so the caller can surface an error envelope.
+    """
+    if not texts:
+        return []
+    url = f"{OLLAMA_HOST}/api/embed"
+    payload = json.dumps({
+        "model": EMBEDDING_MODEL,
+        "input": [t[:2000] for t in texts],
+    }).encode('utf-8')
+    request = Request(url, data=payload, method='POST')
+    request.add_header('Content-Type', 'application/json')
+    with urlopen(request, timeout=60) as response:
+        data = json.loads(response.read().decode('utf-8'))
+    return data.get('embeddings') or []
 
 
 def generate_synopsis(title: str, description: str, snippet: str) -> tuple:
@@ -668,6 +690,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         with_query = {
             '/api/search':      self.handle_search,
             '/api/synopsis':    self.handle_synopsis_get,
+            '/api/deep-links':  self.handle_deep_links,
             '/api/browse':      self.handle_browse,
         }
         if path in no_arg:
@@ -1368,6 +1391,47 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.json_response({"ok": True, "synopsis": synopsis, "cached": True})
         else:
             self.json_response({"ok": False, "needs_generation": True})
+
+    def handle_deep_links(self, query: dict):
+        """GET /api/deep-links?path=<enc>&q=<query>&mode=keyword|semantic
+
+        Read-only, no CSRF (same class as /api/search). Returns the passages
+        inside one indexed document that match the query — each with a location
+        label, sample, excerpt, and highlight span — or {unsupported: true} for
+        non-prose formats. Validates the path is in the index before reading it.
+        """
+        path = query.get('path', [''])[0].strip()
+        q = query.get('q', [''])[0]
+        mode = query.get('mode', ['keyword'])[0].strip().lower()
+        if not path:
+            self.json_response({"ok": False, "error": "Missing path parameter"})
+            return
+        if mode not in ('keyword', 'semantic'):
+            self.json_response({"ok": False, "error": "Invalid mode"})
+            return
+
+        # Security: path must be in the index (not arbitrary filesystem access).
+        conn = get_db(self.db_path)
+        row = conn.execute(
+            'SELECT id FROM documents WHERE path = ?', (path,)
+        ).fetchone()
+        conn.close()
+        if not row:
+            self.json_response({"ok": False, "error": "Path not in document index"})
+            return
+        if not Path(path).exists():
+            self.json_response({"ok": False, "error": f"File not found on disk: {path}"})
+            return
+
+        try:
+            result = locate_passages(
+                path, q, mode,
+                embed_fn=embed_texts if mode == 'semantic' else None,
+            )
+        except (URLError, socket.timeout, OSError, ValueError, json.JSONDecodeError) as e:
+            self.json_response({"ok": False, "error": f"Deep Links failed: {e}"})
+            return
+        self.json_response({"ok": True, **result})
 
     def handle_synopsis(self, query: dict):
         """POST /api/synopsis?path=<encoded-path> — generate + cache synopsis.
