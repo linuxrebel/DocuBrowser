@@ -10,6 +10,43 @@ resolved items keep their number.
 
 ## Open
 
+### D-17: Pre-v1.0.4 security audit — deferred low-severity findings
+**Status:** Deferred — low severity, no code change for this release
+**Priority:** Low
+**Added:** 2026-08-24
+
+Whole-product security audit ahead of the v1.0.4 (Deep Links) release found **no
+Critical/High issues**. Verified safe: no SQL injection (queries parameterized;
+f-string SQL injects only `?` placeholders / fixed clauses), no `eval`/`exec`/
+`pickle`, subprocess uses list-args (no shell) except the opt-in Ollama installer,
+path traversal blocked by `SELECT id WHERE path = ?` index-validation on every
+document endpoint, loopback-only bind via `verify_request()`, Host-header
+allowlist, CSRF via `secrets.compare_digest` with a `secrets.token_urlsafe(32)`
+token, and `OLLAMA_HOST` operator- (not request-) controlled. The Deep Links
+endpoint is secure (index-validated, XSS-safe highlight built from the match span
++ `esc()`).
+
+The following low-severity / defense-in-depth items were **deferred** — no change
+this release:
+
+1. **XML entity-expansion hardening.** `xml.etree.ElementTree` in
+   `odf_extractor` / `visio_extractor` / `markup_extractor` doesn't resolve
+   external entities (no file/SSRF exfil), but isn't hardened against
+   billion-laughs expansion DoS. Mitigated today by `RLIMIT_AS` (6 GB) + per-file
+   timeouts. Follow-up: switch to `defusedxml.ElementTree` (adds a dependency).
+2. **Opener/extractor argument injection (theoretical).** A filename beginning
+   with `-` passed as a subprocess arg to openers (`xdg-open`/`gio`) or extractors
+   (`vsd2xml`/`djvutxt`/`ebook-convert`) could be misparsed as a flag. Requires an
+   attacker-named file to already be indexed. Follow-up: `--` / `./`-prefix the
+   path where the tool supports it.
+3. **vsd2xml unbounded stdout** — already tracked as a D-12 follow-up.
+4. **Deep Links semantic N+1 embed.** `_semantic_passage` calls the embedder once
+   per returned passage (up to `max_passages` = 200 Ollama round-trips per
+   request). Efficiency/load, not a vulnerability. Follow-up: batch all passages'
+   sentence embeddings into fewer `/api/embed` calls.
+
+Sync this entry into the Enterprise repo's `status_docs/DECISIONS.md`.
+
 ### D-16: Deep Links — `both` search mode maps to keyword passages
 **Status:** By design
 **Priority:** Informational
