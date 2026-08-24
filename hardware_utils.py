@@ -86,6 +86,8 @@ def detect_gpu() -> dict | None:
             smi_cmd = "nvidia-smi"
         elif shutil.which("xpu-smi"):
             smi_cmd = "xpu-smi"
+        else:
+            return None
         result = subprocess.run(
             [
                 smi_cmd,
