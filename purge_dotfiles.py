@@ -23,6 +23,7 @@ Usage:
 
 import argparse
 import os
+import pydoc
 import sys
 from pathlib import Path
 
@@ -113,17 +114,16 @@ def main():
     print(f"Database: {db_path}")
     print(f"Roots:    {', '.join(str(r) for r in roots) or '(none — any-dot-component heuristic)'}")
     print(f"Documents: {len(rows):,}   dotfiles found: {len(hits):,}")
-    for _id, path in hits[:20]:
-        print(f"  {path}")
-    if len(hits) > 20:
-        print(f"  … and {len(hits) - 20:,} more")
 
     if not hits:
         print("Nothing to remove.")
         conn.close()
         return
     if not args.apply:
-        print("\nDry run — no changes. Re-run with --apply to delete.")
+        # Page the *full* list through $PAGER/less (falls back to plain output
+        # when stdout isn't a TTY, e.g. piped or redirected).
+        pydoc.pager("\n".join(path for _id, path in hits))
+        print("Dry run — no changes. Re-run with --apply to delete.")
         conn.close()
         return
 
