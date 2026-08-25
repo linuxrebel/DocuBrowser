@@ -333,7 +333,20 @@ Usage: docubrowser.py <command> [options]
 # Cleaning up moved/deleted documents (opt-in, not run automatically)
 ./docubrowser.py scan-missing --dry-run        # report counts only, no DB changes
 ./docubrowser.py scan-missing                  # delete rows for genuinely-missing files
+
+# Removing dotfiles indexed by an older version (standalone one-off tool)
+python3 purge_dotfiles.py                       # dry-run: page the full list, no changes
+python3 purge_dotfiles.py --apply               # delete them (cascade-safe)
+python3 purge_dotfiles.py --db /path/du.db --roots /docs /extra --apply
 ```
+
+> `purge_dotfiles.py` is a transitional migration tool, run directly (not a
+> `docubrowser` subcommand). The scanner already skips dotfiles going forward
+> (D-6); this purges rows left behind by older versions. It uses the same
+> roots-aware hidden-path check as the scanner (a deliberately-scanned
+> dot-directory root is exempt) and the cascade-safe delete path, so FTS rows,
+> tags, and embeddings are cleaned up correctly. Dry-run by default; `--apply`
+> to delete; `--db` / `--roots` to override the defaults.
 
 ### scan / rescan Type Filters
 
@@ -685,6 +698,7 @@ DocuBrowse/
 ├── hardware_utils.py       # CPU/GPU/RAM detection, worker formula
 ├── embed_docs.py           # Embedding generation pipeline
 ├── purge_pii.py            # PII scanner and purge tool
+├── purge_dotfiles.py       # One-off: remove indexed dotfiles from the DB
 ├── dup_detect.py           # Exact (SHA256) and near-duplicate detection
 ├── platform_paths.py       # Cross-platform paths and process management
 ├── index.html              # Frontend UI (single-file, dark/light theme)
@@ -810,7 +824,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Image-only DjVu not searchable | DjVu with no text layer indexed metadata-only; OCR deferred (same as scanned PDFs) |
 | Multiple top-level doc directories | Fully supported — configure any number of additional scan directories in the General panel (`scan_dirs.txt`); `scan`/`rescan` automatically scan all of them into the single shared database |
 | Moved/renamed files | Not detected as moves — old path is removed (interactively or via `scan-missing`), new path is picked up on next rescan as a fresh entry; true duplicates are caught by `duplist`/`dupclean` |
-| Hidden files/dotfiles not indexed | By design — any file with a dot-prefixed path component (`.env`, `.bashrc`, and the contents of hidden dirs like `.git/`/`.venv/`) is skipped at scan time. Dotfiles indexed by an **older** version are **not** auto-removed by a rescan (the files still exist on disk); rebuild the index (fresh/empty DB, then `scan`) to purge them |
+| Hidden files/dotfiles not indexed | By design — any file with a dot-prefixed path component (`.env`, `.bashrc`, and the contents of hidden dirs like `.git/`/`.venv/`) is skipped at scan time. Dotfiles indexed by an **older** version are **not** auto-removed by a rescan (the files still exist on disk); run the standalone `purge_dotfiles.py` tool (or rebuild the index) to purge them |
 | No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure |
 | Semantic *ranking* is document-level | Whole-document embeddings rank *which* documents match; **Deep Links** then pinpoints *where* inside any result on demand. Corpus-wide chunk-level ranking remains future work |
 | English only | Keyword search, tag generation, and synopsis prompts assume English content; multi-language support is planned (see `status_docs/DECISIONS.md`) |
