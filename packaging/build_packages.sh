@@ -17,12 +17,15 @@
 set -euo pipefail
 
 NAME="docubrowser-foss"
-VERSION="1.0.3"
-RELEASE="${1:-1}"
 SPEC="packaging/docubrowser-foss.spec"
+RELEASE="${1:-1}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+
+# Single source of truth: read the version from the RPM spec so the tarball,
+# RPM, and DEB never drift from it (see DECISIONS D-103).
+VERSION="$(awk '/^Version:/ {print $2; exit}' "$REPO_ROOT/$SPEC")"
 
 # ── Pre-flight ───────────────────────────────────────────────────────────────
 if [[ ! -f "$SPEC" ]]; then
@@ -49,7 +52,7 @@ mkdir -p "$STAGE_DIR"
 
 # Application files
 APP_FILES=(
-    docubrowser.py doc_search.py scan_docs.py embed_docs.py
+    docubrowser.py doc_search.py deep_links.py scan_docs.py embed_docs.py
     pdf_extractor.py docx_extractor.py pptx_extractor.py xlsx_extractor.py
     odf_extractor.py ebook_extractor.py visio_extractor.py markup_extractor.py
     eml_extractor.py csv_extractor.py rtf_extractor.py djvu_extractor.py

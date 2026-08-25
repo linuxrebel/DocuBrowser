@@ -73,7 +73,7 @@ mkdir -p "$INSTALL_DIR/EndUser_docs"
 
 # Copy all app files from the tarball directory
 APP_FILES=(
-    docubrowser.py doc_search.py scan_docs.py embed_docs.py
+    docubrowser.py doc_search.py deep_links.py scan_docs.py embed_docs.py
     pdf_extractor.py docx_extractor.py pptx_extractor.py xlsx_extractor.py
     odf_extractor.py ebook_extractor.py visio_extractor.py markup_extractor.py
     eml_extractor.py csv_extractor.py rtf_extractor.py djvu_extractor.py

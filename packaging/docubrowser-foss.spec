@@ -34,6 +34,7 @@ install -d -m 755 %{buildroot}/opt/docubrowser/EndUser_docs
 # Python application files
 install -m 644 docubrowser.py       %{buildroot}/opt/docubrowser/
 install -m 644 doc_search.py        %{buildroot}/opt/docubrowser/
+install -m 644 deep_links.py        %{buildroot}/opt/docubrowser/
 install -m 644 scan_docs.py         %{buildroot}/opt/docubrowser/
 install -m 644 embed_docs.py        %{buildroot}/opt/docubrowser/
 install -m 644 pdf_extractor.py     %{buildroot}/opt/docubrowser/
