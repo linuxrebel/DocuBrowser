@@ -89,6 +89,31 @@ def test_keyword_docx_section_location():
     assert span.lower() == "banana", f"match span was {span!r}"
 
 
+def test_keyword_html_section_location():
+    """Keyword mode on a .html tag-strips to text and labels blocks 'section N'."""
+    html_doc = (
+        "<html><head><title>T</title><style>.x{color:red}</style></head><body>"
+        "<h1>Overview</h1>"
+        "<p>Alpha paragraph about apples.</p>"
+        "<p>Beta paragraph mentions the tornado warning.</p>"
+        "<script>var x = 1;</script>"
+        "<p>Gamma paragraph about pears.</p>"
+        "</body></html>"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _write(tmp, "page.html", html_doc)
+        res = locate_passages(path, "tornado", "keyword")
+
+    passages = res.get("passages")
+    assert passages, f"expected a passage for 'tornado', got {res!r}"
+    # blocks: Overview(1), Alpha(2), Beta+tornado(3), Gamma(4); script/style gone.
+    assert passages[0]["location"] == "section 3", \
+        f"location was {passages[0]['location']!r}"
+    span = passages[0]["excerpt"][
+        passages[0]["match_start"]:passages[0]["match_end"]]
+    assert span.lower() == "tornado", f"match span was {span!r}"
+
+
 def test_keyword_rtf_line_location():
     """Keyword mode on a .rtf finds the term; RTF has no pages, so line-based."""
     if not _HAS_STRIPRTF:
@@ -235,6 +260,7 @@ def test_max_passages_caps_and_flags_truncated():
 def main():
     """Run every deep_links keyword-mode check; assert-based, no framework."""
     test_keyword_txt_line_location_and_match_span()
+    test_keyword_html_section_location()
     test_keyword_docx_section_location()
     test_keyword_rtf_line_location()
     test_keyword_odt_section_location()
@@ -243,7 +269,7 @@ def main():
     test_empty_doc_returns_no_passages()
     test_semantic_ranks_passage_and_marks_nearest_sentence()
     test_max_passages_caps_and_flags_truncated()
-    print("PASS: deep_links — keyword (txt/docx/rtf/odt/pdf) + semantic, "
+    print("PASS: deep_links — keyword (txt/html/docx/rtf/odt/pdf) + semantic, "
           "unsupported, empty, truncation")
 
 
