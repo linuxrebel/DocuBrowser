@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        1.0.3
+Version:        1.2.0
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
@@ -185,6 +185,16 @@ fi
 
 
 %changelog
+* Mon Aug 24 2026 James Sparenberg <james@sparenbergs.us> - 1.2.0-1
+- Deep Links: in-document passage search from any keyword or semantic result,
+  with location labels (page/line/section) and highlighted matched text
+  (PDF, TXT, DOCX, RTF, ODT)
+- Header logo now links to the project on GitHub
+- Fix: --db / --port honored when placed before the subcommand
+  (docubrowser --db PATH start)
+- Includes the Intel Arc GPU detection and tar-traversal restore hardening
+  first shipped in 1.0.3.1
+
 * Fri Aug 21 2026 James Sparenberg <james@sparenbergs.us> - 1.0.3-1
 - Configurable Ollama host via OLLAMA_HOST / DOCUBROWSE_OLLAMA_HOST
 - Doc dir, DB, port, and work dir configurable via DOCUBROWSE_* environment

@@ -206,7 +206,7 @@ def _ollama_host() -> str:
 OLLAMA_HOST = _ollama_host()
 EMBEDDING_MODEL = "nomic-embed-text"
 SYNOPSIS_MODEL = "dolphin3:latest"
-SERVER_VERSION = "1.0.3"
+SERVER_VERSION = "1.2.0"
 
 _SERVER_START_TIME = None  # set by main(); used by /api/status
 # Cold Ollama starts (e.g. right after a reboot) need to load the model into

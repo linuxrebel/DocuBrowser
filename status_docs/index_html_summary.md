@@ -1,5 +1,10 @@
 # index.html Adaptation Summary
 
+> **Historical snapshot** — this documents the original `index.html` adaptation.
+> The UI has grown substantially since (synopsis, tags, hide/delete, settings,
+> and **Deep Links** in v1.2.0). For the current UI, see
+> [ui_implementation.md](ui_implementation.md) and the README Screenshots section.
+
 ## Task Complete
 
 Successfully adapted `index.html` from `repo-browser` for the DocuBrowse document search UI.

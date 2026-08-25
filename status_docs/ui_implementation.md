@@ -23,6 +23,19 @@ The `index.html` file provides a searchable UI for browsing and searching docume
   - Score badge (green ≥50%, orange ≥25%, grey <25%)
   - Result count and query time in milliseconds
 
+### 1a. Deep Links (in-document passage search)
+- **Deep Links** button on each result card (shown only when a query is active),
+  right of **Open**.
+- Opens a modal (mirrors the synopsis modal) that fetches
+  `GET /api/deep-links?path=&q=&mode=` — mode follows the active search
+  (semantic → semantic passages; keyword/both → keyword).
+- Lists passages (sample + location label); clicking one shows the excerpt with
+  the matched span wrapped in a yellow `<mark>`, plus **Open full document** /
+  **Back**. Non-prose formats show an "open in reader" message.
+- The highlight is built from the returned `match_start`/`match_end` span and
+  every document-text slice is escaped via `esc()` — no query string-injection
+  (XSS-safe); footer buttons are wired programmatically (no data-in-HTML).
+
 ### 2. Document Cards
 Each card displays:
 - **Title** (clickable to open document, or click badge to copy path)
