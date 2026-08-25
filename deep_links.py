@@ -55,15 +55,21 @@ try:
 except ImportError:
     _mobi = None
 
+try:
+    from eml_extractor import extract_eml as _extract_eml
+except ImportError:
+    _extract_eml = None
+
 # Cap pages scanned per PDF to bound latency (mirrors pdf_extractor.MAX_PAGES).
 _PDF_MAX_PAGES = 150
 
 # Non-prose formats (by extension): tabular/fragmented extracted text that we
 # do not render in-app. Deep Links returns an "unsupported" result for these.
 _NON_PROSE_EXT = frozenset({
-    "xlsx", "ods", "csv", "tsv",          # spreadsheets
-    "pptx", "odp",                        # presentations
-    "vsdx", "vsd", "vdx", "svg",          # diagrams
+    "xlsx", "ods", "ots", "csv", "tsv",           # spreadsheets (+ template)
+    "pptx", "odp", "otp",                         # presentations (+ template)
+    "vsdx", "vsdm", "vsd", "vss", "vst", "vdx",   # Visio
+    "drawio", "dio", "svg",                       # other diagrams
 })
 
 _WORD_RE = re.compile(r"[A-Za-z0-9]+")
@@ -278,6 +284,19 @@ def _units_odt(path):
         yield (f"section {idx}", para)
 
 
+def _units_eml(path):
+    """Yield (location, text) per line of an email's extracted text."""
+    if _extract_eml is None:
+        return
+    result = _extract_eml(path)
+    if not result.get("success"):
+        return
+    for i, line in enumerate(result.get("text", "").splitlines(), start=1):
+        line = line.strip()
+        if line:
+            yield (f"line {i}", line)
+
+
 def _units_pdf(path):
     """Yield (location, text) per paragraph, carrying the page number as 'p. N'.
 
@@ -305,7 +324,15 @@ def _units_pdf(path):
 # the txt / markup iterators. svg and vdx stay in _NON_PROSE_EXT (diagrams).
 _TEXT_EXTS = ("txt", "text", "md", "markdown",
               "ini", "conf", "cfg", "log", "lst",
-              "rst", "adoc", "asciidoc", "tex", "latex")
+              "rst", "adoc", "asciidoc", "tex", "latex",
+              # text diagram sources
+              "puml", "plantuml", "mmd",
+              # data / config
+              "json", "yml", "yaml", "toml",
+              # source code
+              "py", "sh", "js", "css", "rb", "php",
+              "c", "cc", "cpp", "h", "hpp",
+              "rs", "go", "java", "ts", "tsx", "jsx")
 _MARKUP_EXTS = ("html", "htm", "xhtml", "xml", "sgml", "sgm",
                 "docbook", "dbk", "rss", "atom", "opml")
 
@@ -315,6 +342,8 @@ _UNIT_ITERATORS = {
     "docx": _units_docx,
     "rtf": _units_rtf,
     "odt": _units_odt,
+    "ott": _units_odt,     # ODF text template — same path as .odt
+    "eml": _units_eml,
     "pdf": _units_pdf,
     "epub": _units_epub,
     "mobi": _units_mobi,
