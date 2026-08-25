@@ -111,7 +111,7 @@ When you have an active search, each result card shows a **Deep Links** button n
 
 Deep Links follows the mode of your search: a **Semantic** search finds passages by meaning, while **Keyword** (or **Both**) finds them by the words you typed. To switch, run a new search in the mode you want.
 
-It works on text documents — **PDF, TXT, DOCX, RTF, ODT**. Spreadsheets, presentations, and diagrams don't display as flowing text, so for those Deep Links offers to open the file in its normal reader instead.
+It works on text documents — **PDF, TXT, HTML, DOCX, RTF, ODT**. Spreadsheets, presentations, and diagrams don't display as flowing text, so for those Deep Links offers to open the file in its normal reader instead.
 
 ---
 
