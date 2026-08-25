@@ -2,8 +2,13 @@
 
 **Date:** 2026-08-23
 **Design:** [2026-08-21-deep-links-design.md](2026-08-21-deep-links-design.md)
-**Target release:** v1.0.4
+**Target release:** ~~v1.0.4~~ **SHIPPED v1.2.0**
 **Approach:** bottom-up, TDD at each layer. Each step's tests pass before the next starts.
+
+> **Historical record.** Deep Links shipped in v1.2.0. This checklist captures the
+> original build; some behavior has since changed (semantic tuning, dropped
+> per-passage re-embed, modal title). The current design spec's "Shipped behavior
+> & post-release tuning" section and the `deep_links.py` code are authoritative.
 
 Phase-1 formats: **PDF, TXT, DOCX, RTF, ODT**. Deferred (20%): in-memory cache; remaining prose formats (MD, HTML, EPUB/MOBI/AZW*, EML, LaTeX/reST/AsciiDoc, DjVu, config-ish text).
 
@@ -30,7 +35,7 @@ Notes / small deferrals from Step 1:
 ## Step 2 — `deep_links.py`, semantic mode (needs Ollama) — DONE
 
 - [x] Batched embed of query + all passages via an injected `embed_fn` (list[str] -> list[vector]); cosine rank. `deep_links.py` stays dependency-free — the real Ollama-backed `embed_fn` is wired in from `doc_search` in Step 3 (avoids a circular import).
-- [x] Sub-unit (sentence) re-rank of each returned passage to pick the highlight span; `sample` = first ~10 words of that sentence.
+- [x] ~~Sub-unit (sentence) re-rank of each returned passage to pick the highlight span; `sample` = first ~10 words of that sentence.~~ **Removed post-release (D-18)** — the per-passage re-embed was the dominant latency; highlight now marks the query term when present, else the first sentence.
 - [x] Extend `test_deep_links.py`: semantic ranking with a deterministic fake embedder (no live model), asserts passage selection + nearest-sentence highlight span.
 - [x] Tests pass (9 checks); pylint 10.00/10.
 - [x] Verified live against Ollama (`nomic-embed-text`): query "nuclear power plant safety" (no literal overlap) ranks the reactor passage top (cos 0.543).
@@ -55,7 +60,7 @@ Note: the `test_features.py` HTTP suite is operator-run against a live server + 
 - [x] Modal mirrors the synopsis modal; loading state "Just a moment as we find your passage…".
 - [x] Fetch `/api/deep-links` with the card's path, current query, active search mode. **Mode mapping:** semantic search → `semantic`; keyword **or `both`** → `keyword` (no in-modal toggle). See note below on `both`.
 - [x] Passage list: one row per passage — sample + location label (`page N` / `line N` / `section N`); truncation note when `truncated`.
-- [x] Excerpt view: excerpt with the match span in yellow `<mark>`; title *"This passage comes from {page N/line N/section N} of the document. Return to the main page to open and read more."*; **Open full document** → `/api/open`.
+- [x] Excerpt view: excerpt with the match span in yellow `<mark>`; title *"This passage comes from {page N/line N/section N} of the document."* (the "Return to the main page…" tail was dropped once the **Open full document** button existed); **Open full document** → `/api/open`.
 - [x] Close control (X upper-right + Close button); **Back** returns from excerpt to the passage list.
 - [x] No-results message on empty; non-prose message + [Open in reader] / [Back]; error envelope surfaced.
 - [x] Highlight built from the returned match span (not query injection); every document-text slice escaped via `esc()`. Footer buttons wired programmatically (no data-in-HTML), so no string-injection surface.

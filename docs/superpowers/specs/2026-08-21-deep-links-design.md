@@ -1,9 +1,34 @@
 # Deep Links — in-document passage search (design)
 
 **Date:** 2026-08-21
-**Status:** Approved design; not yet implemented
-**Target release:** v1.0.4
-**Related:** [[DECISIONS]] D-11 (chunk-level semantic search) — see "Future work"
+**Status:** SHIPPED in v1.2.0 — see "Shipped behavior & post-release tuning" below for how the running code differs from this original design.
+**Target release:** ~~v1.0.4~~ shipped v1.2.0
+**Related:** [[DECISIONS]] D-11 (chunk-level semantic search), D-18 (semantic tuning), D-19 (search-on-Enter)
+
+## Shipped behavior & post-release tuning (2026-08-25)
+
+The feature shipped in v1.2.0. Behavior differs from the original design in a few
+places; the code is authoritative. Current state:
+
+- **Format coverage** is far beyond the phase-1 set: 60+ prose formats via
+  `_UNIT_ITERATORS` in `deep_links.py` (txt/code, markup/HTML/XML, docx, rtf,
+  odt/ott, eml, pdf, epub, mobi/azw*, djvu). Non-prose → `{unsupported:true}`.
+- **Semantic scan cap** `_SEMANTIC_SCAN_CAP=300` bounds the single `/api/embed`
+  call. Without it, a 1500+ passage book embedded everything at once and blew the
+  60 s socket timeout. (The original "cap at first max_passages" was applied after
+  scoring, not before embedding — that was the bug.)
+- **No per-passage sentence re-embed.** The design's sub-unit re-rank was removed
+  (it was up to 200 extra Ollama calls per request — the dominant latency).
+  Highlight now marks the query term when present, else the first sentence.
+- **Semantic relevance floor** `_SEMANTIC_MIN_SIM=0.5`: passages below the cosine
+  floor are dropped, so a query with no real match returns no passages instead of
+  top-N noise. Calibrated on nomic-embed-text (real matches ~0.6-0.7, junk ~0.45).
+- **Excerpt modal title** no longer says "Return to the main page…" (there's an
+  "Open full document" button).
+- **`both` search mode → keyword** Deep Links (no in-modal toggle).
+- Related UX: main search fires on **Enter**, not as-you-type (D-19).
+- **Open:** user-facing disclaimer copy for semantic search (fuzzy on short/rare
+  tokens like names; finds concepts, not exact words).
 
 ## Summary
 

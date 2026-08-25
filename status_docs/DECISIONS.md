@@ -44,10 +44,10 @@ this release:
    `.vsd` emitting multi-GB output is bounded only by the 90 s timeout +
    `RLIMIT_AS`. Follow-up: bounded `Popen` read (`stdout.read(N)`) or a `head -c`
    wrapper.
-4. **Deep Links semantic N+1 embed.** `_semantic_passage` calls the embedder once
+4. **Deep Links semantic N+1 embed.** ~~`_semantic_passage` calls the embedder once
    per returned passage (up to `max_passages` = 200 Ollama round-trips per
-   request). Efficiency/load, not a vulnerability. Follow-up: batch all passages'
-   sentence embeddings into fewer `/api/embed` calls.
+   request).~~ **Resolved 2026-08-25 (see D-18)** — the per-passage re-embed was
+   removed entirely.
 
 Sync this entry into the Enterprise repo's `status_docs/DECISIONS.md`.
 
@@ -148,6 +148,33 @@ process unless `PYTHONUTF8=1` is set in the environment.
 ---
 
 ## Resolved
+
+### D-19: Search fires on Enter, not as-you-type
+**Status:** Done — 2026-08-25
+The main search box used a 250 ms debounce firing on every keystroke, which
+searched partial words (`fr`, `fre` before `fred`), hurt responsiveness, and made
+the box hard to type in. Search now fires on Enter; clearing the box restores the
+full list. `index.html` only (removed the `debounceTimer` + `input` auto-search).
+
+### D-18: Deep Links semantic tuning — scan cap + relevance floor
+**Status:** Done — 2026-08-25
+Semantic Deep Links had two unbounded costs and a false-positive problem:
+1. **Timeout.** It embedded *every* passage in one `/api/embed` call (a 1500+
+   passage epub → >60 s socket timeout) and then re-embedded each returned
+   passage's sentences (up to 200 more Ollama calls). Fixed with
+   `_SEMANTIC_SCAN_CAP=300` (bound the single embed call, per the design's own
+   "cap work at first max_passages" intent — the cap had been applied *after*
+   scoring, not before embedding) and by removing the per-passage re-embed
+   (resolves D-17 item 4). Highlight now marks the query term when present, else
+   the first sentence — no more marking whole unpunctuated blocks.
+2. **False relevance.** Semantic returned its top-N by cosine even when nothing
+   was relevant (e.g. "fred" surfaced 150 "Fedora" passages — subword-similar
+   tokens). Added cosine floor `_SEMANTIC_MIN_SIM=0.5`; below it a document
+   returns no passages. Calibrated on nomic-embed-text (real topic matches
+   ~0.6-0.7, unrelated tokens ~0.45). All in `deep_links.py`.
+
+Follow-up (open): user-facing disclaimer copy explaining semantic search is fuzzy
+on short/rare tokens (names) and finds concepts, not exact words.
 
 ### D-100: Fresh install — does embed auto-run after initial scan?
 **Status:** Resolved (yes) — 2026-06-27  
