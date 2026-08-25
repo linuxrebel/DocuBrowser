@@ -24,6 +24,7 @@ except ImportError:
     _docx = None
 
 _HAS_STRIPRTF = importlib.util.find_spec("striprtf") is not None
+_HAS_EBOOKLIB = importlib.util.find_spec("ebooklib") is not None
 
 try:
     from reportlab.lib.pagesizes import letter as _rl_letter
@@ -154,6 +155,35 @@ def test_keyword_markdown_line_location():
     span = passages[0]["excerpt"][
         passages[0]["match_start"]:passages[0]["match_end"]]
     assert span.lower() == "avalanche", f"match span was {span!r}"
+
+
+def test_keyword_epub_chapter_location():
+    """Keyword mode on an .epub labels passages by chapter (spine order)."""
+    if not _HAS_EBOOKLIB:
+        print("SKIP: ebooklib not installed")
+        return
+    from ebooklib import epub
+    book = epub.EpubBook()
+    c1 = epub.EpubHtml(title="C1", file_name="c1.xhtml")
+    c1.content = "<html><body><p>Alpha chapter about apples.</p></body></html>"
+    c2 = epub.EpubHtml(title="C2", file_name="c2.xhtml")
+    c2.content = "<html><body><p>Beta chapter mentions the glacier survey.</p></body></html>"
+    book.add_item(c1)
+    book.add_item(c2)
+    book.add_item(epub.EpubNcx())
+    book.add_item(epub.EpubNav())
+    book.spine = [c1, c2]
+    with tempfile.TemporaryDirectory() as tmp:
+        path = str(Path(tmp) / "book.epub")
+        epub.write_epub(path, book)
+        res = locate_passages(path, "glacier", "keyword")
+
+    passages = res.get("passages")
+    assert passages, f"expected a passage for 'glacier', got {res!r}"
+    assert passages[0]["location"].startswith("chapter"), passages[0]["location"]
+    span = passages[0]["excerpt"][
+        passages[0]["match_start"]:passages[0]["match_end"]]
+    assert span.lower() == "glacier", f"match span was {span!r}"
 
 
 def test_keyword_rtf_line_location():
@@ -305,6 +335,7 @@ def main():
     test_keyword_html_section_location()
     test_keyword_xml_markup_found()
     test_keyword_markdown_line_location()
+    test_keyword_epub_chapter_location()
     test_keyword_docx_section_location()
     test_keyword_rtf_line_location()
     test_keyword_odt_section_location()
@@ -313,7 +344,7 @@ def main():
     test_empty_doc_returns_no_passages()
     test_semantic_ranks_passage_and_marks_nearest_sentence()
     test_max_passages_caps_and_flags_truncated()
-    print("PASS: deep_links — keyword (txt/md/html/xml/docx/rtf/odt/pdf) + semantic, "
+    print("PASS: deep_links — keyword (txt/md/html/xml/docx/rtf/odt/pdf/epub) + semantic, "
           "unsupported, empty, truncation")
 
 

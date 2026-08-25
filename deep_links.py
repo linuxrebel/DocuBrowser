@@ -13,9 +13,14 @@ docs/superpowers/specs/2026-08-21-deep-links-design.md.
 Pure functions, independently testable — no server or UI dependencies.
 """
 
+import contextlib
 import html as _html
+import io
 import math
 import re
+import shutil
+import subprocess
+import warnings
 from pathlib import Path
 
 try:
@@ -37,6 +42,18 @@ try:
     import pdfplumber as _pdfplumber
 except ImportError:
     _pdfplumber = None
+
+try:
+    import ebooklib as _ebooklib
+    from ebooklib import epub as _epub
+except ImportError:
+    _ebooklib = None
+    _epub = None
+
+try:
+    import mobi as _mobi
+except ImportError:
+    _mobi = None
 
 # Cap pages scanned per PDF to bound latency (mirrors pdf_extractor.MAX_PAGES).
 _PDF_MAX_PAGES = 150
@@ -125,19 +142,95 @@ _MARKUP_BLOCK_RE = re.compile(
 _MARKUP_READ_LIMIT = 200_000   # bounded read, matches _extract_text_file
 
 
-def _units_markup(path):
-    """Yield (location, text) per block of an HTML/XML/SGML file, 'section N'."""
-    raw = Path(path).read_text(encoding="utf-8", errors="replace")[:_MARKUP_READ_LIMIT]
+def _markup_blocks(raw):
+    """Yield non-empty text blocks from an HTML/XML string (tags stripped)."""
     raw = re.sub(r"<script[^>]*>.*?</script>", "", raw, flags=re.DOTALL | re.IGNORECASE)
     raw = re.sub(r"<style[^>]*>.*?</style>", "", raw, flags=re.DOTALL | re.IGNORECASE)
     raw = _MARKUP_BLOCK_RE.sub("\n", raw)        # block boundaries → newlines
     text = _html.unescape(re.sub(r"<[^>]+>", "", raw))   # strip remaining tags
-    idx = 0
     for block in text.split("\n"):
         block = " ".join(block.split())          # collapse whitespace runs
         if block:
-            idx += 1
-            yield (f"section {idx}", block)
+            yield block
+
+
+def _units_markup(path):
+    """Yield (location, text) per block of an HTML/XML/SGML file, 'section N'."""
+    raw = Path(path).read_text(encoding="utf-8", errors="replace")[:_MARKUP_READ_LIMIT]
+    for idx, block in enumerate(_markup_blocks(raw), start=1):
+        yield (f"section {idx}", block)
+
+
+def _units_epub(path):
+    """Yield (location, text) per block of an EPUB, labelled by chapter.
+
+    Iterates the spine documents (chapters) via ebooklib and block-splits each
+    chapter's XHTML — full-book coverage, not the 5000-char index cap.
+    """
+    if _ebooklib is None:
+        return
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")          # ebooklib's rootfile-XPath noise
+        book = _epub.read_epub(path, options={"ignore_ncx": True})
+    chapter = 0
+    for item in book.get_items_of_type(_ebooklib.ITEM_DOCUMENT):
+        html = item.get_content().decode("utf-8", "replace")
+        blocks = list(_markup_blocks(html))
+        if not blocks:
+            continue
+        chapter += 1
+        for block in blocks:
+            yield (f"chapter {chapter}", block)
+
+
+def _units_mobi(path):
+    """Yield blocks for MOBI/AZW3/AZW by unpacking to EPUB/HTML via the mobi pkg.
+
+    The mobi package wraps most files as EPUB (→ chapter labels) or raw HTML
+    (→ 'section N'). DRM-encrypted files (typical .azw) can't be unpacked and
+    yield nothing — consistent with their metadata-only index entry.
+    """
+    if _mobi is None:
+        return
+    tempdir = None
+    try:
+        sink = io.StringIO()
+        with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+            tempdir, main_file = _mobi.extract(path)
+        main = Path(main_file)
+        if main.suffix.lower() == ".epub":
+            yield from _units_epub(str(main))
+        else:
+            raw = main.read_text(encoding="utf-8", errors="replace")
+            for idx, block in enumerate(_markup_blocks(raw), start=1):
+                yield (f"section {idx}", block)
+    except Exception:  # pylint: disable=broad-exception-caught
+        return          # corrupt / DRM / unsupported → no passages (graceful)
+    finally:
+        if tempdir:
+            shutil.rmtree(tempdir, ignore_errors=True)
+
+
+def _units_djvu(path):
+    """Yield (location, text) per paragraph of a DjVu, carrying the page as 'p. N'.
+
+    djvutxt (DjVuLibre) prints the whole document with pages separated by a
+    form-feed; split on that, then paragraph-split each page like the PDF path.
+    """
+    if shutil.which("djvutxt") is None:
+        return
+    try:
+        proc = subprocess.run(["djvutxt", path], capture_output=True, text=True,
+                               errors="replace", timeout=60, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return
+    if proc.returncode != 0:
+        return
+    for pageno, page in enumerate(proc.stdout.split("\f"), start=1):
+        for para in re.split(r"\n\s*\n", page):
+            para = " ".join(para.split())
+            if para:
+                yield (f"p. {pageno}", para)
 
 
 def _units_docx(path):
@@ -223,6 +316,12 @@ _UNIT_ITERATORS = {
     "rtf": _units_rtf,
     "odt": _units_odt,
     "pdf": _units_pdf,
+    "epub": _units_epub,
+    "mobi": _units_mobi,
+    "azw3": _units_mobi,
+    "azw": _units_mobi,
+    "djvu": _units_djvu,
+    "djv": _units_djvu,
 }
 
 
