@@ -1,4 +1,4 @@
-# DocuBrowse v1.0.3
+# DocuBrowse v1.2.0
 
 <a name="top"></a>
 
@@ -47,8 +47,14 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 
 ### 🔍 Dual Search Modes
 - **Keyword Search** — fast full-text search via SQLite FTS5 (title, author, subject, tags, snippet)
-- **Semantic Search** — AI-powered similarity via Ollama embeddings (nomic-embed-text:latest). Semantic search identifies *which documents* are relevant to your query, but does not pinpoint the location within the document.
+- **Semantic Search** — AI-powered similarity via Ollama embeddings (nomic-embed-text:latest). Semantic search identifies *which documents* are relevant to your query; **Deep Links** (below) then pinpoints *where* inside a document the match is.
 - **Hybrid Mode** (default) — 70% semantic + 30% keyword, merged and re-ranked
+
+### 🎯 Deep Links — in-document passage search
+- From any keyword or semantic result, click **Deep Links** to find the matching passages *inside* that document — on demand, no reindex, no schema change.
+- Each passage shows a short sample and a location label (**page**, **line**, or **section**); clicking one opens the passage with the matched text highlighted.
+- Mode follows the search: a **semantic** search finds passages by meaning; a **keyword** (or hybrid) search finds them by term.
+- Prose formats: **PDF, TXT, DOCX, RTF, ODT**. Non-prose (spreadsheets, presentations, diagrams) fall back to opening in their reader.
 
 ### 📖 AI Synopsis
 - Click any document title for a Kindle-style book-jacket synopsis, generated on demand
@@ -424,6 +430,7 @@ There is still no user login. Trusted peers can call the full API; put auth in y
 │  pdf_extractor.py    │  │  GET /api/stats  /api/tags      │
 │  embed_docs.py       │  │  GET /api/open  /api/config     │
 │                      │  │  GET /api/delete /api/synopsis  │
+│                      │  │  GET /api/deep-links            │
 └──────────┬───────────┘  └──────────────┬──────────────────┘
            │                             │
            └──────────┬──────────────────┘
@@ -487,6 +494,7 @@ Base URL: `http://localhost:8643`
 | `GET` | `/api/search` | Search with pagination |
 | `GET` | `/api/letters` | First-letter index for the alphabetic bar |
 | `GET` | `/api/synopsis` | Generate/return an AI synopsis for a document |
+| `GET` | `/api/deep-links` | Matching passages inside one indexed document (`path`, `q`, `mode=keyword\|semantic`) |
 | `GET` | `/api/config` | Current server configuration |
 | `GET` | `/api/ignore-dirs` | List excluded directories |
 | `GET` | `/api/scan-dirs` | List additional scan directories |
@@ -809,6 +817,21 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 ## Recent Changes
 
 [↑ Top](#top)
+
+## v1.2.0 (2026-08-24) — Deep Links
+
+- **Deep Links — in-document passage search.** From any keyword or semantic
+  result, find the matching passages *inside* that document, each with a
+  location label (page / line / section), and jump to one with the matched
+  text highlighted. Computed on demand — no reindex, no schema change, no new
+  dependency. Prose formats: PDF, TXT, DOCX, RTF, ODT; non-prose falls back to
+  opening in the reader. New endpoint `GET /api/deep-links`.
+- **Header logo links to the project on GitHub.**
+- **Fix:** `--db` / `--port` are now honored when placed before the subcommand
+  (`docubrowser --db PATH start`) — previously they were silently dropped and
+  the default database was used.
+- Includes the **Intel Arc GPU detection** (via `xpu-smi`, with `nvidia-smi`
+  fallback) and **tar-traversal restore hardening** first shipped in v1.0.3.1.
 
 ## v1.0.3 (2026-08-21) — Container & environment configuration
 
@@ -1246,4 +1269,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v1.0.3** — Fast, local, AI-powered document search.
+**DocuBrowse v1.2.0** — Fast, local, AI-powered document search.

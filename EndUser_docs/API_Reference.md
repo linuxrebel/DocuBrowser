@@ -33,6 +33,7 @@
    - 4.16 [GET /api/download](#416-get-apidownload)
    - 4.17 [POST /api/add-tags](#417-post-apiadd-tags)
    - 4.18 [POST /api/remove-tag](#418-post-apiremove-tag)
+   - 4.19 [GET /api/deep-links](#419-get-apideep-links)
 5. [Search Modes](#5-search-modes)
 6. [Enterprise Tier](#6-enterprise-tier)
 7. [Rate Limits and Performance Notes](#7-rate-limits-and-performance-notes)
@@ -86,6 +87,7 @@ Before checking the token, the server also inspects the `Origin` and `Referer` h
 | GET /api/status | No |
 | GET /api/search | No |
 | GET /api/synopsis | No |
+| GET /api/deep-links | No |
 | GET /api/stats | No |
 | GET /api/tags | No |
 | GET /api/letters | No |
@@ -1072,6 +1074,77 @@ curl -X POST -H "X-CSRF-Token: <token>" \
   "removed": 1,
   "tags": ["linux", "reference", "security"]
 }
+```
+
+---
+
+### 4.19 GET /api/deep-links
+
+**CSRF required:** No
+
+Return the passages **inside one indexed document** that match a query — the "Deep Links" feature. Computed on demand from the document's extracted text; nothing is stored. Use it after a search to jump to *where* in a document the match is.
+
+The path must already be in the index (the endpoint validates it and checks the file exists on disk before reading it). Prose formats — **PDF, TXT, DOCX, RTF, ODT** — return passages; non-prose formats (spreadsheets, presentations, diagrams) return `unsupported`.
+
+Semantic mode embeds the query and the document's passages via Ollama (`nomic-embed-text`), so it can take a few seconds on a large document; keyword mode is instant.
+
+**Query parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| path | string | Yes | Absolute path of the document (must be in the index). |
+| q | string | Yes | The search query. |
+| mode | string | No | `keyword` (default) or `semantic`. |
+
+**Response fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| ok | boolean | true on success. |
+| passages | array | Matching passages, best first. Present unless `unsupported`. |
+| truncated | boolean | true if more matches existed than were returned. |
+| unsupported | boolean | true for non-prose formats (no `passages`). |
+| error | string | Human-readable failure reason. Present only when ok is false. |
+
+Each **passage** object:
+
+| Field | Type | Description |
+|---|---|---|
+| sample | string | An 8–10 word preview of the match. |
+| excerpt | string | The passage text to display. |
+| location | string | Human label: `p. 12`, `line 340`, or `section 3`. |
+| score | number | Match strength (term count for keyword, cosine for semantic). |
+| match_start / match_end | number | Character offsets of the matched span within `excerpt`, for highlighting. |
+
+**Example request:**
+
+```bash
+curl "http://127.0.0.1:8643/api/deep-links?path=/home/james/docs/security.pdf&q=firewall&mode=keyword"
+```
+
+**Example response:**
+
+```json
+{
+  "ok": true,
+  "truncated": false,
+  "passages": [
+    {
+      "sample": "the perimeter firewall must deny inbound by",
+      "excerpt": "The perimeter firewall must deny inbound by default and log every rejected connection.",
+      "location": "p. 12",
+      "score": 2,
+      "match_start": 14,
+      "match_end": 22
+    }
+  ]
+}
+```
+
+**Example response (non-prose format):**
+
+```json
+{ "ok": true, "unsupported": true }
 ```
 
 ---

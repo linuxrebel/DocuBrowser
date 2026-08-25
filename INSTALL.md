@@ -1,4 +1,4 @@
-# DocuBrowse v1.0.3 — Installation Guide
+# DocuBrowse v1.2.0 — Installation Guide
 
 This guide covers a fresh install on Linux (Fedora/RHEL/Debian/Ubuntu/Mint),
 Windows 10/11, or macOS. DocuBrowse runs entirely locally — no cloud

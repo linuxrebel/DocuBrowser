@@ -10,6 +10,7 @@
    - [Search Modes: Keyword, Semantic, Both](#search-modes-keyword-semantic-both)
    - [Phrase Search](#phrase-search)
    - [What the Results Show](#what-the-results-show)
+   - [Deep Links — Finding the Passage Inside a Document](#deep-links--finding-the-passage-inside-a-document)
 4. [Opening a File](#4-opening-a-file)
 5. [Synopsis — AI-Generated Summaries](#5-synopsis--ai-generated-summaries)
 6. [Filtering by Tag](#6-filtering-by-tag)
@@ -101,6 +102,16 @@ Each result is displayed as a card. A card contains:
 The results bar above the cards shows how many documents matched and how long the search took: for example, `1-50 of 312 for "cloud security" 48ms`.
 
 Use the **Back** and **Next** buttons in the results bar to page through results. You can also change how many results appear per page using the dropdown (25, 50, 75, or 100 per page).
+
+### Deep Links — Finding the Passage Inside a Document
+
+A search tells you *which* documents match. **Deep Links** tells you *where* inside a document the match is.
+
+When you have an active search, each result card shows a **Deep Links** button next to **Open**. Click it and DocuBrowse looks inside that one document for the passages that match your query, then lists them — each with a short preview and a location label (**page**, **line**, or **section**). Click any passage to see it in full with the matching text highlighted in yellow, then use **Open full document** to open the file, or **Back** to return to the list.
+
+Deep Links follows the mode of your search: a **Semantic** search finds passages by meaning, while **Keyword** (or **Both**) finds them by the words you typed. To switch, run a new search in the mode you want.
+
+It works on text documents — **PDF, TXT, DOCX, RTF, ODT**. Spreadsheets, presentations, and diagrams don't display as flowing text, so for those Deep Links offers to open the file in its normal reader instead.
 
 ---
 

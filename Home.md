@@ -34,7 +34,7 @@ Graph View and see how the docs connect.
 ## Design specs
 
 - [[2026-08-21-deep-links-design]] — Deep Links (in-document passage search),
-  approved design for v1.0.4
+  shipped in v1.2.0
 - [[2026-08-21-docker-containerization-design]] — distroless app container +
   Ollama sidecar (Docker Compose), approved design
 

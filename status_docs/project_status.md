@@ -1,11 +1,25 @@
 # DocuBrowse Project Status
 
-**Version**: v1.0.3  
-**Status**: 🟢 **v1.0.3 — container/env configuration; feature-complete, packaged for all platforms**  
-**Last Updated**: 2026-08-21  
+**Version**: v1.2.0  
+**Status**: 🟢 **v1.2.0 — Deep Links (in-document passage search); feature-complete, packaged for all platforms**  
+**Last Updated**: 2026-08-24  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
+
+## v1.2.0 (2026-08-24) — Deep Links
+
+- **Deep Links** — in-document passage search from any keyword or semantic
+  result. Finds the matching passages inside one document on demand (no reindex,
+  no schema change), labels each by location (page / line / section), and jumps
+  to one with the matched text highlighted. Prose formats: PDF, TXT, DOCX, RTF,
+  ODT. New module `deep_links.py`, endpoint `GET /api/deep-links`, and the
+  passage modal in `index.html`.
+- Header logo now links to the project on GitHub.
+- Fix: `--db` / `--port` honored before the subcommand (argparse subparser
+  clobber).
+- Carries the Intel Arc GPU detection + tar-traversal restore hardening shipped
+  in the v1.0.3.1 patch.
 
 ## v1.0.3 (2026-08-21) — Container & environment configuration
 
