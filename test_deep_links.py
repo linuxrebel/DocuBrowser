@@ -114,6 +114,48 @@ def test_keyword_html_section_location():
     assert span.lower() == "tornado", f"match span was {span!r}"
 
 
+def test_keyword_xml_markup_found():
+    """Keyword mode on an XML/RSS file tag-strips and finds the term."""
+    rss = (
+        '<?xml version="1.0"?>\n<rss version="2.0"><channel>\n'
+        '<title>Feed</title>\n'
+        '<item><title>First</title><description>Alpha about apples.</description></item>\n'
+        '<item><title>Second</title>'
+        '<description>Beta mentions the hurricane alert.</description></item>\n'
+        '</channel></rss>\n'
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _write(tmp, "feed.rss", rss)
+        res = locate_passages(path, "hurricane", "keyword")
+
+    passages = res.get("passages")
+    assert passages, f"expected a passage for 'hurricane', got {res!r}"
+    span = passages[0]["excerpt"][
+        passages[0]["match_start"]:passages[0]["match_end"]]
+    assert span.lower() == "hurricane", f"match span was {span!r}"
+    assert passages[0]["location"].startswith("section"), passages[0]["location"]
+
+
+def test_keyword_markdown_line_location():
+    """Keyword mode on a .md uses the plain-text (line-based) path."""
+    body = (
+        "# Title\n\n"
+        "Alpha paragraph.\n\n"
+        "Beta mentions the avalanche risk.\n\n"
+        "Gamma line.\n"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _write(tmp, "notes.md", body)
+        res = locate_passages(path, "avalanche", "keyword")
+
+    passages = res.get("passages")
+    assert passages, f"expected a passage for 'avalanche', got {res!r}"
+    assert passages[0]["location"].startswith("line"), passages[0]["location"]
+    span = passages[0]["excerpt"][
+        passages[0]["match_start"]:passages[0]["match_end"]]
+    assert span.lower() == "avalanche", f"match span was {span!r}"
+
+
 def test_keyword_rtf_line_location():
     """Keyword mode on a .rtf finds the term; RTF has no pages, so line-based."""
     if not _HAS_STRIPRTF:
@@ -261,6 +303,8 @@ def main():
     """Run every deep_links keyword-mode check; assert-based, no framework."""
     test_keyword_txt_line_location_and_match_span()
     test_keyword_html_section_location()
+    test_keyword_xml_markup_found()
+    test_keyword_markdown_line_location()
     test_keyword_docx_section_location()
     test_keyword_rtf_line_location()
     test_keyword_odt_section_location()
@@ -269,7 +313,7 @@ def main():
     test_empty_doc_returns_no_passages()
     test_semantic_ranks_passage_and_marks_nearest_sentence()
     test_max_passages_caps_and_flags_truncated()
-    print("PASS: deep_links — keyword (txt/html/docx/rtf/odt/pdf) + semantic, "
+    print("PASS: deep_links — keyword (txt/md/html/xml/docx/rtf/odt/pdf) + semantic, "
           "unsupported, empty, truncation")
 
 
