@@ -13,6 +13,7 @@ docs/superpowers/specs/2026-08-21-deep-links-design.md.
 Pure functions, independently testable — no server or UI dependencies.
 """
 
+import html as _html
 import math
 import re
 from pathlib import Path
@@ -110,6 +111,32 @@ def _units_txt(path):
             yield (f"line {i}", line)
 
 
+# Block-level tags whose boundaries become passage breaks. Mirrors the indexer's
+# tag-strip (scan_docs._extract_text_file), plus newline insertion at blocks so
+# paragraphs/headings/list-items become separate passages instead of one blob.
+_HTML_BLOCK_RE = re.compile(
+    r"</(?:p|div|h[1-6]|li|tr|section|article|header|footer|blockquote|pre|"
+    r"td|th|figcaption|dd|dt)>|<br\s*/?>",
+    re.IGNORECASE,
+)
+_HTML_READ_LIMIT = 200_000   # bounded read, matches _extract_text_file
+
+
+def _units_html(path):
+    """Yield (location, text) per block of an .html file, labelled 'section N'."""
+    raw = Path(path).read_text(encoding="utf-8", errors="replace")[:_HTML_READ_LIMIT]
+    raw = re.sub(r"<script[^>]*>.*?</script>", "", raw, flags=re.DOTALL | re.IGNORECASE)
+    raw = re.sub(r"<style[^>]*>.*?</style>", "", raw, flags=re.DOTALL | re.IGNORECASE)
+    raw = _HTML_BLOCK_RE.sub("\n", raw)          # block boundaries → newlines
+    text = _html.unescape(re.sub(r"<[^>]+>", "", raw))   # strip remaining tags
+    idx = 0
+    for block in text.split("\n"):
+        block = " ".join(block.split())          # collapse whitespace runs
+        if block:
+            idx += 1
+            yield (f"section {idx}", block)
+
+
 def _units_docx(path):
     """Yield (location, text) per body paragraph of a .docx (1-based index)."""
     if _docx is None:
@@ -180,6 +207,7 @@ def _units_pdf(path):
 # Extension → unit-iterator.
 _UNIT_ITERATORS = {
     "txt": _units_txt,
+    "html": _units_html,
     "docx": _units_docx,
     "rtf": _units_rtf,
     "odt": _units_odt,
