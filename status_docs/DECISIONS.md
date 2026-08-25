@@ -348,7 +348,7 @@ process unless `PYTHONUTF8=1` is set in the environment.
    disconnected Windows network shares as "unmounted".
 
 ### D-6: Dotfile handling in no-extension classifier
-**Status:** Open  
+**Status:** Decided — skip all dotfiles (implement in a future fix)  
 **Priority:** Low  
 **Added:** 2026-07-02
 
@@ -356,6 +356,12 @@ The no-extension file classifier (`_classify_noext` in `scan_docs.py`) picks up
 dotfiles like `.bashrc`, `.env`, `.gitignore` since `Path.suffix` is empty for
 them. Most are harmless text files, but `.env` files may contain secrets. Options:
 skip all dotfiles, skip known-sensitive names, or rely on `ignore_dirs` / blacklist.
+
+**Decision:** **ignore all dotfiles** — skip any file whose basename begins with
+`.` during scanning, rather than maintaining a known-sensitive denylist. Simple,
+avoids indexing `.env`/`.ssh`/etc., and matches the common expectation that
+dotfiles are config, not content. Follow-up: skip `name.startswith('.')` at the
+scan entry point in `scan_docs.py`.
 
 ---
 
