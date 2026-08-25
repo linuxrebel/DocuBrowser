@@ -162,7 +162,7 @@ def test_keyword_epub_chapter_location():
     if not _HAS_EBOOKLIB:
         print("SKIP: ebooklib not installed")
         return
-    from ebooklib import epub
+    from ebooklib import epub  # pylint: disable=import-outside-toplevel
     book = epub.EpubBook()
     c1 = epub.EpubHtml(title="C1", file_name="c1.xhtml")
     c1.content = "<html><body><p>Alpha chapter about apples.</p></body></html>"
@@ -265,12 +265,66 @@ def test_keyword_pdf_page_location():
         f"location was {passages[0]['location']!r}"
 
 
+def test_keyword_source_code_line_location():
+    """Source code (e.g. .py) is searched line-based like plain text."""
+    body = (
+        "def handler():\n"
+        "    # process the avalanche alert here\n"
+        "    return None\n"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _write(tmp, "mod.py", body)
+        res = locate_passages(path, "avalanche", "keyword")
+    passages = res.get("passages")
+    assert passages, f"expected a passage for 'avalanche', got {res!r}"
+    assert passages[0]["location"] == "line 2", passages[0]["location"]
+
+
+def test_keyword_eml_found():
+    """Email body is searched via eml_extractor."""
+    eml = (
+        "From: alice@example.com\n"
+        "To: bob@example.com\n"
+        "Subject: Meeting notes\n"
+        "\n"
+        "The quarterly budget review is Friday.\n"
+        "Bring the earthquake preparedness report.\n"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _write(tmp, "msg.eml", eml)
+        res = locate_passages(path, "earthquake", "keyword")
+    passages = res.get("passages")
+    assert passages, f"expected a passage for 'earthquake', got {res!r}"
+    span = passages[0]["excerpt"][
+        passages[0]["match_start"]:passages[0]["match_end"]]
+    assert span.lower() == "earthquake", f"match span was {span!r}"
+
+
+def test_keyword_ott_template_uses_odt_path():
+    """An ODF text template (.ott) is searched like .odt."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = _write_odt(tmp, "sample.ott")
+        res = locate_passages(path, "volcano", "keyword")
+    passages = res.get("passages")
+    assert passages, f"expected a passage for 'volcano', got {res!r}"
+    assert passages[0]["location"].startswith("section"), passages[0]["location"]
+
+
 def test_non_prose_returns_unsupported():
     """A spreadsheet extension is reported unsupported, not searched."""
     with tempfile.TemporaryDirectory() as tmp:
         path = _write(tmp, "book.xlsx", "irrelevant")
         res = locate_passages(path, "anything", "keyword")
     assert res.get("unsupported") is True, f"expected unsupported, got {res!r}"
+
+
+def test_diagram_template_non_prose():
+    """Legacy Visio stencil (.vss) and ODF templates (.ots/.otp) are non-prose."""
+    with tempfile.TemporaryDirectory() as tmp:
+        for name in ("stencil.vss", "book.ots", "deck.otp", "flow.drawio"):
+            path = _write(tmp, name, "irrelevant")
+            res = locate_passages(path, "anything", "keyword")
+            assert res.get("unsupported") is True, f"{name}: expected unsupported, got {res!r}"
 
 
 def test_empty_doc_returns_no_passages():
@@ -340,12 +394,16 @@ def main():
     test_keyword_rtf_line_location()
     test_keyword_odt_section_location()
     test_keyword_pdf_page_location()
+    test_keyword_source_code_line_location()
+    test_keyword_eml_found()
+    test_keyword_ott_template_uses_odt_path()
     test_non_prose_returns_unsupported()
+    test_diagram_template_non_prose()
     test_empty_doc_returns_no_passages()
     test_semantic_ranks_passage_and_marks_nearest_sentence()
     test_max_passages_caps_and_flags_truncated()
-    print("PASS: deep_links — keyword (txt/md/html/xml/docx/rtf/odt/pdf/epub) + semantic, "
-          "unsupported, empty, truncation")
+    print("PASS: deep_links — keyword (txt/code/md/html/xml/eml/docx/rtf/odt/ott/"
+          "pdf/epub/mobi/djvu) + semantic, unsupported, empty, truncation")
 
 
 if __name__ == "__main__":
