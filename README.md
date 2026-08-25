@@ -132,13 +132,15 @@ Click any thumbnail to view full size.
 
 From any keyword or semantic result, **Deep Links** finds the matching passages *inside* that document, jumps to one, and highlights the matched text.
 
-| Semantic search results | Matched passage (highlighted) |
-|---|---|
-| [![Semantic search results with Deep Links](screenshots/deep-links-semantic-results.png)](screenshots/deep-links-semantic-results.png) | [![Semantic Deep Links passage](screenshots/deep-links-semantic-passage.png)](screenshots/deep-links-semantic-passage.png) |
+The three stages — the **Deep Links** button on a result, the modal listing the matching passages, and the chosen passage highlighted:
 
-| Keyword search results | Matched passage (highlighted) |
-|---|---|
-| [![Keyword search results with Deep Links](screenshots/deep-links-keyword-results.png)](screenshots/deep-links-keyword-results.png) | [![Keyword Deep Links passage](screenshots/deep-links-keyword-passage.png)](screenshots/deep-links-keyword-passage.png) |
+| Semantic search results | Matching passages | Highlighted passage |
+|---|---|---|
+| [![Semantic search results with Deep Links](screenshots/deep-links-semantic-results.png)](screenshots/deep-links-semantic-results.png) | [![Semantic Deep Links passage list](screenshots/deep-links-semantic-list.png)](screenshots/deep-links-semantic-list.png) | [![Semantic Deep Links passage](screenshots/deep-links-semantic-passage.png)](screenshots/deep-links-semantic-passage.png) |
+
+| Keyword search results | Matching passages | Highlighted passage |
+|---|---|---|
+| [![Keyword search results with Deep Links](screenshots/deep-links-keyword-results.png)](screenshots/deep-links-keyword-results.png) | [![Keyword Deep Links passage list](screenshots/deep-links-keyword-list.png)](screenshots/deep-links-keyword-list.png) | [![Keyword Deep Links passage](screenshots/deep-links-keyword-passage.png)](screenshots/deep-links-keyword-passage.png) |
 
 > Deep Links renders the document's extracted text with the matched snippet in yellow, labelled by its location (page / line / section). Mode follows the search: semantic search opens semantic passages, keyword opens keyword passages.
 
