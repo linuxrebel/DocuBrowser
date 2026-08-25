@@ -145,22 +145,6 @@ process unless `PYTHONUTF8=1` is set in the environment.
    degrades gracefully (returns "missing" on OSError) but won't correctly classify
    disconnected Windows network shares as "unmounted".
 
-### D-6: Dotfile handling in no-extension classifier
-**Status:** Decided — skip all dotfiles (implement in a future fix)  
-**Priority:** Low  
-**Added:** 2026-07-02
-
-The no-extension file classifier (`_classify_noext` in `scan_docs.py`) picks up
-dotfiles like `.bashrc`, `.env`, `.gitignore` since `Path.suffix` is empty for
-them. Most are harmless text files, but `.env` files may contain secrets. Options:
-skip all dotfiles, skip known-sensitive names, or rely on `ignore_dirs` / blacklist.
-
-**Decision:** **ignore all dotfiles** — skip any file whose basename begins with
-`.` during scanning, rather than maintaining a known-sensitive denylist. Simple,
-avoids indexing `.env`/`.ssh`/etc., and matches the common expectation that
-dotfiles are config, not content. Follow-up: skip `name.startswith('.')` at the
-scan entry point in `scan_docs.py`.
-
 ---
 
 ## Resolved
@@ -180,6 +164,13 @@ are skipped.
 **Status:** Done — 2026-07-02  
 Fixed ABA prefix range (1–12, not 0–12) and restructured bank account regex
 so the `no/number/#` qualifier applies to both "account" and "acct".
+
+### D-6: Dotfile handling — skip all dotfiles
+**Status:** Done — 2026-08-25  
+Scanning now skips any file whose path (relative to the scan root) has a
+dot-prefixed component — dotfiles like `.env`/`.bashrc` and the contents of
+hidden dirs like `.git/`/`.venv/` — via `_is_hidden_relpath` in `scan_docs.py`.
+`test_scan_dotfiles.py` covers the predicate and a real scan.
 
 ---
 
