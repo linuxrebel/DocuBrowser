@@ -353,8 +353,8 @@ def _fake_embed(texts):
     return out
 
 
-def test_semantic_ranks_passage_and_marks_nearest_sentence():
-    """Semantic mode picks the nearest passage and highlights the nearest sentence."""
+def test_semantic_ranks_passage_and_marks_query_term():
+    """Semantic mode picks the nearest passage and marks the query term in it."""
     body = (
         "Intro sentence. The alpha protocol governs reactor startup. Closing remark.\n"
         "Beta procedures cover shutdown and cooling.\n"
@@ -369,8 +369,7 @@ def test_semantic_ranks_passage_and_marks_nearest_sentence():
     top = passages[0]
     assert top["location"] == "line 1", f"location was {top['location']!r}"
     span = top["excerpt"][top["match_start"]:top["match_end"]]
-    assert span == "The alpha protocol governs reactor startup.", \
-        f"highlight span was {span!r}"
+    assert span == "alpha", f"highlight span was {span!r}"
 
 
 def test_max_passages_caps_and_flags_truncated():
@@ -400,7 +399,7 @@ def main():
     test_non_prose_returns_unsupported()
     test_diagram_template_non_prose()
     test_empty_doc_returns_no_passages()
-    test_semantic_ranks_passage_and_marks_nearest_sentence()
+    test_semantic_ranks_passage_and_marks_query_term()
     test_max_passages_caps_and_flags_truncated()
     print("PASS: deep_links — keyword (txt/code/md/html/xml/eml/docx/rtf/odt/ott/"
           "pdf/epub/mobi/djvu) + semantic, unsupported, empty, truncation")
