@@ -16,6 +16,7 @@ Pure functions, independently testable — no server or UI dependencies.
 import html as _html
 import math
 import re
+import warnings
 from pathlib import Path
 
 try:
@@ -37,6 +38,13 @@ try:
     import pdfplumber as _pdfplumber
 except ImportError:
     _pdfplumber = None
+
+try:
+    import ebooklib as _ebooklib
+    from ebooklib import epub as _epub
+except ImportError:
+    _ebooklib = None
+    _epub = None
 
 # Cap pages scanned per PDF to bound latency (mirrors pdf_extractor.MAX_PAGES).
 _PDF_MAX_PAGES = 150
@@ -125,19 +133,45 @@ _MARKUP_BLOCK_RE = re.compile(
 _MARKUP_READ_LIMIT = 200_000   # bounded read, matches _extract_text_file
 
 
-def _units_markup(path):
-    """Yield (location, text) per block of an HTML/XML/SGML file, 'section N'."""
-    raw = Path(path).read_text(encoding="utf-8", errors="replace")[:_MARKUP_READ_LIMIT]
+def _markup_blocks(raw):
+    """Yield non-empty text blocks from an HTML/XML string (tags stripped)."""
     raw = re.sub(r"<script[^>]*>.*?</script>", "", raw, flags=re.DOTALL | re.IGNORECASE)
     raw = re.sub(r"<style[^>]*>.*?</style>", "", raw, flags=re.DOTALL | re.IGNORECASE)
     raw = _MARKUP_BLOCK_RE.sub("\n", raw)        # block boundaries → newlines
     text = _html.unescape(re.sub(r"<[^>]+>", "", raw))   # strip remaining tags
-    idx = 0
     for block in text.split("\n"):
         block = " ".join(block.split())          # collapse whitespace runs
         if block:
-            idx += 1
-            yield (f"section {idx}", block)
+            yield block
+
+
+def _units_markup(path):
+    """Yield (location, text) per block of an HTML/XML/SGML file, 'section N'."""
+    raw = Path(path).read_text(encoding="utf-8", errors="replace")[:_MARKUP_READ_LIMIT]
+    for idx, block in enumerate(_markup_blocks(raw), start=1):
+        yield (f"section {idx}", block)
+
+
+def _units_epub(path):
+    """Yield (location, text) per block of an EPUB, labelled by chapter.
+
+    Iterates the spine documents (chapters) via ebooklib and block-splits each
+    chapter's XHTML — full-book coverage, not the 5000-char index cap.
+    """
+    if _ebooklib is None:
+        return
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")          # ebooklib's rootfile-XPath noise
+        book = _epub.read_epub(path, options={"ignore_ncx": True})
+    chapter = 0
+    for item in book.get_items_of_type(_ebooklib.ITEM_DOCUMENT):
+        html = item.get_content().decode("utf-8", "replace")
+        blocks = list(_markup_blocks(html))
+        if not blocks:
+            continue
+        chapter += 1
+        for block in blocks:
+            yield (f"chapter {chapter}", block)
 
 
 def _units_docx(path):
@@ -223,6 +257,7 @@ _UNIT_ITERATORS = {
     "rtf": _units_rtf,
     "odt": _units_odt,
     "pdf": _units_pdf,
+    "epub": _units_epub,
 }
 
 
