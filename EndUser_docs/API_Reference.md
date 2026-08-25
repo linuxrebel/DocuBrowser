@@ -1084,7 +1084,7 @@ curl -X POST -H "X-CSRF-Token: <token>" \
 
 Return the passages **inside one indexed document** that match a query — the "Deep Links" feature. Computed on demand from the document's extracted text; nothing is stored. Use it after a search to jump to *where* in a document the match is.
 
-The path must already be in the index (the endpoint validates it and checks the file exists on disk before reading it). Prose formats — **PDF, TXT, HTML, DOCX, RTF, ODT**, the SGML/XML family (XHTML, XML, SGML, DocBook, RSS, Atom, OPML), and plain-text/markup (Markdown, reStructuredText, AsciiDoc, LaTeX, and config-ish text: `.ini`/`.conf`/`.cfg`/`.log`/`.lst`) — return passages; non-prose formats (spreadsheets, presentations, diagrams) return `unsupported`.
+The path must already be in the index (the endpoint validates it and checks the file exists on disk before reading it). Prose formats — **PDF, TXT, HTML, DOCX, RTF, ODT**, e-books (**EPUB, MOBI, AZW3, AZW** — DRM-encrypted files yield no passages), **DjVu**, the SGML/XML family (XHTML, XML, SGML, DocBook, RSS, Atom, OPML), and plain-text/markup (Markdown, reStructuredText, AsciiDoc, LaTeX, and config-ish text: `.ini`/`.conf`/`.cfg`/`.log`/`.lst`) — return passages; non-prose formats (spreadsheets, presentations, diagrams) return `unsupported`.
 
 Semantic mode embeds the query and the document's passages via Ollama (`nomic-embed-text`), so it can take a few seconds on a large document; keyword mode is instant.
 
