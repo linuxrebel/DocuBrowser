@@ -54,7 +54,7 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 - From any keyword or semantic result, click **Deep Links** to find the matching passages *inside* that document — on demand, no reindex, no schema change.
 - Each passage shows a short sample and a location label (**page**, **line**, or **section**); clicking one opens the passage with the matched text highlighted.
 - Mode follows the search: a **semantic** search finds passages by meaning; a **keyword** (or hybrid) search finds them by term.
-- Prose formats: **PDF, TXT, HTML, DOCX, RTF, ODT**. Non-prose (spreadsheets, presentations, diagrams) fall back to opening in their reader.
+- Prose formats: **PDF, TXT, HTML, Markdown, DOCX, RTF, ODT**, e-books (EPUB, MOBI, AZW3), DjVu, plus the SGML/XML family (XHTML, XML, DocBook, RSS/Atom, OPML) and other text/markup formats (reST, AsciiDoc, LaTeX, config files). Non-prose (spreadsheets, presentations, diagrams) fall back to opening in their reader.
 - Deep Links may return "Not Found" if it does it's likely because the document type has not yet been coded into the mix. It picked up the keyword already assigned to the document but is as of yet still unable to actually read the document and create the deep links.  I'm working on expanding this as much as possible and where it gives value (deep search in a PDF that is a picture of the Mona Lisa will likely never get searched this way)
 
 ### 📖 AI Synopsis
@@ -827,8 +827,9 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
   result, find the matching passages *inside* that document, each with a
   location label (page / line / section), and jump to one with the matched
   text highlighted. Computed on demand — no reindex, no schema change, no new
-  dependency. Prose formats: PDF, TXT, HTML, DOCX, RTF, ODT; non-prose falls
-  back to opening in the reader. New endpoint `GET /api/deep-links`.
+  dependency. Prose formats: PDF, TXT, HTML, Markdown, DOCX, RTF, ODT, e-books
+  (EPUB/MOBI/AZW3), DjVu, plus the SGML/XML family and other text/markup formats;
+  non-prose falls back to opening in the reader. New endpoint `GET /api/deep-links`.
 - **Header logo links to the project on GitHub.**
 - **Fix:** `--db` / `--port` are now honored when placed before the subcommand
   (`docubrowser --db PATH start`) — previously they were silently dropped and
