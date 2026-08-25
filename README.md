@@ -55,6 +55,7 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 - Each passage shows a short sample and a location label (**page**, **line**, or **section**); clicking one opens the passage with the matched text highlighted.
 - Mode follows the search: a **semantic** search finds passages by meaning; a **keyword** (or hybrid) search finds them by term.
 - Prose formats: **PDF, TXT, DOCX, RTF, ODT**. Non-prose (spreadsheets, presentations, diagrams) fall back to opening in their reader.
+- Deep Links may return "Not Found" if it does it's likely because the document type has not yet been coded into the mix. It picked up the keyword already assigned to the document but is as of yet still unable to actually read the document and create the deep links.  I'm working on expanding this as much as possible and where it gives value (deep search in a PDF that is a picture of the Mona Lisa will likely never get searched this way)
 
 ### 📖 AI Synopsis
 - Click any document title for a Kindle-style book-jacket synopsis, generated on demand
