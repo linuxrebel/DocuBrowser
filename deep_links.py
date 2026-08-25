@@ -69,6 +69,12 @@ _PDF_MAX_PAGES = 150
 # still scans the whole document, so exact terms are found everywhere.
 _SEMANTIC_SCAN_CAP = 300
 
+# Minimum cosine similarity for a passage to count as relevant. Below this the
+# passage is dropped, so a query with no real match in the document returns no
+# passages instead of the top-N noise. Calibrated on nomic-embed-text: genuine
+# topic matches score ~0.6-0.7, unrelated tokens ~0.45.
+_SEMANTIC_MIN_SIM = 0.5
+
 # Non-prose formats (by extension): tabular/fragmented extracted text that we
 # do not render in-app. Deep Links returns an "unsupported" result for these.
 _NON_PROSE_EXT = frozenset({
@@ -404,9 +410,10 @@ def _semantic_passage(text, location, score, tokens):
     """
     _, ms, me = _score_and_mark(text, tokens)
     if ms is None:
-        ms, me, _ = _sentence_spans(text)[0]
+        ms = me = 0            # semantic match without the exact term → no highlight
+    sample = _sample_around(text, ms, me) if me > ms else " ".join(text.split()[:12])
     return {
-        "sample": _sample_around(text, ms, me),
+        "sample": sample,
         "excerpt": text,
         "location": location,
         "score": score,
@@ -433,7 +440,7 @@ def _semantic_passages(units, query, embed_fn, max_passages):
     scored = []
     for (location, text), pvec in zip(scanned, vecs[1:]):
         sim = _cosine(qvec, pvec)
-        if sim > 0:
+        if sim >= _SEMANTIC_MIN_SIM:
             scored.append((sim, location, text))
     scored.sort(key=lambda t: t[0], reverse=True)
 
