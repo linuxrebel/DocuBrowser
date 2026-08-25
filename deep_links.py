@@ -90,6 +90,17 @@ _WORD_RE = re.compile(r"[A-Za-z0-9]+")
 _SAMPLE_RADIUS = 5
 
 
+def _has_content(text):
+    """True if *text* carries real prose — at least two alphabetic characters.
+
+    Drops contentless passages that would otherwise be embedded and ranked:
+    comment-marker lines (``*``, ``//``, ``/*``), rule lines, bare numbers. Such
+    passages carry no meaning but embed to a generic vector that can clear the
+    semantic relevance floor and clutter results. Unicode-aware via str.isalpha.
+    """
+    return sum(c.isalpha() for c in text) >= 2
+
+
 def _query_tokens(query):
     """Lowercased word tokens of the query."""
     return [t.lower() for t in _WORD_RE.findall(query)]
@@ -472,7 +483,7 @@ def locate_passages(path, query, mode, *, max_passages=200, embed_fn=None):
         # Formats not yet supported behave as an empty (no-passages) result.
         return {"passages": [], "truncated": False}
 
-    units = list(iterator(path))
+    units = [u for u in iterator(path) if _has_content(u[1])]
     if mode == "semantic":
         return _semantic_passages(units, query, embed_fn, max_passages)
     return _keyword_passages(units, query, max_passages)
