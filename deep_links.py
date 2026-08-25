@@ -111,23 +111,26 @@ def _units_txt(path):
             yield (f"line {i}", line)
 
 
-# Block-level tags whose boundaries become passage breaks. Mirrors the indexer's
-# tag-strip (scan_docs._extract_text_file), plus newline insertion at blocks so
-# paragraphs/headings/list-items become separate passages instead of one blob.
-_HTML_BLOCK_RE = re.compile(
+# Block-level tags (HTML + common XML/DocBook/RSS/Atom containers) whose
+# boundaries become passage breaks. Mirrors the indexer's tag-strip
+# (scan_docs._extract_text_file), plus newline insertion at blocks so
+# paragraphs/headings/items become separate passages instead of one blob.
+_MARKUP_BLOCK_RE = re.compile(
     r"</(?:p|div|h[1-6]|li|tr|section|article|header|footer|blockquote|pre|"
-    r"td|th|figcaption|dd|dt)>|<br\s*/?>",
+    r"td|th|figcaption|dd|dt|"                             # HTML
+    r"para|item|entry|description|abstract|note|"          # XML/DocBook/RSS/Atom
+    r"sect\d|chapter|listitem|term|outline)>|<br\s*/?>",   # (title/summary left in-block)
     re.IGNORECASE,
 )
-_HTML_READ_LIMIT = 200_000   # bounded read, matches _extract_text_file
+_MARKUP_READ_LIMIT = 200_000   # bounded read, matches _extract_text_file
 
 
-def _units_html(path):
-    """Yield (location, text) per block of an .html file, labelled 'section N'."""
-    raw = Path(path).read_text(encoding="utf-8", errors="replace")[:_HTML_READ_LIMIT]
+def _units_markup(path):
+    """Yield (location, text) per block of an HTML/XML/SGML file, 'section N'."""
+    raw = Path(path).read_text(encoding="utf-8", errors="replace")[:_MARKUP_READ_LIMIT]
     raw = re.sub(r"<script[^>]*>.*?</script>", "", raw, flags=re.DOTALL | re.IGNORECASE)
     raw = re.sub(r"<style[^>]*>.*?</style>", "", raw, flags=re.DOTALL | re.IGNORECASE)
-    raw = _HTML_BLOCK_RE.sub("\n", raw)          # block boundaries → newlines
+    raw = _MARKUP_BLOCK_RE.sub("\n", raw)        # block boundaries → newlines
     text = _html.unescape(re.sub(r"<[^>]+>", "", raw))   # strip remaining tags
     idx = 0
     for block in text.split("\n"):
@@ -205,9 +208,17 @@ def _units_pdf(path):
 
 
 # Extension → unit-iterator.
+# Plain-text formats (line-based) and markup formats (tag-stripped) that share
+# the txt / markup iterators. svg and vdx stay in _NON_PROSE_EXT (diagrams).
+_TEXT_EXTS = ("txt", "text", "md", "markdown",
+              "ini", "conf", "cfg", "log", "lst",
+              "rst", "adoc", "asciidoc", "tex", "latex")
+_MARKUP_EXTS = ("html", "htm", "xhtml", "xml", "sgml", "sgm",
+                "docbook", "dbk", "rss", "atom", "opml")
+
 _UNIT_ITERATORS = {
-    "txt": _units_txt,
-    "html": _units_html,
+    **{e: _units_txt for e in _TEXT_EXTS},
+    **{e: _units_markup for e in _MARKUP_EXTS},
     "docx": _units_docx,
     "rtf": _units_rtf,
     "odt": _units_odt,
