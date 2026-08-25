@@ -13,9 +13,12 @@ docs/superpowers/specs/2026-08-21-deep-links-design.md.
 Pure functions, independently testable — no server or UI dependencies.
 """
 
+import contextlib
 import html as _html
+import io
 import math
 import re
+import shutil
 import warnings
 from pathlib import Path
 
@@ -45,6 +48,11 @@ try:
 except ImportError:
     _ebooklib = None
     _epub = None
+
+try:
+    import mobi as _mobi
+except ImportError:
+    _mobi = None
 
 # Cap pages scanned per PDF to bound latency (mirrors pdf_extractor.MAX_PAGES).
 _PDF_MAX_PAGES = 150
@@ -174,6 +182,34 @@ def _units_epub(path):
             yield (f"chapter {chapter}", block)
 
 
+def _units_mobi(path):
+    """Yield blocks for MOBI/AZW3/AZW by unpacking to EPUB/HTML via the mobi pkg.
+
+    The mobi package wraps most files as EPUB (→ chapter labels) or raw HTML
+    (→ 'section N'). DRM-encrypted files (typical .azw) can't be unpacked and
+    yield nothing — consistent with their metadata-only index entry.
+    """
+    if _mobi is None:
+        return
+    tempdir = None
+    try:
+        sink = io.StringIO()
+        with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+            tempdir, main_file = _mobi.extract(path)
+        main = Path(main_file)
+        if main.suffix.lower() == ".epub":
+            yield from _units_epub(str(main))
+        else:
+            raw = main.read_text(encoding="utf-8", errors="replace")
+            for idx, block in enumerate(_markup_blocks(raw), start=1):
+                yield (f"section {idx}", block)
+    except Exception:  # pylint: disable=broad-exception-caught
+        return          # corrupt / DRM / unsupported → no passages (graceful)
+    finally:
+        if tempdir:
+            shutil.rmtree(tempdir, ignore_errors=True)
+
+
 def _units_docx(path):
     """Yield (location, text) per body paragraph of a .docx (1-based index)."""
     if _docx is None:
@@ -258,6 +294,9 @@ _UNIT_ITERATORS = {
     "odt": _units_odt,
     "pdf": _units_pdf,
     "epub": _units_epub,
+    "mobi": _units_mobi,
+    "azw3": _units_mobi,
+    "azw": _units_mobi,
 }
 
 
