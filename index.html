@@ -1145,7 +1145,7 @@ function showDeepLinksExcerpt(idx) {
   const p = dlState.passages[idx];
   if (!p) return;
   document.getElementById('deepLinksTitle').textContent =
-    `This passage comes from ${dlLocationLabel(p.location)} of the document. Return to the main page to open and read more.`;
+    `This passage comes from ${dlLocationLabel(p.location)} of the document.`;
   document.getElementById('deepLinksBody').innerHTML =
     `<div class="dl-excerpt">${dlHighlight(p.excerpt, p.match_start, p.match_end)}</div>`;
   dlSetActions([
