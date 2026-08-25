@@ -63,6 +63,12 @@ except ImportError:
 # Cap pages scanned per PDF to bound latency (mirrors pdf_extractor.MAX_PAGES).
 _PDF_MAX_PAGES = 150
 
+# Cap passages embedded per document in semantic mode, before ranking. One
+# /api/embed call must stay under the socket timeout: a large book yields
+# thousands of passages, and embedding all of them times out. Keyword mode
+# still scans the whole document, so exact terms are found everywhere.
+_SEMANTIC_SCAN_CAP = 300
+
 # Non-prose formats (by extension): tabular/fragmented extracted text that we
 # do not render in-app. Deep Links returns an "unsupported" result for these.
 _NON_PROSE_EXT = frozenset({
@@ -389,45 +395,54 @@ def _keyword_passages(units, query, max_passages):
     return {"passages": scored[:max_passages], "truncated": truncated}
 
 
-def _semantic_passage(text, location, score, qvec, embed_fn):
-    """Build a Passage, marking the sentence nearest the query for highlight."""
-    spans = _sentence_spans(text)
-    svecs = embed_fn([s for _, _, s in spans])
-    best = max(range(len(spans)), key=lambda i: _cosine(qvec, svecs[i]))
-    start, end, sentence = spans[best]
+def _semantic_passage(text, location, score, tokens):
+    """Build a Passage; highlight query terms if present, else the first sentence.
+
+    No per-passage embedding: passages are short and the whole-document embed
+    already ranked them. Re-embedding every passage's sentences was the dominant
+    latency cost, so the highlight span is found cheaply here.
+    """
+    _, ms, me = _score_and_mark(text, tokens)
+    if ms is None:
+        ms, me, _ = _sentence_spans(text)[0]
     return {
-        "sample": " ".join(sentence.split()[:10]),
+        "sample": _sample_around(text, ms, me),
         "excerpt": text,
         "location": location,
         "score": score,
-        "match_start": start,
-        "match_end": end,
+        "match_start": ms,
+        "match_end": me,
     }
 
 
 def _semantic_passages(units, query, embed_fn, max_passages):
-    """Rank passages by cosine similarity of their embeddings to the query."""
+    """Rank passages by cosine similarity of their embeddings to the query.
+
+    Only the first ``_SEMANTIC_SCAN_CAP`` passages are embedded, to keep the
+    single /api/embed call under its socket timeout on large documents.
+    """
     if embed_fn is None:
         raise ValueError("semantic mode requires embed_fn")
     if not units:
         return {"passages": [], "truncated": False}
 
-    texts = [text for _, text in units]
-    vecs = embed_fn([query, *texts])
-    qvec, pvecs = vecs[0], vecs[1:]
+    scanned = units[:_SEMANTIC_SCAN_CAP]
+    vecs = embed_fn([query, *(text for _, text in scanned)])
+    qvec = vecs[0]
 
     scored = []
-    for (location, text), pvec in zip(units, pvecs):
+    for (location, text), pvec in zip(scanned, vecs[1:]):
         sim = _cosine(qvec, pvec)
         if sim > 0:
             scored.append((sim, location, text))
     scored.sort(key=lambda t: t[0], reverse=True)
 
-    truncated = len(scored) > max_passages
+    tokens = _query_tokens(query)
     passages = [
-        _semantic_passage(text, location, sim, qvec, embed_fn)
+        _semantic_passage(text, location, sim, tokens)
         for sim, location, text in scored[:max_passages]
     ]
+    truncated = len(units) > _SEMANTIC_SCAN_CAP or len(scored) > max_passages
     return {"passages": passages, "truncated": truncated}
 
 
