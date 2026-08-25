@@ -19,6 +19,7 @@ import io
 import math
 import re
 import shutil
+import subprocess
 import warnings
 from pathlib import Path
 
@@ -210,6 +211,28 @@ def _units_mobi(path):
             shutil.rmtree(tempdir, ignore_errors=True)
 
 
+def _units_djvu(path):
+    """Yield (location, text) per paragraph of a DjVu, carrying the page as 'p. N'.
+
+    djvutxt (DjVuLibre) prints the whole document with pages separated by a
+    form-feed; split on that, then paragraph-split each page like the PDF path.
+    """
+    if shutil.which("djvutxt") is None:
+        return
+    try:
+        proc = subprocess.run(["djvutxt", path], capture_output=True, text=True,
+                               errors="replace", timeout=60, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return
+    if proc.returncode != 0:
+        return
+    for pageno, page in enumerate(proc.stdout.split("\f"), start=1):
+        for para in re.split(r"\n\s*\n", page):
+            para = " ".join(para.split())
+            if para:
+                yield (f"p. {pageno}", para)
+
+
 def _units_docx(path):
     """Yield (location, text) per body paragraph of a .docx (1-based index)."""
     if _docx is None:
@@ -297,6 +320,8 @@ _UNIT_ITERATORS = {
     "mobi": _units_mobi,
     "azw3": _units_mobi,
     "azw": _units_mobi,
+    "djvu": _units_djvu,
+    "djv": _units_djvu,
 }
 
 
