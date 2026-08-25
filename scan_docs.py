@@ -837,6 +837,20 @@ def _write_result(conn, result: dict, _doc_dir: Path):
         return None
 
 
+def _is_hidden_relpath(f: Path, root: Path) -> bool:
+    """True if *f* under *root* has any hidden (dot-prefixed) path component.
+
+    Skips dotfiles (``.env``, ``.bashrc``) and the contents of hidden
+    directories (``.git/``, ``.venv/``). The *root* itself is exempt, so a scan
+    whose root is a dot-directory still indexes its non-hidden files. (D-6.)
+    """
+    try:
+        parts = f.relative_to(root).parts
+    except ValueError:
+        parts = (f.name,)
+    return any(part.startswith(".") for part in parts)
+
+
 # ── Main scan function ────────────────────────────────────────────────────────
 
 # pylint: disable-next=too-many-locals,too-many-branches,too-many-statements
@@ -894,14 +908,24 @@ def scan_directory(
     print()
 
     _walk_skipped = 0
+    _walk_hidden = 0
     _walk_candidates = []
     for f in doc_dir.rglob("*"):
         try:
-            if f.is_file() and (f.suffix.lower() in extensions or not f.suffix):
+            if not f.is_file():
+                continue
+            # D-6: never index hidden files or the contents of hidden dirs
+            # (.env, .ssh/, .git/, .venv/, …) — skip any dot path component.
+            if _is_hidden_relpath(f, doc_dir):
+                _walk_hidden += 1
+                continue
+            if f.suffix.lower() in extensions or not f.suffix:
                 _walk_candidates.append(f)
         except OSError as _e:
             _walk_skipped += 1
             logging.warning("Skipping inaccessible path: %s  (%s)", f, _e)
+    if _walk_hidden:
+        print(f"  Skipped {_walk_hidden:,} hidden dotfile(s)/dir contents")
     if _walk_skipped:
         print(f"  ⚠ Skipped {_walk_skipped:,} inaccessible file(s) "
               "(broken symlinks, permission errors, etc.)")
