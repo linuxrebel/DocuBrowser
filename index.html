@@ -313,7 +313,7 @@
   <a class="logo" href="https://github.com/linuxrebel/DocuBrowser" target="_blank" rel="noopener noreferrer" title="DocuBrowse on GitHub"><img src="icons/docubrowse.svg" alt="DocuBrowse"></a>
   <div class="search-wrap">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input class="search-input" id="searchInput" type="text" placeholder="Search documents… e.g. 'quarterly report' or 'budget analysis'" autofocus>
+    <input class="search-input" id="searchInput" type="text" placeholder="Search documents and press Enter… e.g. 'quarterly report'" autofocus>
   </div>
   <div class="search-mode">
     <button class="mode-btn" data-mode="keyword">Keyword</button>
@@ -384,7 +384,7 @@ const statsEl = document.getElementById('stats');
 const tagCloud = document.getElementById('tagCloud');
 const tagToggle = document.getElementById('tagToggle');
 
-let debounceTimer = null, searchMode = 'both', allDocs = [];
+let searchMode = 'both', allDocs = [];
 let currentOffset = 0, currentTotal = 0, currentHasMore = false, currentQuery = '', currentLetter = '';
 let isLoadingMore = false;
 // Monotonic token: every function that fetches a page and writes the grid
@@ -578,7 +578,10 @@ tagCloud.addEventListener('click', e => {
   const el = e.target.closest('.tag');
   if (el && el.dataset.tag != null) searchTag(el.dataset.tag);
 });
-input.addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(doSearch, 250); });
+// Search on Enter, not on every keystroke: live search made typing hard and
+// fired requests on partial words. Clearing the box restores the full list.
+input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+input.addEventListener('input', () => { if (!input.value.trim()) doSearch(); });
 
 async function doSearch() {
   const q = input.value.trim();
