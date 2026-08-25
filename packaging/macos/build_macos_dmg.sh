@@ -68,6 +68,7 @@ mkdir -p "$STAGE_DIR/app"
 APP_FILES=(
     docubrowser.py
     doc_search.py
+    deep_links.py
     scan_docs.py
     embed_docs.py
     pdf_extractor.py
