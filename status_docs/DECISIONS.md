@@ -39,35 +39,17 @@ this release:
    (`vsd2xml`/`djvutxt`/`ebook-convert`) could be misparsed as a flag. Requires an
    attacker-named file to already be indexed. Follow-up: `--` / `./`-prefix the
    path where the tool supports it.
-3. **vsd2xml unbounded stdout** — already tracked as a D-12 follow-up.
+3. **vsd2xml unbounded stdout.** The legacy-Visio converter's stdout is read via
+   `subprocess.run(..., capture_output=True)` with no size cap; a hostile/corrupt
+   `.vsd` emitting multi-GB output is bounded only by the 90 s timeout +
+   `RLIMIT_AS`. Follow-up: bounded `Popen` read (`stdout.read(N)`) or a `head -c`
+   wrapper.
 4. **Deep Links semantic N+1 embed.** `_semantic_passage` calls the embedder once
    per returned passage (up to `max_passages` = 200 Ollama round-trips per
    request). Efficiency/load, not a vulnerability. Follow-up: batch all passages'
    sentence embeddings into fewer `/api/embed` calls.
 
 Sync this entry into the Enterprise repo's `status_docs/DECISIONS.md`.
-
-### D-16: Deep Links — `both` search mode maps to keyword passages
-**Status:** By design
-**Priority:** Informational
-**Added:** 2026-08-23
-
-The Deep Links feature (v1.0.4; design in
-`docs/superpowers/specs/2026-08-21-deep-links-design.md`) locks the in-document
-passage mode to the search that produced the result: a **Semantic** search
-opens semantic passages, a **Keyword** search opens keyword passages, with no
-toggle inside the modal. Search, however, has a third mode — **Both** — which
-is not a valid Deep Links mode (the endpoint accepts only `keyword` |
-`semantic`).
-
-**Decision:** a result found via **Both** opens **keyword** Deep Links. Rationale:
-keyword is instant and needs no GPU, so it is the safe default for the common
-case; explicit Semantic search still gets the semantic passage view. To change
-the passage mode, the user re-runs the search in the mode they want.
-
-Revisit if semantic-for-both proves more useful in practice. If chunk-level
-precomputed embeddings (D-11) land later, semantic Deep Links become cheap
-enough that `both` → semantic could be reconsidered behind the same UI.
 
 ### D-15: Docker deployment (experimental) — tracked on the `docker-experiment` branch
 **Status:** Experimental, off mainline — reference only
@@ -83,182 +65,6 @@ sandboxed browser). Current thinking is that Docker will only be viable as an
 
 The full decision record, code, and `docker/README.md` live on that branch —
 this is only a pointer. Not recommended for use; for experimentation only.
-
-### D-103: v1.0.1 release ships a stale 1.0.0 .deb (issue #3)
-**Status:** Superseded by the v1.0.2 release — all packages (deb included)
-rebuilt from the fixed tree. A stopgap `1.0.1-2` deb was also built; the
-v1.0.2 release replaces it. Still verify the correct deb is attached to the
-release and notify gemlog on issue #3.
-**Priority:** High
-**Added:** 2026-08-19
-
-Issue #3 (gemlog / Paul Evans, Linux Mint): `docubrowser start` crashes at
-import with `ModuleNotFoundError: No module named 'visio_extractor'`
-(`scan_docs.py:61`).
-
-Root cause: v1.0.0's `packaging/build_packages.sh` `APP_FILES` list omitted
-five extractor modules — `visio_extractor.py`, `markup_extractor.py`,
-`eml_extractor.py`, `csv_extractor.py`, `rtf_extractor.py` — while
-`scan_docs.py` imports them unconditionally. Source fixed by commit `94d0c44`
-("add missing extractors to APP_FILES"), shipped in v1.0.1.
-
-But the `.deb` attached to the **v1.0.1 GitHub release was never rebuilt** — it
-is still `docubrowser-foss_1.0.0-1_all.deb`, so Debian/Mint users downloading
-the latest release still get the broken package. Verified 2026-08-19: the
-v1.0.1 rpm, tarball, Windows zip, and macOS dmg all contain the five
-extractors; only the deb is broken, so no full-suite reissue is needed.
-
-**TODO:** rebuild the deb as `1.0.1-1`, delete the stale `1.0.0-1` deb from the
-v1.0.1 release, upload the new one, then notify gemlog on issue #3 (James
-already replied promising a fixed deb).
-
-**Follow-up (fragility):** `APP_FILES` is a hand-maintained list; a new module
-that `scan_docs`/`doc_search` imports but that isn't added to `APP_FILES`
-ships a broken package silently. Consider globbing `*_extractor.py` in the
-build, or asserting at build time that every top-level import in `scan_docs.py`
-resolves to a staged file.
-
-### D-14: Email, RTF, CSV, and config-ish plain text — coverage sweep
-**Status:** Decided — new dedicated extractors + trivial extension adds
-**Priority:** Low
-**Added:** 2026-07-17
-
-An audit of `/mnt/data/Documents` found ~1,171 files across ~40 extensions
-that DocuBrowse wasn't scanning. Categorized as:
-
-- **Real content, no extractor** — `.eml` (email), `.rtf`, `.csv`, `.tsv`,
-  `.vdx` (Visio 2003 XML).
-- **Plain text, just need to be listed** — `.ini`, `.conf`, `.cfg`, `.log`,
-  `.lst`.
-- **Junk** — images, fonts, TLS material, source maps, `.pyc`, HTTrack mirror
-  cruft (~356 files with `?a=b`-style query strings baked into the filename).
-
-**Decision:** ship extractors for the real-content group, add the plain-text
-group to `DEFAULT_EXTENSIONS` (they fall through to `_extract_text_file`),
-route `.vdx` through `markup_extractor`'s XML tag-strip path and tag it as
-`diagram`, and leave the HTTrack cruft to be handled by
-`docubrowser ignore add <mirror-root>`.
-
-Component choices:
-- `.eml` — stdlib `email` package. Subject → title, From → author, To/Cc/Date
-  → subject field, text/plain body preferred (falls back to text/html
-  tag-stripped). Attachment filenames appended so name-searches still hit.
-- `.csv` / `.tsv` — stdlib `csv` with delimiter auto-sniffing. First 500 rows
-  as pipe-delimited text; header row lands in the description field so column
-  names weigh into keyword search.
-- `.rtf` — `striprtf` (pure Python, MIT, ARM64-safe). Added to
-  `requirements.txt`. Graceful degradation when missing: file is indexed
-  metadata-only and the path is appended to `rtf_missing_striprtf.txt`, same
-  convention as `visio_legacy_missing.txt` for missing vsd2xml.
-- `.vdx` — routed to `markup_extractor`. Tagged `markup` + `diagram`.
-
-Consequences:
-- One new optional runtime dependency (`striprtf`) in requirements.txt.
-- Three new extractor modules (`eml_extractor.py`, `csv_extractor.py`,
-  `rtf_extractor.py`) alongside existing `docx/odf/visio/markup/ebook/pdf`.
-- One new sidecar file `rtf_missing_striprtf.txt` (gitignored).
-- HTTrack mirror cruft is a user-space cleanup — not code work.
-
-**Deferred follow-ups (surfaced by QA review 2026-07-17):**
-- `.vdx` title extraction picks the first `<Title>` element anywhere in the
-  document.  Real Visio 2003 XML puts `DocumentProperties/Title` first so
-  this works today, but a file with a shape-level `<Title>` before the
-  document properties would extract the wrong string.  Follow-up: prefer
-  `<DocumentProperties><Title>` explicitly in `markup_extractor`.
-- CSV extractor sets `description` to whatever the first row is, even when
-  `csv.Sniffer.has_header(sample)` says the file has no header.  Follow-up:
-  gate the header-→description assignment on `has_header`.
-- `csv_extractor` returns `success=False` on genuinely-empty files, so
-  empty CSVs land in `scan_blacklist.txt`.  Cosmetic; consider
-  `success=True` with empty text so they show up in browse instead.
-- `eml_extractor` returns `success=True` on a zero-byte `.eml` (empty text,
-  no title).  Inconsistent with `_extract_text_file` which returns
-  `success=bool(text)`.  Cosmetic.
-
----
-
-### D-13: Markup family — schema-agnostic tag-strip vs. per-format parsing
-**Status:** Decided — schema-agnostic tag-strip
-**Priority:** Low
-**Added:** 2026-07-17
-
-The SGML/XML family (`.xml`, `.xhtml`, `.sgml`, `.sgm`, `.docbook`, `.dbk`,
-`.svg`, `.rss`, `.atom`, `.opml`) plus structured plain-text markup (`.rst`,
-`.adoc`, `.asciidoc`, `.tex`, `.latex`) all needed a first-pass extractor.
-
-Options considered:
-- **(a) Schema-aware per format** — dedicated parser per format (DocBook →
-  section headings; RSS → item list; Atom → entry summaries; SVG →
-  `<text>` and `<title>`; reST/AsciiDoc → structured heading walk). Best
-  metadata, most maintenance.
-- **(b) Schema-agnostic tag-strip ← chosen** — one XML/SGML tag-stripper
-  that decodes DOCTYPE, comments, and CDATA, sniffs title/author from
-  well-known local-names (`title`, `dc:title`, `author`, `dc:creator`)
-  before stripping, then unescapes entities. reST/AsciiDoc/LaTeX are
-  passed through verbatim so all markup becomes searchable text, with a
-  per-format title-sniff. LaTeX gets `\title{}`/`\author{}` + line-`%`
-  comment stripping.
-- **(c) Skip entirely** — leave everything to `_extract_text_file`.
-
-**Decision:** ship path (b). No new dependencies, one 280-line module,
-handles unknown schemas gracefully, extracts useful titles/authors for
-the formats that follow well-known conventions (DocBook, Atom, RSS, SVG,
-LaTeX).
-
-Consequences:
-- New extractor `markup_extractor.py`; no new runtime dependency.
-- Every markup file gets a `markup` browse/filter tag; SVG additionally
-  gets a `diagram` tag alongside `.vsdx` / `.drawio` / `.puml`.
-- Deferred to a future session: per-format schema-aware pretty extraction
-  (structure preserved instead of flattened), and light heuristic
-  cleanup of reST/AsciiDoc/LaTeX punctuation noise from the searchable
-  text — the current path leaves the source markup verbatim, which is
-  fine for keyword hits but slightly noisy for synopsis generation.
-
----
-
-### D-12: Legacy Visio (.vsd/.vss/.vst) — external converter choice
-**Status:** Decided — libvisio-tools (`vsd2xml`)
-**Priority:** Low
-**Added:** 2026-07-17
-
-Modern Visio (`.vsdx`/`.vsdm`) is OOXML and parses with the stdlib. Legacy
-binary Visio (`.vsd`, and the related stencil `.vss` / template `.vst`) is
-Microsoft Compound Document format and needs a real converter.
-
-Options considered:
-- **(a) LibreOffice headless** — reliable but pulls in ~1 GB of dependencies,
-  slow to spawn, and inconvenient in server contexts.
-- **(b) libvisio-tools (`vsd2xml`) ← chosen** — packaged in Fedora, Debian,
-  and Ubuntu; ~5 MB install; produces ODG-flavoured XML on stdout that the
-  same text-walking approach used in `odf_extractor.py` can consume.
-- **(c) Metadata-only** — skip body extraction entirely. Cheap, but the
-  file's diagram labels never make it into keyword or semantic search.
-
-**Decision:** ship path (b). When `vsd2xml` is missing at scan time,
-degrade gracefully to path (c): index the row with the filename as the
-title and append the path to `visio_legacy_missing.txt` so an operator can
-install libvisio-tools and rescan.
-
-Consequences:
-- New optional runtime dependency documented in README, INSTALL.md, and
-  the Admin Guide.
-- New sidecar file `visio_legacy_missing.txt` (gitignored) alongside the
-  existing `ocr_list_pdfs.txt` — same append-only convention.
-
-**Deferred follow-ups (surfaced by QA review 2026-07-17):**
-- `vsd2xml` stdout is currently unbounded via `subprocess.run(..., capture_output=True)`.
-  A hostile / corrupt file that made the converter emit multi-GB output would
-  grow the worker until the existing `RLIMIT_AS` (6 GB) killed it — which then
-  routes the whole ProcessPool into its "worker killed" branch and mis-blacklists
-  the file. Primary defence today is the 90 s timeout. Follow-up: switch to
-  `Popen` + a bounded `stdout.read(N)` cap, or route through a `head -c` wrapper.
-- The `.vsdx` extractor only knows the `visio/2012/main` namespace URI. Visio
-  2010 and earlier files using older URIs will silently extract zero body text
-  (metadata still works). Follow-up: add a fallback namespace list and log a
-  warning when pages exist but no `<Text>` was found.
-
----
 
 ### D-1: Multi-language / i18n support
 **Status:** Open — design needed  
@@ -313,14 +119,6 @@ EPUB, etc.). The data is already in the `file_ext` column.
 
 Scanned (image-only) PDFs are detected and listed in `ocr_list_pdfs.txt` but not
 searchable. Integrate Tesseract or similar OCR engine to extract text from these.
-
-### D-5: FOSS server packaging
-**Status:** Resolved 2026-07-09  
-**Priority:** Medium  
-**Added:** 2026-07-02
-
-RPM, DEB, and installable tarball are built via `packaging/build_packages.sh`
-since v0.9.0. PyPI, Docker, Flatpak, and Snap remain future options.
 
 ### D-8: Windows Unicode console encoding — permanent fix needed
 **Status:** ANSI colors resolved 2026-07-04; item 3 (check_missing_path) still open  
@@ -487,21 +285,20 @@ This should cover all platforms (Linux, Windows, macOS) and both install methods
 (package vs. manual/dev checkout).
 
 ### D-11: Chunk-level semantic search with in-document result locations
-**Status:** Open — design needed (an on-demand variant is designed in
-[[2026-08-21-deep-links-design]]; precomputed chunks remain future work)  
+**Status:** Partially shipped — the on-demand variant is **Deep Links** (v1.2.0,
+`deep_links.py`); precomputed per-chunk embeddings remain future work  
 **Priority:** Medium  
 **Added:** 2026-07-13
 
-Currently, each document gets a single embedding vector (the first ~8000 chars
-of extracted text sent to `nomic-embed-text`). This means semantic search can
-find *which document* matches a query, but cannot show *where* inside the
-document the match occurs.
+Each document gets a single embedding vector (the first ~8000 chars of extracted
+text sent to `nomic-embed-text`), so semantic search finds *which document*
+matches but not *where* inside it. Deep Links (v1.2.0) now answers the "where" on
+demand — it re-extracts the clicked document, splits it into passages, embeds
+them at click time, and returns the best-matching passages with location labels.
+No schema change, no reindex.
 
-**Goal:** when a user clicks a semantic search result, open a modal showing the
-top 5 matching passages within that document, each with its page number and a
-text excerpt.
-
-**Required changes:**
+The remaining, still-open part of this item is the **precomputed** approach — so
+whole-corpus ranking itself becomes chunk-level, not just the in-document view:
 
 1. **Chunking during embed** — split extracted text into overlapping passages
    (~500 tokens, ~100-token overlap). Each chunk stores its `chunk_index`,
@@ -511,10 +308,6 @@ text excerpt.
    char_offset, chunk_text, embedding BLOB, model, updated_at)`.
 3. **Search refactor** — document-level score becomes best-of or top-N-average
    chunk score. Per-chunk scores are retained for the in-document view.
-4. **New API endpoint** — e.g. `GET /api/search-in-doc?doc_id=<id>&q=<query>`
-   returning the top 5 matching chunks with page number, excerpt, and score.
-5. **UI modal** — triggered from a search result card; displays ranked passages
-   with page numbers.
 
 **Tradeoffs:**
 
