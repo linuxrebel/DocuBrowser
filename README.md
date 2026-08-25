@@ -812,7 +812,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Moved/renamed files | Not detected as moves — old path is removed (interactively or via `scan-missing`), new path is picked up on next rescan as a fresh entry; true duplicates are caught by `duplist`/`dupclean` |
 | Hidden files/dotfiles not indexed | By design — any file with a dot-prefixed path component (`.env`, `.bashrc`, and the contents of hidden dirs like `.git/`/`.venv/`) is skipped at scan time. Dotfiles indexed by an **older** version are **not** auto-removed by a rescan (the files still exist on disk); rebuild the index (fresh/empty DB, then `scan`) to purge them |
 | No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure |
-| Semantic search is document-level | Identifies *which* documents match, but not *where* within the document the match occurs |
+| Semantic *ranking* is document-level | Whole-document embeddings rank *which* documents match; **Deep Links** then pinpoints *where* inside any result on demand. Corpus-wide chunk-level ranking remains future work |
 | English only | Keyword search, tag generation, and synopsis prompts assume English content; multi-language support is planned (see `status_docs/DECISIONS.md`) |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 
