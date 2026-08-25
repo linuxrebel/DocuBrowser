@@ -170,7 +170,11 @@ so the `no/number/#` qualifier applies to both "account" and "acct".
 Scanning now skips any file whose path (relative to the scan root) has a
 dot-prefixed component — dotfiles like `.env`/`.bashrc` and the contents of
 hidden dirs like `.git/`/`.venv/` — via `_is_hidden_relpath` in `scan_docs.py`.
-`test_scan_dotfiles.py` covers the predicate and a real scan.
+`test_scan_dotfiles.py` covers the predicate and a real scan. Caveat: the skip
+is not retroactive — `scan_directory` upserts candidates but doesn't prune
+existing rows, and `scan-missing` keeps files that still exist, so dotfiles
+indexed by an older version need a full index rebuild to purge (documented in
+README Known Limitations).
 
 ---
 
