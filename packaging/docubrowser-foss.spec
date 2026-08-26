@@ -52,6 +52,7 @@ install -m 644 djvu_extractor.py    %{buildroot}/opt/docubrowser/
 install -m 644 hardware_utils.py    %{buildroot}/opt/docubrowser/
 install -m 644 docubrowse_db.py     %{buildroot}/opt/docubrowser/
 install -m 644 purge_pii.py         %{buildroot}/opt/docubrowser/
+install -m 644 purge_dotfiles.py    %{buildroot}/opt/docubrowser/
 install -m 755 backup_restore.py    %{buildroot}/opt/docubrowser/
 install -m 644 ensure_ollama.py     %{buildroot}/opt/docubrowser/
 install -m 644 dup_detect.py        %{buildroot}/opt/docubrowser/
