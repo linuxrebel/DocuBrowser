@@ -101,6 +101,27 @@ def _has_content(text):
     return sum(c.isalpha() for c in text) >= 2
 
 
+# Articles + coordinating conjunctions (FANBOYS). Stripped from a query before
+# it is embedded for semantic search: they carry little meaning and dilute the
+# query vector (e.g. "freedom and liberty" embeds better without "and").
+_STOPWORDS = frozenset({
+    "a", "an", "the",
+    "and", "or", "but", "nor", "for", "so", "yet",
+})
+
+
+def strip_stopwords(query):
+    """Drop articles/conjunctions from *query* for semantic embedding.
+
+    Keyword/FTS search keeps the original query; this only shapes the vector
+    fed to the embedder. Returns the original query unchanged if filtering would
+    empty it (an all-stopword query still embeds to something).
+    """
+    kept = [w for w in query.split()
+            if re.sub(r"[^a-z]", "", w.lower()) not in _STOPWORDS]
+    return " ".join(kept) if kept else query
+
+
 def _query_tokens(query):
     """Lowercased word tokens of the query."""
     return [t.lower() for t in _WORD_RE.findall(query)]
@@ -445,7 +466,7 @@ def _semantic_passages(units, query, embed_fn, max_passages):
         return {"passages": [], "truncated": False}
 
     scanned = units[:_SEMANTIC_SCAN_CAP]
-    vecs = embed_fn([query, *(text for _, text in scanned)])
+    vecs = embed_fn([strip_stopwords(query), *(text for _, text in scanned)])
     qvec = vecs[0]
 
     scored = []
