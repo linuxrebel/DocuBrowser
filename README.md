@@ -32,7 +32,8 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 
 | | | |
 |---|---|---|
-| [Features](#features) | [Screenshots](#screenshots) | [Quick Start](#quick-start) |
+| [Features](#features) | [Search Tips and Tricks](#search-tips-and-tricks) | [Screenshots](#screenshots) |
+| [Quick Start](#quick-start) | | |
 | [CLI Reference](#cli-reference) | [Configuration](#configuration) | [Architecture](#architecture) |
 | [API Endpoints](#api-endpoints) | [Search Algorithm](#search-algorithm) | [Security](#security) |
 | [File Structure](#file-structure) | [Troubleshooting](#troubleshooting) | [Known Limitations](#known-limitations) |
@@ -48,7 +49,7 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 ### 🔍 Dual Search Modes
 - **Keyword Search** — fast full-text search via SQLite FTS5 (title, author, subject, tags, snippet)
 - **Semantic Search** — AI-powered similarity via Ollama embeddings (nomic-embed-text:latest). Semantic search identifies *which documents* are relevant to your query; **Deep Links** (below) then pinpoints *where* inside a document the match is.
-- **Hybrid Mode** (default) — 70% semantic + 30% keyword, merged and re-ranked
+- **Hybrid Mode** (default, "Both") — keyword and semantic merged: each document takes the stronger of its two scores (with a small boost when both hit), and must clear a keyword hit or a semantic floor to appear. See [Search Tips and Tricks](#search-tips-and-tricks).
 
 ### 🎯 Deep Links — in-document passage search
 - From any keyword or semantic result, click **Deep Links** to find the matching passages *inside* that document — on demand, no reindex, no schema change.
@@ -111,6 +112,42 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 - Search latency: <150ms typical
 - Parallel PDF extraction with `ProcessPoolExecutor` (physical-core-aware worker count)
 - Memory-safe: kernel-enforced RLIMIT_AS (6 GB/worker) + pause/resume on free-RAM threshold
+
+---
+
+## Search Tips and Tricks
+
+[↑ Top](#top)
+
+DocuBrowse has three search modes (toggle top-right): **Keyword**, **Semantic**, and **Both** (the default hybrid). **Search runs when you press Enter** — clearing the box shows all documents again. The same rules apply inside a document when you click **Deep Links**; Deep Links follows whichever mode your search used.
+
+### The three modes
+
+- **Keyword** — literal text via SQLite FTS5. Each word is prefix-matched and the words are OR-ed, so `budget report` finds documents containing *budget…* **or** *report…* (not necessarily both). Ranked by where the hit lands — matches in the **title** and **author** outrank matches in the body or tags. Best when you know a word, name, or code that's actually in the document.
+- **Semantic** — meaning, via AI embeddings. Finds documents that are *about* your query even when they don't contain your exact words. Ranked by conceptual closeness. Best for "documents about X" when you don't know the exact wording.
+- **Both** (default) — runs both and keeps, per document, the stronger of the two scores (with a small bump when a document scores on both). A document has to earn a keyword hit or a meaningful semantic score to show up, so weak semantic noise doesn't bury solid keyword matches.
+
+### What happens with different word pairings
+
+| You type | Keyword mode | Semantic mode |
+|---|---|---|
+| `budget report` | documents with *budget…* **or** *report…* (prefix, either word) | documents about budgeting/financial reporting, by meaning |
+| `"budget report"` | only documents containing the exact phrase **budget report** | same exact-phrase set, then ranked by meaning |
+| `freedom and liberty` | *freedom…* or *and…* or *liberty…* (keyword keeps every word) | embeds **freedom liberty** — articles and conjunctions are dropped so they don't dilute the match |
+| `man in the middle` | *man… in… the… middle…* (prefix, any) | embeds **man in the middle** — prepositions like *in* are kept because they carry meaning |
+| a person's name, e.g. `fred` | tokens starting *fred* — Frederick, Fredonia… | fuzzy: may surface look-alikes (e.g. *Fedora*) because short tokens embed loosely — use **Keyword** for names |
+
+### Quotes = exact phrase
+
+Wrap words in `"..."` (or `'...'`) to require that **exact consecutive phrase**. `"machine learning"` matches only documents where those two words appear together in that order, not documents that merely mention *machine* and *learning* separately. This works in every mode — in Semantic/Both it acts as a presence filter first, then ranks the phrase-containing set by meaning. You can mix forms: `golang "import fmt"` means *the phrase "import fmt"* OR the loose word *golang*.
+
+### Rules of thumb
+
+- Know the exact word, name, or error code → **Keyword**.
+- Looking for documents *about* a topic → **Semantic** or **Both**.
+- Want an exact phrase → **quote it** (any mode).
+- Searching a **name** → **Keyword** beats Semantic (names embed fuzzily).
+- Semantic can surface a document for a concept it never literally names — e.g. an MIT-licensed file shows up for *freedom* because the license text reads that way. That's semantic working as intended, not a bug.
 
 ---
 
