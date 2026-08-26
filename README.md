@@ -1,4 +1,4 @@
-# DocuBrowse v1.2.0
+# DocuBrowse v1.3.0
 
 <a name="top"></a>
 
