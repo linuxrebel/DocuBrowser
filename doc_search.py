@@ -59,7 +59,7 @@ from scan_docs import (                                                  # noqa:
     IGNORE_DIRS_FILENAME, SCAN_DIRS_FILENAME,
     purge_path_prefix,
 )
-from deep_links import locate_passages                                   # noqa: E402
+from deep_links import locate_passages, strip_stopwords                  # noqa: E402
 # pylint: enable=wrong-import-position
 
 try:
@@ -976,7 +976,9 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         if kw_scores:  # drop orphan FTS rowids that no longer map to a document
             valid = _valid_doc_ids(conn)
             kw_scores = {k: v for k, v in kw_scores.items() if k in valid}
-        sem_scores = _semantic_scores(conn, embed_text(q)) if mode in ('both', 'semantic') else {}
+        # Semantic embedding drops articles/conjunctions (keyword/FTS keeps q).
+        sem_scores = (_semantic_scores(conn, embed_text(strip_stopwords(q)))
+                      if mode in ('both', 'semantic') else {})
 
         # Build the scored candidate set per mode: (doc_id, final, fts, sem)
         scored = []
