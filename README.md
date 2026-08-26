@@ -520,6 +520,7 @@ There is still no user login. Trusted peers can call the full API; put auth in y
 | `hardware_utils.py` | CPU/GPU/RAM detection, worker count formula |
 | `embed_docs.py` | Sends text to Ollama; stores 768-dim vectors |
 | `purge_pii.py` | Scans index for PII; removes and blacklists matches |
+| `purge_dotfiles.py` | One-off migration tool: removes already-indexed dotfiles from the DB (dry-run by default) |
 | `dup_detect.py` | Exact (SHA256) and near-duplicate (cosine similarity) detection |
 
 ### Blacklist Files

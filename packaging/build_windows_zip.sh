@@ -76,6 +76,7 @@ APP_FILES=(
     hardware_utils.py
     docubrowse_db.py
     purge_pii.py
+    purge_dotfiles.py
     backup_restore.py
     ensure_ollama.py
     dup_detect.py
