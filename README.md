@@ -134,12 +134,15 @@ DocuBrowse has three search modes (toggle top-right): **Keyword**, **Semantic**,
 | `budget report` | documents with *budget…* **or** *report…* (prefix, either word) | documents about budgeting/financial reporting, by meaning |
 | `"budget report"` | only documents containing the exact phrase **budget report** | same exact-phrase set, then ranked by meaning |
 | `freedom and liberty` | *freedom…* or *and…* or *liberty…* (keyword keeps every word) | embeds **freedom liberty** — articles and conjunctions are dropped so they don't dilute the match |
-| `man in the middle` | *man… in… the… middle…* (prefix, any) | embeds **man in the middle** — prepositions like *in* are kept because they carry meaning |
+| `man in the middle` | *man… in… the… middle…* (prefix, any) | embeds **man in middle** — the article *the* is dropped, but the preposition *in* is kept (prepositions carry meaning) |
+| `"man in the middle"` | only documents with that exact phrase (case-insensitive) | requires the exact phrase first, then ranks that set by meaning |
 | a person's name, e.g. `fred` | tokens starting *fred* — Frederick, Fredonia… | fuzzy: may surface look-alikes (e.g. *Fedora*) because short tokens embed loosely — use **Keyword** for names |
 
 ### Quotes = exact phrase
 
-Wrap words in `"..."` (or `'...'`) to require that **exact consecutive phrase**. `"machine learning"` matches only documents where those two words appear together in that order, not documents that merely mention *machine* and *learning* separately. This works in every mode — in Semantic/Both it acts as a presence filter first, then ranks the phrase-containing set by meaning. You can mix forms: `golang "import fmt"` means *the phrase "import fmt"* OR the loose word *golang*.
+Wrap words in `"..."` (or `'...'`) to require that **exact consecutive phrase** (matching is case-insensitive). `"machine learning"` matches only documents where those two words appear together in that order, not documents that merely mention *machine* and *learning* separately. This works in every mode — in Semantic/Both it acts as a presence filter first, then ranks the phrase-containing set by meaning. You can mix forms: `golang "import fmt"` means *the phrase "import fmt"* OR the loose word *golang*.
+
+Concretely, the quotes decide whether the small words count. **`"man in the middle"`** searches for that whole phrase, every word included. **`man in the middle`** (no quotes) in Semantic mode drops the article *the* before matching — it searches on *man*, *in*, *middle* — because only articles (*a/an/the*) and conjunctions (*and/or/but/nor/for/so/yet*) are treated as filler. Quote the phrase when the exact wording matters.
 
 ### Rules of thumb
 
