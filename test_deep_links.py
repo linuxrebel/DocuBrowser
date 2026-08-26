@@ -382,6 +382,15 @@ def test_max_passages_caps_and_flags_truncated():
     assert res["truncated"] is True, "expected truncated=True"
 
 
+def test_strip_stopwords():
+    """Articles/conjunctions dropped; content words and all-stopword queries kept."""
+    from deep_links import strip_stopwords
+    assert strip_stopwords("freedom and liberty") == "freedom liberty"
+    assert strip_stopwords("The rights of a person") == "rights of person"  # 'of' kept (preposition)
+    assert strip_stopwords("Ford theory") == "Ford theory"   # not over-stripped
+    assert strip_stopwords("the and or") == "the and or"      # all-stopword → unchanged
+
+
 def main():
     """Run every deep_links keyword-mode check; assert-based, no framework."""
     test_keyword_txt_line_location_and_match_span()
@@ -401,6 +410,7 @@ def main():
     test_empty_doc_returns_no_passages()
     test_semantic_ranks_passage_and_marks_query_term()
     test_max_passages_caps_and_flags_truncated()
+    test_strip_stopwords()
     print("PASS: deep_links — keyword (txt/code/md/html/xml/eml/docx/rtf/odt/ott/"
           "pdf/epub/mobi/djvu) + semantic, unsupported, empty, truncation")
 
