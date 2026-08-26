@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        1.2.0
+Version:        1.3.0
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
