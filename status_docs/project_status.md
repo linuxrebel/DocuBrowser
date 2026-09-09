@@ -1,11 +1,25 @@
 # DocuBrowse Project Status
 
-**Version**: v1.2.0  
-**Status**: 🟢 **v1.2.0 — Deep Links (in-document passage search); feature-complete, packaged for all platforms**  
-**Last Updated**: 2026-08-24  
+**Version**: v1.3.0  
+**Status**: 🟢 **v1.3.0 — Deep Links coverage + semantic tuning; feature-complete, packaged for all platforms**  
+**Last Updated**: 2026-08-25  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
+
+## v1.3.0 (2026-08-25) — Deep Links coverage + semantic tuning
+
+- **Deep Links format expansion** — HTML, Markdown, EPUB/MOBI/AZW3, DjVu, the
+  SGML/XML family, email, JSON/YAML, source code, and other text/markup formats
+  now do in-document passage search; non-prose falls back to opening in the
+  reader.
+- **Semantic tuning** — query articles/conjunctions stripped before embedding
+  ([[DECISIONS]] D-18); Deep Links semantic relevance floor + contentless-passage
+  drop + bounded embedding (no timeout on large docs); search-on-Enter (D-19).
+- **Dotfile handling (D-6)** — scanner skips dot-prefixed paths; new one-off
+  `purge_dotfiles.py` removes dotfiles left by older versions (dry-run default).
+- **Docs** — Search Tips and Tricks section added; quoted-vs-unquoted phrase +
+  case-insensitivity clarified; version bumped across README/spec/docubrowser.py.
 
 ## v1.2.0 (2026-08-24) — Deep Links
 
