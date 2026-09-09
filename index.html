@@ -395,12 +395,53 @@ let renderSeq = 0;
 let pageSize = parseInt(localStorage.getItem('db-page-size') || '50');
 let showHidden = false;
 
+// ── i18n: locale bootstrap ──────────────────────────────────────
+let LOCALE = {};
+let HAS_LETTER_INDEX = true;
+function t(key) { return LOCALE[key] || key; }
+async function loadLocale() {
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    LOCALE = cfg.locale || {};
+    document.documentElement.lang = cfg.lang || 'en';
+    HAS_LETTER_INDEX = cfg.lang !== 'ja';
+  } catch (e) {
+    LOCALE = {};
+    HAS_LETTER_INDEX = true;
+  }
+  applyStaticLocale();
+}
+
+function applyStaticLocale() {
+  const kwBtn = document.querySelector('[data-mode="keyword"]');
+  const semBtn = document.querySelector('[data-mode="semantic"]');
+  const bothBtn = document.querySelector('[data-mode="both"]');
+  if (kwBtn) kwBtn.textContent = t('mode_keyword');
+  if (semBtn) semBtn.textContent = t('mode_semantic');
+  if (bothBtn) bothBtn.textContent = t('mode_both');
+  if (input) input.placeholder = t('search_placeholder');
+  const gear = document.getElementById('gearBtn');
+  if (gear) {
+    gear.title = t('settings');
+    // Preserve the leading svg icon; replace only the trailing text node.
+    for (let i = gear.childNodes.length - 1; i >= 0; i--) {
+      if (gear.childNodes[i].nodeType === Node.TEXT_NODE) {
+        gear.childNodes[i].textContent = t('settings');
+        break;
+      }
+    }
+  }
+  const banner = document.getElementById('configBanner');
+  if (banner) banner.innerHTML = t('no_dir_banner');
+  applyTheme(html.getAttribute('data-theme') || 'dark');
+}
+
 // When Show 🙈 is on, ask the server to include hidden docs; otherwise the
 // server excludes them so each page stays full of visible docs.
 function hiddenParam() { return showHidden ? '&include_hidden=1' : ''; }
 
 function showHiddenHtml() {
-  const label = showHidden ? 'Hide' : 'Show';
+  const label = showHidden ? t('hide_hidden') : t('show_hidden');
   return ` <button class="load-more-btn-inline" onclick="toggleShowHidden()" title="Show Hidden Cards">${label} 🙈</button>`;
 }
 
@@ -440,10 +481,10 @@ function applyTheme(theme) {
   html.setAttribute('data-theme', theme);
   if (theme === 'dark') {
     themeIcon.innerHTML = MOON_PATH;  // dark mode → show sun to switch to light
-    themeLabel.textContent = 'Light';
+    themeLabel.textContent = t('light');
   } else {
     themeIcon.innerHTML = SUN_PATH;   // light mode → show moon to switch to dark
-    themeLabel.textContent = 'Dark';
+    themeLabel.textContent = t('dark');
   }
   localStorage.setItem('db-theme', theme);
 }
@@ -638,8 +679,8 @@ async function doSearch() {
 
     const startIdx = rawOffset + 1;
     const endIdx = rawOffset + docs.length;
-    const loadMoreBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Load More</button>` : '';
-    meta.innerHTML = `<span class="results-info"><b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> for "<b>${esc(q)}</b>" ${ms}ms ${loadMoreBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
+    const loadMoreBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">${t('load_more')}</button>` : '';
+    meta.innerHTML = `<span class="results-info"><b>${startIdx}-${endIdx}</b> ${t('of')} <b>${currentTotal}</b> ${t('search_for')} "<b>${esc(q)}</b>" ${ms}ms ${loadMoreBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
     grid.innerHTML = '';
     renderDocs(docs, true);
@@ -675,9 +716,9 @@ async function renderAll() {
 
     const endIdx = allDocs.length;
     const startIdx = currentOffset > 0 ? currentOffset - allDocs.length + 1 : 1;
-    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous page">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
-    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    meta.innerHTML = `<span class="results-title">All Documents</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
+    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous page">${t('back')}</button>` : `<button class="load-more-btn-inline" disabled style="opacity:0.3;">${t('back')}</button>`;
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">${t('next')}</button>` : `<button class="load-more-btn-inline" disabled style="opacity:0.3;">${t('next')}</button>`;
+    meta.innerHTML = `<span class="results-title">${t('all_documents')}</span><span class="results-info">${t('showing')} <b>${startIdx}-${endIdx}</b> ${t('of')} <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
     grid.innerHTML = '';
     renderDocs(allDocs, false);  // false = don't show score badges
@@ -711,6 +752,11 @@ async function getActiveLetters() {
 }
 
 async function renderIndexBar() {
+  if (!HAS_LETTER_INDEX) {
+    const existing = document.querySelector('.index-bar');
+    if (existing) existing.remove();
+    return;
+  }
   const letters = ['Home', '0-9', ...Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ')];
   const activeLetters = await getActiveLetters();
 
@@ -719,7 +765,7 @@ async function renderIndexBar() {
   indexBar.innerHTML = letters.map(letter => {
     if (letter === 'Home') {
       const active = (!currentQuery && !currentLetter) ? ' active' : '';
-      return `<button class="index-btn${active}" data-letter="Home" onclick="renderAll()" title="Back to All Documents">Home</button>`;
+      return `<button class="index-btn${active}" data-letter="Home" onclick="renderAll()" title="Back to All Documents">${t('home')}</button>`;
     }
     const has = activeLetters.size === 0 ||  // if fetch failed, enable all
                 (letter === '0-9' ? activeLetters.has('0') : activeLetters.has(letter));
@@ -763,9 +809,9 @@ async function filterByLetter(letter) {
 
     const endIdx = currentOffset;
     const startIdx = currentOffset > 0 ? currentOffset - docs.length + 1 : 0;
-    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous page">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
-    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    meta.innerHTML = `<span class="results-title">Starting with "${esc(letter)}"</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
+    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()" title="Load previous page">${t('back')}</button>` : `<button class="load-more-btn-inline" disabled style="opacity:0.3;">${t('back')}</button>`;
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()" title="Load next page">${t('next')}</button>` : `<button class="load-more-btn-inline" disabled style="opacity:0.3;">${t('next')}</button>`;
+    meta.innerHTML = `<span class="results-title">${t('starting_with')} "${esc(letter)}"</span><span class="results-info">${t('showing')} <b>${startIdx}-${endIdx}</b> ${t('of')} <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
 
     window.scrollTo(0, 0);
@@ -820,14 +866,14 @@ function renderDocs(docs, showScore, append = false) {
         ${extBadge}
       </div>
       <div class="doc-file-actions">
-        ${(isLocal || isTauri) ? `<button class="doc-open-btn" data-path="${esc(d.path)}">Open</button>` : ''}
+        ${(isLocal || isTauri) ? `<button class="doc-open-btn" data-path="${esc(d.path)}">${t('open')}</button>` : ''}
         ${currentQuery && currentQuery.trim() ? `<button class="doc-deeplinks-btn" data-path="${esc(d.path)}" data-title="${esc(titleText)}">Deep Links</button>` : ''}
         ${(!isLocal || isTauri) ? `<button class="doc-dl-btn" data-path="${esc(d.path)}">Download</button>` : ''}
         <span class="doc-action-icon doc-copy-btn" data-path="${esc(d.path)}" title="Copy link">📋</span>
         <span class="doc-action-icon doc-tag-btn" data-path="${esc(d.path)}" title="Add tags">🔖</span>
-        ${tags.some(t => t.toLowerCase() === 'hidden')
-          ? `<span class="doc-action-icon doc-unhide-btn" data-path="${esc(d.path)}" title="Unhide">👀</span>`
-          : `<span class="doc-action-icon doc-hide-btn" data-path="${esc(d.path)}" title="Hide">🙈</span>`}
+        ${tags.some(tg => tg.toLowerCase() === 'hidden')
+          ? `<span class="doc-action-icon doc-unhide-btn" data-path="${esc(d.path)}" title="${t('unhide')}">👀</span>`
+          : `<span class="doc-action-icon doc-hide-btn" data-path="${esc(d.path)}" title="${t('hide')}">🙈</span>`}
         <span class="doc-action-icon doc-delete-btn" data-path="${esc(d.path)}" title="Remove document…">❌</span>
       </div>
       ${desc ? `<div class="doc-desc">${esc(desc)}</div>` : ''}
@@ -880,10 +926,10 @@ async function loadMoreTop() {
     // Rebuild meta with proper count display
     const endIdx = currentOffset;
     const startIdx = currentOffset - docs.length + 1;
-    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
-    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    const title = currentQuery ? 'Search Results' : (currentLetter ? `Starting with "${esc(currentLetter)}"` : 'All Documents');
-    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
+    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">${t('back')}</button>` : `<button class="load-more-btn-inline" disabled style="opacity:0.3;">${t('back')}</button>`;
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">${t('next')}</button>` : `<button class="load-more-btn-inline" disabled style="opacity:0.3;">${t('next')}</button>`;
+    const title = currentQuery ? t('search_results') : (currentLetter ? `${t('starting_with')} "${esc(currentLetter)}"` : t('all_documents'));
+    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">${t('showing')} <b>${startIdx}-${endIdx}</b> ${t('of')} <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
 
     window.scrollTo(0, 0);
@@ -929,10 +975,10 @@ async function loadMorePrev() {
     // Rebuild meta with proper count display
     const endIdx = currentOffset;
     const startIdx = currentOffset - docs.length + 1;
-    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
-    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    const title = currentQuery ? 'Search Results' : (currentLetter ? `Starting with "${esc(currentLetter)}"` : 'All Documents');
-    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
+    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">${t('back')}</button>` : `<button class="load-more-btn-inline" disabled style="opacity:0.3;">${t('back')}</button>`;
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">${t('next')}</button>` : `<button class="load-more-btn-inline" disabled style="opacity:0.3;">${t('next')}</button>`;
+    const title = currentQuery ? t('search_results') : (currentLetter ? `${t('starting_with')} "${esc(currentLetter)}"` : t('all_documents'));
+    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">${t('showing')} <b>${startIdx}-${endIdx}</b> ${t('of')} <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
 
     window.scrollTo(0, 0);
@@ -976,10 +1022,10 @@ async function reloadCurrentPage() {
 
     const endIdx = currentOffset;
     const startIdx = docs.length ? currentOffset - docs.length + 1 : 0;
-    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
-    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
-    const title = currentQuery ? 'Search Results' : (currentLetter ? `Starting with "${esc(currentLetter)}"` : 'All Documents');
-    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
+    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">${t('back')}</button>` : `<button class="load-more-btn-inline" disabled style="opacity:0.3;">${t('back')}</button>`;
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">${t('next')}</button>` : `<button class="load-more-btn-inline" disabled style="opacity:0.3;">${t('next')}</button>`;
+    const title = currentQuery ? t('search_results') : (currentLetter ? `${t('starting_with')} "${esc(currentLetter)}"` : t('all_documents'));
+    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">${t('showing')} <b>${startIdx}-${endIdx}</b> ${t('of')} <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
     await renderIndexBar();
   } catch (e) {
     console.error('Reload page error:', e);
@@ -1066,7 +1112,7 @@ async function showSynopsis(path, title) {
     bodyEl.textContent = 'Still working… this can take a bit longer the first time after a restart.';
   }, 6000);
   const reassureTimer2 = setTimeout(() => {
-    bodyEl.textContent = 'Still generating… the AI model may still be loading into memory. Hang tight.';
+    bodyEl.textContent = t('synopsis_generating');
   }, 25000);
 
   try {
@@ -1405,7 +1451,7 @@ async function unhideDoc(path, el) {
 const gearBtn = document.getElementById('gearBtn');
 
 // ── Initialize ────────────────────────────────────────────────
-renderAll();
+loadLocale().then(renderAll);
 
 // ── Delete / remove document ─────────────────────────────────────────────────
 let _delPath = null;

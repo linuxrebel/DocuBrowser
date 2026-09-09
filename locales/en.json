@@ -20,5 +20,7 @@
   "light": "Light",
   "dark": "Dark",
   "no_dir_banner": "No document directory configured yet. Click the <strong>Settings</strong> (gear) icon above and set a document directory to get started.",
-  "synopsis_generating": "Still generating… the AI model may still be loading into memory. Hang tight."
+  "synopsis_generating": "Still generating… the AI model may still be loading into memory. Hang tight.",
+  "load_more": "Load More",
+  "search_for": "for"
 }
