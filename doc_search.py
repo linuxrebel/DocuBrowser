@@ -60,7 +60,7 @@ from scan_docs import (                                                  # noqa:
     purge_path_prefix,
 )
 from deep_links import locate_passages, strip_stopwords                  # noqa: E402
-from lang_models import resolve, config_lang                            # noqa: E402
+from lang_models import resolve, config_lang, lang_from_config          # noqa: E402
 # pylint: enable=wrong-import-position
 
 try:
@@ -75,6 +75,18 @@ def _default_data_dir() -> Path:
         return APP_DIR
     USER_DATA.mkdir(parents=True, exist_ok=True)
     return USER_DATA
+
+
+def load_locale(lang):
+    """Return the locale string map for *lang*, falling back to English."""
+    locales_dir = APP_DIR / "locales"
+    path = locales_dir / f"{lang}.json"
+    if not path.exists():
+        path = locales_dir / "en.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 __all__ = [
@@ -1663,6 +1675,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 config["port"] = int(val)
             except ValueError:
                 pass
+        elif key == "lang":
+            config["lang"] = val.lower()
 
     def handle_config(self):
         """GET /api/config - Return current configuration."""
@@ -1705,6 +1719,14 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 config["port"] = int(env_port)
             except ValueError:
                 pass
+        env_lang = os.environ.get("DOCUBROWSE_LANG")
+        if env_lang:
+            config["lang"] = env_lang.strip().lower()
+
+        active_lang = lang_from_config(config)
+        config["lang"] = active_lang
+        config["locale"] = load_locale(active_lang)
+
         self.json_response(config)
 
     def handle_config_post(self):
