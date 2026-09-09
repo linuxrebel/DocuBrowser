@@ -992,7 +992,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             valid = _valid_doc_ids(conn)
             kw_scores = {k: v for k, v in kw_scores.items() if k in valid}
         # Semantic embedding drops articles/conjunctions (keyword/FTS keeps q).
-        sem_scores = (_semantic_scores(conn, embed_text(strip_stopwords(q)))
+        sem_scores = (_semantic_scores(conn, embed_text(strip_stopwords(q, _ACTIVE_LANG)))
                       if mode in ('both', 'semantic') else {})
 
         # Build the scored candidate set per mode: (doc_id, final, fts, sem)
@@ -1452,6 +1452,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             result = locate_passages(
                 path, q, mode,
                 embed_fn=embed_texts if mode == 'semantic' else None,
+                lang=_ACTIVE_LANG,
             )
         except (URLError, socket.timeout, OSError, ValueError, json.JSONDecodeError) as e:
             self.json_response({"ok": False, "error": f"Deep Links failed: {e}"})

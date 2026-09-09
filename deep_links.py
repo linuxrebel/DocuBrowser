@@ -23,6 +23,8 @@ import subprocess
 import warnings
 from pathlib import Path
 
+from lang_models import resolve
+
 try:
     import docx as _docx           # python-docx (imported as ``docx``)
 except ImportError:
@@ -101,24 +103,18 @@ def _has_content(text):
     return sum(c.isalpha() for c in text) >= 2
 
 
-# Articles + coordinating conjunctions (FANBOYS). Stripped from a query before
-# it is embedded for semantic search: they carry little meaning and dilute the
-# query vector (e.g. "freedom and liberty" embeds better without "and").
-_STOPWORDS = frozenset({
-    "a", "an", "the",
-    "and", "or", "but", "nor", "for", "so", "yet",
-})
-
-
-def strip_stopwords(query):
-    """Drop articles/conjunctions from *query* for semantic embedding.
+def strip_stopwords(query, lang="en"):
+    """Drop the active language's stopwords from *query* for semantic embedding.
 
     Keyword/FTS search keeps the original query; this only shapes the vector
     fed to the embedder. Returns the original query unchanged if filtering would
-    empty it (an all-stopword query still embeds to something).
+    empty it (an all-stopword query still embeds to something). English strips
+    articles + coordinating conjunctions (FANBOYS); Japanese is a no-op in v1
+    (particle segmentation is nontrivial — see lang_models._JA_STOPWORDS).
     """
+    stopwords = resolve(lang)["stopwords"]
     kept = [w for w in query.split()
-            if re.sub(r"[^a-z]", "", w.lower()) not in _STOPWORDS]
+            if re.sub(r"[^a-z]", "", w.lower()) not in stopwords]
     return " ".join(kept) if kept else query
 
 
@@ -454,7 +450,7 @@ def _semantic_passage(text, location, score, tokens):
     }
 
 
-def _semantic_passages(units, query, embed_fn, max_passages):
+def _semantic_passages(units, query, embed_fn, max_passages, lang="en"):
     """Rank passages by cosine similarity of their embeddings to the query.
 
     Only the first ``_SEMANTIC_SCAN_CAP`` passages are embedded, to keep the
@@ -466,7 +462,7 @@ def _semantic_passages(units, query, embed_fn, max_passages):
         return {"passages": [], "truncated": False}
 
     scanned = units[:_SEMANTIC_SCAN_CAP]
-    vecs = embed_fn([strip_stopwords(query), *(text for _, text in scanned)])
+    vecs = embed_fn([strip_stopwords(query, lang), *(text for _, text in scanned)])
     qvec = vecs[0]
 
     scored = []
@@ -485,7 +481,7 @@ def _semantic_passages(units, query, embed_fn, max_passages):
     return {"passages": passages, "truncated": truncated}
 
 
-def locate_passages(path, query, mode, *, max_passages=200, embed_fn=None):
+def locate_passages(path, query, mode, *, max_passages=200, embed_fn=None, lang="en"):
     """
     Locate the passages in *path* that match *query*.
 
@@ -506,5 +502,5 @@ def locate_passages(path, query, mode, *, max_passages=200, embed_fn=None):
 
     units = [u for u in iterator(path) if _has_content(u[1])]
     if mode == "semantic":
-        return _semantic_passages(units, query, embed_fn, max_passages)
+        return _semantic_passages(units, query, embed_fn, max_passages, lang=lang)
     return _keyword_passages(units, query, max_passages)
