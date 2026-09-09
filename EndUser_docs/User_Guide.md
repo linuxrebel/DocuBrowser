@@ -19,6 +19,7 @@
 9. [Settings](#9-settings)
    - [Document Directories](#document-directories)
    - [Ignored Directories](#ignored-directories)
+   - [Language](#language)
    - [Other Settings](#other-settings)
 10. [Dark and Light Mode](#10-dark-and-light-mode)
 11. [Troubleshooting](#11-troubleshooting)
@@ -187,6 +188,10 @@ Click the currently active letter again to return to All Documents. Alternativel
 
 The index bar stays visible and functional while you are viewing search results, letter-filtered results, or the full document list.
 
+**Note:** the index bar is hidden when DocuBrowse is set to Japanese — Japanese
+titles are not reliably A–Z sortable, and a reading-based (kana) index is not
+yet available in this version.
+
 ---
 
 ## 8. Deleting a Document
@@ -229,6 +234,22 @@ To exclude a directory, type its path or click **Browse…** to navigate to it, 
 To remove a directory from the exclusion list, click the **✕** next to it. This does not immediately re-index those documents — run a rescan to bring them back.
 
 Currently excluded directories are shown in the **Currently excluded directories** list.
+
+### Language
+
+The **General** panel has a **Language** dropdown. DocuBrowse serves one
+language at a time for its interface and search — currently **English** and
+**Japanese**.
+
+To switch languages, pick the new language from the dropdown and click
+**Save**. The interface text switches immediately. If the new language uses
+a different search engine under the hood than the old one (this is the case
+switching between English and Japanese), you will see a warning that
+existing documents need to be re-indexed for full search quality — until
+your administrator runs a rescan, documents indexed under the old language
+may not show up correctly in keyword or semantic search results under the
+new one. Newly scanned documents are always indexed correctly for whichever
+language is currently selected.
 
 ### Other Settings
 

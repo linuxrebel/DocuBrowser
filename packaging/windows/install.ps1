@@ -45,6 +45,7 @@ $DevAppFiles = @(
     "pdf_extractor.py","docx_extractor.py","pptx_extractor.py","xlsx_extractor.py",
     "ebook_extractor.py","hardware_utils.py","docubrowse_db.py","purge_pii.py",
     "backup_restore.py","ensure_ollama.py","dup_detect.py","platform_paths.py",
+    "lang_models.py",
     "index.html","settings.html","requirements.txt","README.md","LICENSE","INSTALL.md"
 )
 
@@ -141,6 +142,8 @@ if ($DevMode) {
         $src = Join-Path $SrcAppDir $f
         if (Test-Path $src) { Copy-Item $src $AppDir -Force }
     }
+    $localesSrc = Join-Path $SrcAppDir "locales"
+    if (Test-Path $localesSrc) { Copy-Item $localesSrc $AppDir -Recurse -Force }
 } else {
     Copy-Item -Path (Join-Path $SrcAppDir "*") -Destination $AppDir -Recurse -Force
 }

@@ -58,6 +58,7 @@ APP_FILES=(
     eml_extractor.py csv_extractor.py rtf_extractor.py djvu_extractor.py
     hardware_utils.py docubrowse_db.py purge_pii.py purge_dotfiles.py
     backup_restore.py ensure_ollama.py dup_detect.py platform_paths.py
+    lang_models.py
     index.html settings.html
     requirements.txt du-docs.db.example
     README.md LICENSE INSTALL.md
@@ -74,6 +75,7 @@ done
 # Directories
 cp -a icons "$STAGE_DIR/" 2>/dev/null || echo "WARNING: icons/ not found."
 cp -a EndUser_docs "$STAGE_DIR/" 2>/dev/null || echo "WARNING: EndUser_docs/ not found."
+cp -a locales "$STAGE_DIR/" 2>/dev/null || echo "WARNING: locales/ not found."
 
 # Desktop entry
 cp packaging/docubrowser.desktop "$STAGE_DIR/" 2>/dev/null || echo "WARNING: docubrowser.desktop not found."

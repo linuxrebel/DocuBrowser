@@ -33,7 +33,7 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 | | | |
 |---|---|---|
 | [Features](#features) | [Search Tips and Tricks](#search-tips-and-tricks) | [Screenshots](#screenshots) |
-| [Quick Start](#quick-start) | | |
+| [Quick Start](#quick-start) | [Languages](#languages) | |
 | [CLI Reference](#cli-reference) | [Configuration](#configuration) | [Architecture](#architecture) |
 | [API Endpoints](#api-endpoints) | [Search Algorithm](#search-algorithm) | [Security](#security) |
 | [File Structure](#file-structure) | [Troubleshooting](#troubleshooting) | [Known Limitations](#known-limitations) |
@@ -433,6 +433,7 @@ doc_dir      = /mnt/data/Documents
 db_path      = /home/user/DocuBrowse/du-docs.db
 port         = 8643
 work_dir     = /home/user/DocuBrowse
+lang         = en
 ```
 
 ### Defaults
@@ -443,6 +444,7 @@ work_dir     = /home/user/DocuBrowse
 | `db_path` | `<script dir>/du-docs.db` |
 | `port` | `8643` |
 | `work_dir` | `<script dir>` |
+| `lang` | `en` — see [Languages](#languages) |
 
 ### Environment Variables
 
@@ -466,6 +468,51 @@ omitted, so a container entrypoint can start the server with env alone.
 (for example `http://ollama:11434` in Docker Compose).
 
 There is still no user login. Trusted peers can call the full API; put auth in your reverse proxy or BFF and never publish DocuBrowse's port.
+
+---
+
+## Languages
+
+[↑ Top](#top)
+
+A DocuBrowse install serves **one** language at a time — the interface, the
+FTS tokenizer, the embedding model, and the synopsis model are all selected
+for that one language. This is a per-install setting, not a per-document one:
+DocuBrowse assumes the configured document directory is overwhelmingly one
+language, and does not support mixed-language corpora or per-document
+language detection.
+
+**Currently supported:** English (`en`, default) and Japanese (`ja`).
+Japanese uses the `bge-m3` multilingual embedding model and FTS5's `trigram`
+tokenizer instead of the default `unicode61` tokenizer — Japanese text has no
+spaces between words, so `unicode61` can't segment it into searchable tokens;
+`trigram` indexes overlapping 3-character sequences instead, which supports
+substring matching without needing word boundaries.
+
+**Choosing a language:**
+
+- **At install time** — `install.sh` asks "English or Japanese?" on a fresh
+  install. Answer non-interactively with `DOCUBROWSE_LANG=en` or
+  `DOCUBROWSE_LANG=ja`. **Upgrades never re-prompt** — an existing `lang`
+  value in `docubrowse.config` is always preserved. (The platform installers
+  — Windows/macOS/RPM/DEB — default new installs to `lang = en`; change it
+  afterward via Settings.)
+- **After install** — open the web UI, click the Settings (gear) icon, and
+  use the language dropdown in the General panel (calls `POST
+  /api/language`). Switching to a language that uses a different embedder or
+  FTS tokenizer (e.g. English ↔ Japanese) shows a warning: existing documents
+  keep their old embeddings and FTS index until you re-run `docubrowser
+  rescan` (or `embed_docs.py`) to rebuild them for the new language — search
+  quality is degraded for previously-indexed documents until then.
+
+**Not yet supported:** mixed-language or per-document language corpora,
+languages beyond English/Japanese (the `LANG_MODELS` table in
+`lang_models.py` plus a `locales/<code>.json` file is the whole mechanism, so
+adding one is a data change, not a code change), a kana/reading-based (or
+pinyin) index bar for CJK document lists (the A–Z/0–9 letter index bar is
+hidden for Japanese in this version), and Japanese "My Number" PII detection
+(only US PII patterns are implemented today). See `status_docs/DECISIONS.md`
+for the full rationale.
 
 ---
 
@@ -868,7 +915,8 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Hidden files/dotfiles not indexed | By design — any file with a dot-prefixed path component (`.env`, `.bashrc`, and the contents of hidden dirs like `.git/`/`.venv/`) is skipped at scan time. Dotfiles indexed by an **older** version are **not** auto-removed by a rescan (the files still exist on disk); run the standalone `purge_dotfiles.py` tool (or rebuild the index) to purge them |
 | No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure |
 | Semantic *ranking* is document-level | Whole-document embeddings rank *which* documents match; **Deep Links** then pinpoints *where* inside any result on demand. Corpus-wide chunk-level ranking remains future work |
-| English only | Keyword search, tag generation, and synopsis prompts assume English content; multi-language support is planned (see `status_docs/DECISIONS.md`) |
+| No mixed-language corpora | One install serves one language (English or Japanese, chosen at install time or via Settings); per-document language detection or mixed-language corpora are not supported. See [Languages](#languages) |
+| PII detection is US-pattern only | `purge_pii.py` detects US formats (SSN, phone, etc.); Japanese "My Number" and other non-US PII patterns are not yet implemented |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 
 ---

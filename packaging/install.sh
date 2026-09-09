@@ -70,6 +70,7 @@ echo "==> Deploying application files to $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$INSTALL_DIR/icons"
 mkdir -p "$INSTALL_DIR/EndUser_docs"
+mkdir -p "$INSTALL_DIR/locales"
 
 # Copy all app files from the tarball directory
 APP_FILES=(
@@ -79,6 +80,7 @@ APP_FILES=(
     eml_extractor.py csv_extractor.py rtf_extractor.py djvu_extractor.py
     hardware_utils.py docubrowse_db.py purge_pii.py purge_dotfiles.py
     backup_restore.py ensure_ollama.py dup_detect.py platform_paths.py
+    lang_models.py
     index.html settings.html
     requirements.txt du-docs.db.example
     README.md LICENSE INSTALL.md
@@ -102,6 +104,13 @@ fi
 if [[ -d "$SRC_DIR/EndUser_docs" ]]; then
     for f in "$SRC_DIR"/EndUser_docs/*; do
         [[ -f "$f" ]] && install -m 644 "$f" "$INSTALL_DIR/EndUser_docs/"
+    done
+fi
+
+# Locales
+if [[ -d "$SRC_DIR/locales" ]]; then
+    for f in "$SRC_DIR"/locales/*; do
+        [[ -f "$f" ]] && install -m 644 "$f" "$INSTALL_DIR/locales/"
     done
 fi
 

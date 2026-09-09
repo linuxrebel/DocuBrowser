@@ -7,6 +7,52 @@
 
 ---
 
+## i18n / Japanese language support (2026-09-09)
+
+The 10-task multi-language implementation plan is complete. DocuBrowse now
+serves English or Japanese as a per-install choice (`lang` in
+`docubrowse.config`, default `en`) — see [[DECISIONS]] D-1 (resolved),
+D-20–D-23 for the design decisions and explicitly deferred scope.
+
+- **Language resolution** — new `lang_models.py` (`LANG_MODELS`,
+  `SUPPORTED_LANGS`, `resolve()`, `lang_from_config()`, `config_lang()`)
+  is the single source of truth for per-language embedder, synopsis model,
+  and FTS5 tokenizer selection.
+- **Japanese stack** — `bge-m3` embedding model,
+  `fuukeidaisuki/nvidia-nemotron-nano-9b-v2-japanese:latest` synopsis model,
+  FTS5 `trigram` tokenizer (Japanese has no word-space segmentation, so the
+  default `unicode61` tokenizer can't index it). `ensure_ollama.py`
+  provisions the right model set per configured language.
+- **UI locale layer** — new `locales/en.json` / `locales/ja.json`, served via
+  `/api/config`; full `t()` translation layer added to `index.html`. A–Z/0–9
+  index bar is hidden for Japanese (no kana/reading index yet).
+- **Language-aware stopwords and FTS** — keyword scoring and tag generation
+  are stopword-list-aware per language.
+- **Settings language switcher** — `POST /api/language` in `doc_search.py`;
+  General panel dropdown in `settings.html` warns that switching between
+  languages with different embedders/tokenizers needs a `rescan` to
+  re-embed/rebuild the FTS index for full search quality.
+- **First-run + install-time prompt** — `resolve_or_prompt_lang()` in
+  `docubrowser.py` prompts on a fresh interactive first run;
+  `install.sh` asks "English or Japanese?" at install time
+  (`DOCUBROWSE_LANG` for non-interactive answers). Upgrades never re-prompt —
+  an existing `lang` is always preserved.
+- **Packaging** — `lang_models.py` and `locales/` added to every packaging
+  manifest that already lists `embed_docs.py` (Windows installer, macOS dmg
+  builder, RPM/DEB/tarball build script, tarball `install.sh`, the RPM spec).
+- **Docs** — README (new Languages section + Known Limitations rewording),
+  INSTALL.md, and both `EndUser_docs/` guides updated; no doc still claims
+  English-only.
+
+Deferred (see D-23): Japanese "My Number" PII detection (`purge_pii.py` is
+still US-patterns-only), a kana/reading-based (or pinyin) CJK index bar,
+per-document/mixed-language corpora, languages beyond en/ja, and RTL
+language support.
+
+**Note:** `status_docs/DECISIONS.md` must also be synced to the separate
+Enterprise repo — that sync is still pending (out of scope for the FOSS-repo
+session that did this work).
+
 ## v1.3.0 (2026-08-25) — Deep Links coverage + semantic tuning
 
 - **Deep Links format expansion** — HTML, Markdown, EPUB/MOBI/AZW3, DjVu, the

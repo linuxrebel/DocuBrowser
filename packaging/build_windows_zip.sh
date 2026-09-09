@@ -81,6 +81,7 @@ APP_FILES=(
     ensure_ollama.py
     dup_detect.py
     platform_paths.py
+    lang_models.py
     index.html
     settings.html
     requirements.txt
@@ -103,6 +104,11 @@ done
 # Icons
 if [[ -d "icons" ]]; then
     cp -r icons "$DIST_DIR/app/"
+fi
+
+# Locales
+if [[ -d "locales" ]]; then
+    cp -r locales "$DIST_DIR/app/"
 fi
 
 # ── Installer files ───────────────────────────────────────────────────────────

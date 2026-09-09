@@ -45,6 +45,7 @@
    - 5.3 [ignore_dirs.txt](#53-ignore_dirstxt)
    - 5.4 [scan_blacklist.txt](#54-scan_blacklisttxt)
    - 5.5 [pii_blacklist.txt](#55-pii_blacklisttxt)
+   - 5.6 [Language and Localization](#56-language-and-localization)
 6. [Running as a System Service](#6-running-as-a-system-service)
 7. [Log Files](#7-log-files)
 8. [Hardware Tuning](#8-hardware-tuning)
@@ -603,6 +604,7 @@ db_path      = /home/user/DocuBrowse/du-docs.db
 port         = 8643
 work_dir     = /home/user/DocuBrowse
 allow_remote = false
+lang         = en
 ```
 
 **Keys:**
@@ -614,6 +616,7 @@ allow_remote = false
 | `port` | `8643` | HTTP server port |
 | `work_dir` | `<script dir>` | Working directory (where blacklist files are stored) |
 | `allow_remote` | `false` | `true` binds to all interfaces for LAN access; `false` binds `127.0.0.1` only |
+| `lang` | `en` | Interface, FTS tokenizer, embedding model, and synopsis model language. `en` or `ja`. See [5.6 Language and Localization](#56-language-and-localization). |
 
 `doc_dir` is the primary scan directory. Additional scan directories are managed via the Settings page or `scan_dirs.txt` and are unified with `doc_dir` automatically on every `scan`/`rescan`.
 
@@ -702,6 +705,61 @@ Lists files removed by the `purge` command for containing PII. This file is perm
 This file is distinct from `scan_blacklist.txt`: `scan_blacklist.txt` covers extraction failures and can be retried; `pii_blacklist.txt` covers deliberate PII removals and cannot be bypassed.
 
 **Location:** next to `du-docs.db`
+
+### 5.6 Language and Localization
+
+DocuBrowse is per-install, single-language: the `lang` key in
+`docubrowse.config` selects the interface language *and* the search stack —
+the FTS5 tokenizer, the embedding model, and the synopsis-generation model.
+It is **not** a per-document or per-corpus setting; a single install cannot
+mix languages, and there is no automatic per-document language detection.
+Currently supported values are `en` (English, default) and `ja` (Japanese).
+
+**Setting it:**
+
+- **Fresh install.** The repo-root `./install.sh` prompts "English or
+  Japanese?" interactively, or non-interactively via
+  `DOCUBROWSE_LANG=en`/`DOCUBROWSE_LANG=ja`, and writes the choice into
+  `docubrowse.config`. Packaged installers (RPM/DEB/tarball/Windows/macOS)
+  default new installs to `lang = en`.
+- **Existing install.** An upgrade **never** re-prompts and **never**
+  overwrites an existing `lang` value — whatever is already in
+  `docubrowse.config` is preserved across upgrades.
+- **Changing it later.** An administrator (or any user with access to
+  Settings) can switch languages from the **General** panel of the Settings
+  page, which calls `POST /api/language` and rewrites `lang` in
+  `docubrowse.config`.
+
+**Re-indexing after a switch.** Switching between languages that use
+different embedders/tokenizers (English and Japanese use different ones)
+does not retroactively re-embed or re-tokenize already-indexed documents.
+The Settings UI warns about this at switch time. Run `docubrowser rescan`
+(or `embed_docs.py` directly) afterward to rebuild embeddings and the FTS
+index under the new language — until that runs, previously-indexed
+documents may rank poorly or be missed by keyword/semantic search under the
+new language, though the interface text itself switches immediately.
+
+**Japanese specifics.** Japanese uses the `bge-m3` multilingual embedding
+model (instead of `nomic-embed-text`) and FTS5's `trigram` tokenizer
+(instead of `unicode61`). Japanese text has no spaces between words, so
+`unicode61` cannot segment it into indexable tokens; `trigram` indexes
+overlapping 3-character sequences instead, which supports substring matching
+without needing word boundaries. The synopsis model for Japanese is
+`fuukeidaisuki/nvidia-nemotron-nano-9b-v2-japanese:latest`. `ensure_ollama.py`
+pulls the correct model set for whichever `lang` is configured.
+
+**Known gaps in this version:**
+
+- The A–Z/0–9 alphabetic index bar is hidden in the UI for Japanese — there
+  is no kana/reading-based (or pinyin) index in this version.
+- `purge_pii.py` only detects US PII patterns (SSN, phone, etc.); Japanese
+  "My Number" and other non-US PII patterns are not yet implemented.
+- Mixed-language or per-document corpora are not supported.
+- Languages beyond English/Japanese are not shipped, though the mechanism
+  (a row in `lang_models.py`'s `LANG_MODELS` table plus a
+  `locales/<code>.json` file) is designed to be additive.
+
+See `status_docs/DECISIONS.md` for the design rationale.
 
 ---
 
@@ -936,6 +994,10 @@ sudo apt install mupdf-tools    # Debian / Ubuntu
 
 DocuBrowse includes a post-ingest PII scanner that detects sensitive personal information in stored document descriptions and snippets. It is not a substitute for access controls or encryption, but it prevents inadvertently indexed PII from appearing in search results.
 
+The patterns below are all US formats. Japanese "My Number" (個人番号) and
+other non-US PII pattern types are not yet implemented — see
+[5.6 Language and Localization](#56-language-and-localization).
+
 ### PII Types Detected
 
 | Type | Validation |
@@ -1074,6 +1136,10 @@ On macOS, open the new dmg and run `Install.command` again — it overwrites the
 previous installation while preserving your data in `~/.docubrowser/`.
 
 No separate migration commands are needed. The schema auto-migrates at next startup.
+
+Every upgrade path above preserves the existing `lang` setting in
+`docubrowse.config` unchanged — you are never re-prompted for a language on
+an upgrade. See [5.6 Language and Localization](#56-language-and-localization).
 
 ---
 

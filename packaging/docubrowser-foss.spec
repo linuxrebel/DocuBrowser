@@ -30,6 +30,7 @@ rm -rf %{buildroot}
 install -d -m 755 %{buildroot}/opt/docubrowser
 install -d -m 755 %{buildroot}/opt/docubrowser/icons
 install -d -m 755 %{buildroot}/opt/docubrowser/EndUser_docs
+install -d -m 755 %{buildroot}/opt/docubrowser/locales
 
 # Python application files
 install -m 644 docubrowser.py       %{buildroot}/opt/docubrowser/
@@ -57,6 +58,7 @@ install -m 755 backup_restore.py    %{buildroot}/opt/docubrowser/
 install -m 644 ensure_ollama.py     %{buildroot}/opt/docubrowser/
 install -m 644 dup_detect.py        %{buildroot}/opt/docubrowser/
 install -m 644 platform_paths.py    %{buildroot}/opt/docubrowser/
+install -m 644 lang_models.py       %{buildroot}/opt/docubrowser/
 
 # Web UI
 install -m 644 index.html           %{buildroot}/opt/docubrowser/
@@ -64,6 +66,9 @@ install -m 644 settings.html        %{buildroot}/opt/docubrowser/
 
 # Icons
 install -m 644 icons/*              %{buildroot}/opt/docubrowser/icons/
+
+# Locales
+install -m 644 locales/*            %{buildroot}/opt/docubrowser/locales/
 
 # Support files
 install -m 644 requirements.txt     %{buildroot}/opt/docubrowser/
@@ -174,6 +179,7 @@ fi
 /opt/docubrowser/*.py
 /opt/docubrowser/*.html
 /opt/docubrowser/icons/
+/opt/docubrowser/locales/
 /opt/docubrowser/EndUser_docs/
 /opt/docubrowser/requirements.txt
 /opt/docubrowser/du-docs.db.example

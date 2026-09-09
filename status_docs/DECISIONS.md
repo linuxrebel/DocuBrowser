@@ -66,35 +66,6 @@ sandboxed browser). Current thinking is that Docker will only be viable as an
 The full decision record, code, and `docker/README.md` live on that branch —
 this is only a pointer. Not recommended for use; for experimentation only.
 
-### D-1: Multi-language / i18n support
-**Status:** Open — design needed  
-**Priority:** Medium  
-**Added:** 2026-07-02
-
-DocuBrowse currently assumes English content throughout:
-
-- **Keyword search** — FTS5 tokenizer uses Unicode61, which handles most scripts,
-  but BM25 weighting and prefix-matching are tuned for English word boundaries.
-  CJK and other non-whitespace-delimited languages need a custom tokenizer or
-  n-gram fallback.
-- **Tag generation** — `generate_keywords()` in `pdf_extractor.py` splits on
-  whitespace and filters short/common English words. Non-Latin scripts will
-  produce poor or no tags.
-- **Synopsis generation** — the Ollama prompt to `dolphin3` is English-only.
-  A multilingual model or language-detection + prompt routing would be needed.
-- **No-extension classifier** — `_classify_noext()` checks UTF-8 printability,
-  which works for most scripts, but the HTML heuristics look for English tag names
-  (these are language-neutral by spec, so this is fine).
-- **PII patterns** — regex patterns in `purge_pii.py` target US-format identifiers
-  (SSN, ABA routing, US driver license). Non-US PII formats are not detected.
-
-Approaches to consider:
-1. Language detection at scan time (e.g. `langdetect` or `lingua`) → store in DB
-2. Per-language FTS tokenizer selection (or ICU tokenizer for broad coverage)
-3. Multilingual embedding model (e.g. `multilingual-e5-large`) as an option
-4. Synopsis prompt templates keyed by detected language
-5. Locale-aware PII pattern sets
-
 ### D-2: Sliding window ETA for progress bar
 **Status:** Open  
 **Priority:** Low  
@@ -148,6 +119,121 @@ process unless `PYTHONUTF8=1` is set in the environment.
 ---
 
 ## Resolved
+
+### D-1: Multi-language / i18n support
+**Status:** Resolved — 2026-09-09
+**Priority:** Medium
+**Added:** 2026-07-02
+
+Shipped as a per-install language switch, with Japanese as the reference
+implementation alongside English. Originally scoped as an open design
+problem (FTS5 tokenizer tuned for English word boundaries, English-only tag
+generation and synopsis prompts, US-only PII patterns — see git history for
+the original problem statement). The design decisions that resolved it are
+recorded separately as D-20 through D-23; what remains explicitly out of
+scope is listed in D-23.
+
+### D-20: Per-install single-language architecture, not per-document/mixed-corpus
+**Status:** By design — resolved 2026-09-09
+**Priority:** Medium
+**Added:** 2026-09-09
+
+DocuBrowse serves exactly one language per install, selected via the `lang`
+key in `docubrowse.config` (default `en`). That one setting drives four
+things together: the UI locale (`locales/<code>.json`), the FTS5 tokenizer,
+the embedding model, and the synopsis-generation model — see `lang_models.py`
+(`LANG_MODELS`, `resolve()`, `lang_from_config()`, `config_lang()`,
+`SUPPORTED_LANGS`).
+
+This was a deliberate scope decision, not a stopgap: the target deployment is
+a single organization's document store, which in practice is overwhelmingly
+one language (the plan's working assumption is ~99.9%). Building per-document
+language detection, mixed-language ranking, and multi-tokenizer FTS in one
+database would have multiplied the surface area of this feature for a case
+that doesn't reflect how DocuBrowse is actually deployed. If a corpus is
+genuinely mixed-language, the documented workaround is separate DocuBrowse
+installs (separate `doc_dir`, separate `db_path`) per language — not
+supported natively. See D-23 for what a future mixed-corpus effort would need
+to add.
+
+### D-21: Japanese stack — `bge-m3` embedder + FTS5 `trigram` tokenizer
+**Status:** By design — resolved 2026-09-09
+**Priority:** Medium
+**Added:** 2026-09-09
+
+Japanese needed a different embedding model and a different FTS5 tokenizer
+than English, for two independent reasons:
+
+1. **FTS5 tokenizer.** The default `unicode61` tokenizer splits on
+   whitespace and punctuation boundaries. Japanese does not separate words
+   with spaces, so `unicode61` cannot segment Japanese text into meaningful
+   search tokens — it would treat entire sentences as one giant token, or
+   worse, split at arbitrary Unicode category boundaries that don't align
+   with word boundaries. FTS5's built-in `trigram` tokenizer sidesteps
+   segmentation entirely: it indexes every overlapping 3-character sequence,
+   which supports substring matching regardless of word boundaries — the
+   standard approach for CJK text in SQLite FTS5 without a custom
+   morphological tokenizer (e.g. MeCab) as a dependency.
+2. **Embedding model.** `nomic-embed-text` (the English default) is
+   English-trained and produces poor-quality vectors for Japanese text.
+   `bge-m3` is a strong general-purpose multilingual embedding model with
+   good Japanese coverage, so it was chosen as the Japanese embedder in
+   `LANG_MODELS`.
+3. **Synopsis model.** `fuukeidaisuki/nvidia-nemotron-nano-9b-v2-japanese:latest`
+   was chosen for Japanese synopsis generation over the English default
+   (`dolphin3`), which is not meaningfully fluent in Japanese.
+
+`ensure_ollama.py` provisions the correct model set for whichever `lang` is
+configured.
+
+### D-22: One package, not per-language packages
+**Status:** By design — resolved 2026-09-09
+**Priority:** Medium
+**Added:** 2026-09-09
+
+Every DocuBrowse package (RPM, DEB, tarball, Windows zip, macOS dmg) bundles
+**all** locale files (`locales/en.json`, `locales/ja.json`) and the full
+`lang_models.py` model table, regardless of which language the install ends
+up using. There are no separate `docubrowser-foss-ja` / `docubrowser-foss-en`
+packages. Language-specific Ollama models (`bge-m3`, the Japanese synopsis
+model, etc.) are **not** bundled in the package — they're pulled from Ollama
+at first run / provisioning time by `ensure_ollama.py`, same as the English
+models already were. This keeps the package build and release process
+single-track and keeps package size independent of how many languages are
+supported — adding a language only grows a package by one small JSON file
+plus a `LANG_MODELS` row, not a new build target.
+
+### D-23: Explicitly deferred scope for multi-language v1
+**Status:** Deferred — not started
+**Priority:** Low–Medium (see individual items)
+**Added:** 2026-09-09
+
+Scope intentionally left out of the Japanese-first multi-language release:
+
+1. **Japanese "My Number" (個人番号) PII detection.** `purge_pii.py` only
+   implements US-format PII patterns (SSN, ABA routing, US driver license,
+   etc.). Japanese's national ID number format is not detected. Adding it
+   means a new pattern + validation rule set, language-gated by `lang`.
+2. **Kana/reading-based (or pinyin) index bar for CJK.** The A–Z/0–9
+   alphabetic index bar in the UI is simply hidden when `lang = ja`, since
+   Japanese titles are not meaningfully A–Z sortable. A real solution needs
+   either stored kana readings (furigana) per document — not something most
+   source formats carry as metadata — or a client-side/server-side
+   romanization pass, neither of which was in scope here.
+3. **Per-document or mixed-language corpora.** See D-20 — this remains an
+   explicit non-goal, not just an unbuilt feature. A future attempt would
+   need per-document language tagging, multiple FTS5 tokenizer configs
+   coexisting in one database (or one FTS index per language), and a
+   document-level embedding-model routing layer.
+4. **Languages beyond English/Japanese.** Not a design gap — the mechanism
+   (`LANG_MODELS` row + `locales/<code>.json` file) is meant to make adding
+   a language a data change, not a code change. No third language has been
+   validated end-to-end yet, so this is listed as deferred work, not a
+   guarantee that the mechanism holds for every language without surprises
+   (e.g. RTL languages would need UI layout changes not covered by the
+   locale-JSON mechanism as built).
+5. **RTL (right-to-left) languages.** Not addressed at all — the UI locale
+   layer swaps strings, not layout direction/mirroring.
 
 ### D-19: Search fires on Enter, not as-you-type
 **Status:** Done — 2026-08-25

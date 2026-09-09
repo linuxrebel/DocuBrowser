@@ -91,6 +91,7 @@ APP_FILES=(
     ensure_ollama.py
     dup_detect.py
     platform_paths.py
+    lang_models.py
     index.html
     settings.html
     requirements.txt
@@ -111,6 +112,7 @@ done
 # Directories
 cp -R icons "$STAGE_DIR/app/" 2>/dev/null || echo "  WARNING: icons/ not found."
 cp -R EndUser_docs "$STAGE_DIR/app/" 2>/dev/null || echo "  WARNING: EndUser_docs/ not found."
+cp -R locales "$STAGE_DIR/app/" 2>/dev/null || echo "  WARNING: locales/ not found."
 
 # ── Installer files ───────────────────────────────────────────────────────────
 install -m 755 packaging/macos/Install.command   "$STAGE_DIR/"
