@@ -877,6 +877,26 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+## v1.3.0 (2026-08-25) — Deep Links coverage + semantic tuning
+
+- **Deep Links across many more formats** — HTML, Markdown, EPUB/MOBI/AZW3,
+  DjVu, the SGML/XML family, email, JSON/YAML, source code, and other
+  text/markup formats now support in-document passage search; non-prose
+  (spreadsheets, presentations, diagrams) falls back to opening in its reader.
+- **Semantic search tuning** — articles and conjunctions are stripped from the
+  query before embedding so filler words don't dilute the match; Deep Links
+  gained a semantic relevance floor and drops contentless passages (comment
+  markers, bare numbers), and its semantic embedding is bounded so large
+  documents no longer time out.
+- **Search on Enter** — search runs when you press Enter instead of
+  as-you-type; clearing the box shows all documents again.
+- **Dotfiles skipped (D-6)** — files with a dot-prefixed path component
+  (`.env`, `.git/`, `.venv/`) are no longer indexed. The new one-off
+  `purge_dotfiles.py` tool removes dotfiles left in the DB by older versions
+  (dry-run by default).
+- **Docs** — new Search Tips and Tricks section; quoted-vs-unquoted phrase
+  search and case-insensitivity clarified.
+
 ## v1.2.0 (2026-08-24) — Deep Links
 
 - **Deep Links — in-document passage search.** From any keyword or semantic
@@ -1330,4 +1350,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v1.2.0** — Fast, local, AI-powered document search.
+**DocuBrowse v1.3.0** — Fast, local, AI-powered document search.
