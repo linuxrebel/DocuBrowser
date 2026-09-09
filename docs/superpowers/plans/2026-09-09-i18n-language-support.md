@@ -868,6 +868,259 @@ git commit -m "docs(i18n): document language support; add lang_models.py + local
 
 ---
 
+---
+
+## How we got here — post-implementation findings (2026-09-09)
+
+Tasks 1–10 were implemented (a cowork subagent-driven session, commits
+`5713085..7e1c3f8`) and merged to `main`. A live Japanese test run against real
+docs then exposed two integration gaps the unit tests missed (they exercised
+`resolve()`/`init_db()` directly; nothing wired **config → runtime**). Both
+fixed and committed as `84a668b` (the clean baseline these follow-on tasks build
+on):
+
+1. **Tokenizer never threaded into `get_db`.** `get_db(db_path, lang="en")` and
+   *no* call site passed `lang`, so a `lang=ja` install built `doc_fts` with the
+   English tokenizer and JP keyword search returned nothing. Fixed: `get_db`
+   resolves the language from `config_lang()` once per process
+   (`_process_lang()` cache in `docubrowse_db.py`).
+2. **JP synopsis came back blank.** `nemotron-nano-9b-v2-japanese` is a hybrid
+   **reasoning** model; `generate_synopsis` spent the whole budget "thinking".
+   Fixed: `"think": false` in the synopsis payload (ignored by non-reasoning
+   models) + `SYNOPSIS_TIMEOUT_SECS` 90→180 for cold 9B loads.
+
+The same run surfaced the design flaw addressed below: **`trigram` can't match
+1–2 character CJK queries**, and 2-char kanji compounds are the common case.
+Tasks 11–13 implement the app-side bigram approach (spec **Addendum A**),
+replacing the trigram tokenizer for CJK — done now, before Chinese/Korean
+inherit the flaw.
+
+---
+
+## Global Constraints (Addendum A — supersedes the trigram constraint)
+
+- **CJK tokenization is app-side character bigrams**, not FTS5 `trigram`. CJK
+  languages (`ja`, `zh`, `ko`) use `tokenizer: "unicode61"` + a `cjk_ngram: True`
+  flag; text is bigram-expanded before indexing and queries bigram-expanded the
+  same way. European (`es`/`fr`/`de`/`nl`) stay `unicode61` + `remove_diacritics`,
+  `cjk_ngram` False.
+- **Bigram floor: 2+ CJK chars match**; single-char CJK queries do not exact-match
+  in Keyword mode (they surface via Both/semantic). Deliberate.
+- Zero new dependencies; changing CJK installs requires a **reindex** (only
+  Japanese exists, with test data).
+
+---
+
+### Task 11: CJK bigram segmentation helper + `cjk_ngram` flag
+
+**Files:**
+- Create: `cjk.py`
+- Modify: `lang_models.py` (`ja` entry: `tokenizer` → `"unicode61"`, add `cjk_ngram: True`; `en` and future European entries: `cjk_ngram: False`)
+- Test: `test_cjk.py`
+
+**Interfaces:**
+- Produces:
+  - `cjk.cjk_segment(text: str) -> str` — replaces each run of ≥2 CJK characters with space-joined overlapping bigrams; non-CJK spans and lone CJK chars pass through; CJK runs are space-delimited from neighbours. Used identically at index and query time.
+  - `LANG_MODELS[...]["cjk_ngram"]: bool` — True for CJK languages.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# test_cjk.py
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 James Sparenberg
+"""App-side CJK bigram segmentation. Run: python3 -m pytest test_cjk.py -v"""
+from cjk import cjk_segment
+from lang_models import LANG_MODELS
+
+
+def test_two_char_compound_becomes_one_bigram():
+    assert cjk_segment("品種") == "品種"
+
+
+def test_longer_run_overlapping_bigrams():
+    assert cjk_segment("機械学習") == "機械 械学 学習"
+
+
+def test_non_cjk_passes_through():
+    assert cjk_segment("hello world") == "hello world"
+
+
+def test_mixed_text_segments_only_cjk_runs():
+    # ASCII untouched; CJK run expanded; boundary whitespace collapses on split
+    assert cjk_segment("Linux は 機械学習").split() == ["Linux", "は", "機械", "械学", "学習"]
+
+
+def test_lone_cjk_char_passes_through():
+    assert cjk_segment("袋").strip() == "袋"
+
+
+def test_hangul_and_hanzi_runs():
+    assert cjk_segment("机器学习") == "机器 器学 学习"      # Chinese
+    assert cjk_segment("기계학습") == "기계 계학 학습"      # Korean
+
+
+def test_flags_present():
+    assert LANG_MODELS["ja"]["cjk_ngram"] is True
+    assert LANG_MODELS["ja"]["tokenizer"] == "unicode61"
+    assert LANG_MODELS["en"].get("cjk_ngram", False) is False
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `python3 -m pytest test_cjk.py -v`
+Expected: FAIL — `No module named 'cjk'` / missing `cjk_ngram`.
+
+- [ ] **Step 3: Implement**
+
+```python
+# cjk.py
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 James Sparenberg
+"""App-side CJK segmentation: expand runs of CJK characters into overlapping
+character bigrams so a whitespace tokenizer (unicode61) can match 2+ char CJK
+queries. Used identically at index time and query time."""
+import re
+
+# Hiragana/Katakana, CJK Unified (+ Ext A), CJK Compatibility, Hangul syllables.
+_CJK_RUN = re.compile(r'[぀-ヿ㐀-鿿豈-﫿가-힣]+')
+
+
+def _bigrams(run: str) -> str:
+    if len(run) < 2:
+        return run
+    return ' '.join(run[i:i + 2] for i in range(len(run) - 1))
+
+
+def cjk_segment(text: str) -> str:
+    """Return `text` with every CJK run replaced by space-joined bigrams,
+    padded with spaces so runs stay separate tokens under unicode61."""
+    if not text:
+        return text
+    return _CJK_RUN.sub(lambda m: ' ' + _bigrams(m.group(0)) + ' ', text).strip()
+```
+
+In `lang_models.py`, set `ja`'s `tokenizer` to `"unicode61"`, add `"cjk_ngram": True`; add `"cjk_ngram": False` to `en` (and document that European rows also set False).
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `python3 -m pytest test_cjk.py test_lang_models.py -v`
+Expected: PASS. (Update `test_lang_models.py::test_ja_stack_matches_spec` which currently asserts `tokenizer == "trigram"` → `"unicode61"` and add `cjk_ngram is True`.)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add cjk.py lang_models.py test_cjk.py test_lang_models.py
+git commit -m "feat(i18n): app-side CJK bigram segmentation + cjk_ngram flag"
+```
+
+---
+
+### Task 12: Wire bigram segmentation into index + query paths
+
+**Files:**
+- Modify: `docubrowse_db.py` (`init_db` tokenizer clause: CJK now → `unicode61`, driven by `resolve(lang)["tokenizer"]` which Task 11 changed; no trigram branch needed for CJK)
+- Modify: `scan_docs.py` (before the `doc_fts` insert at ~820: segment the FTS field values when the active language has `cjk_ngram`)
+- Modify: `doc_search.py` (`_keyword_scores` / FTS `MATCH` builder: segment the query when `cjk_ngram`)
+- Test: `test_cjk_search.py`
+
+**Interfaces:**
+- Consumes: `cjk.cjk_segment` (Task 11), `resolve`/`config_lang` (existing), `_process_lang()` (existing).
+- Produces: index-time and query-time segmentation gated on `resolve(active_lang)["cjk_ngram"]`. A module-level `_CJK = resolve(_process_lang()).get("cjk_ngram", False)` in `scan_docs.py`/`doc_search.py` mirrors how `_ACTIVE_LANG` is resolved.
+
+Segment the **text-bearing** FTS columns only (`title`, `subject`, `description`, `content_snippet`, `tags`) — not `name`/`author` (filenames/names shouldn't be bigrammed). Do it in a small local helper so index and query use the exact same transform.
+
+- [ ] **Step 1: Write the failing test (end-to-end via get_db + a real MATCH)**
+
+```python
+# test_cjk_search.py
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 James Sparenberg
+"""2-char CJK keyword queries match end-to-end. Run: python3 -m pytest test_cjk_search.py -v"""
+import tempfile, sqlite3
+from pathlib import Path
+import docubrowse_db
+from cjk import cjk_segment
+
+
+def test_two_char_cjk_query_matches(monkeypatch):
+    monkeypatch.setenv("DOCUBROWSE_LANG", "ja")
+    docubrowse_db._default_lang = None
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            db = str(Path(tmp) / "cjk.db")
+            conn = docubrowse_db.get_db(db)          # unicode61 for ja now
+            # Index a segmented snippet, exactly as the scanner will:
+            snippet = cjk_segment("リンゴの栽培と品種について")
+            conn.execute(
+                "INSERT INTO doc_fts(rowid, name, title, author, subject, description, content_snippet, tags) "
+                "VALUES (1,'','', '', '', '', ?, '')", (snippet,))
+            # Query '栽培' (2-char) segmented the same way must hit:
+            q = cjk_segment("栽培")
+            n = conn.execute(
+                "SELECT count(*) FROM doc_fts WHERE doc_fts MATCH ?", (f'"{q}"',)).fetchone()[0]
+            conn.close()
+            docubrowse_db._initialized_paths.discard(db)
+        assert n == 1
+    finally:
+        docubrowse_db._default_lang = None
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `python3 -m pytest test_cjk_search.py -v`
+Expected: FAIL until the tokenizer is `unicode61` for ja (Task 11) AND the snippet is segmented (this test segments inline; the wiring in scan/search is what Steps 3–4 deliver for the real paths).
+
+- [ ] **Step 3: Segment at index time**
+
+In `scan_docs.py`, just before building the `doc_fts` insert (~line 820), when the active language has `cjk_ngram`, replace each text-bearing field value `v` with `cjk_segment(v)`. Compute the flag once at module load (mirror `_ACTIVE_LANG`). Leave `name`/`author` unsegmented.
+
+- [ ] **Step 4: Segment at query time**
+
+In `doc_search.py`'s keyword path (`_keyword_scores`, where the FTS `MATCH` string is built from the user query), when `cjk_ngram` is active, run the query through `cjk_segment` **before** the existing tokenize/quote/prefix logic, so each bigram becomes a matched term. Non-CJK queries are unaffected (segment is a no-op on ASCII).
+
+- [ ] **Step 5: Confirm tokenizer clause**
+
+`docubrowse_db.py` already derives the clause from `resolve(lang)["tokenizer"]`. Since Task 11 set `ja`'s tokenizer to `"unicode61"`, CJK installs now create `doc_fts` with `unicode61 remove_diacritics 2` — no trigram branch. Remove the now-dead `"trigram"` mapping only if nothing else references it (grep first).
+
+- [ ] **Step 6: Run tests + live check**
+
+Run: `python3 -m pytest test_cjk_search.py test_cjk.py test_fts_tokenizer.py test_lang_models.py -v`
+Then live: rebuild a `lang=ja` scratch DB from a JP fixture and confirm Keyword search on `栽培`/`品種` (2-char) now returns the doc, English keyword search unchanged.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add docubrowse_db.py scan_docs.py doc_search.py test_cjk_search.py
+git commit -m "feat(i18n): index + query CJK text via bigram segmentation"
+```
+
+---
+
+### Task 13: Docs, DECISIONS, reindex note
+
+**Files:**
+- Modify: `README.md` / `EndUser_docs/Admin_Guide.md` (note CJK keyword uses bigram segmentation; 2-char minimum; single-char via Both/semantic)
+- Modify: `status_docs/DECISIONS.md` (+ Enterprise copy) — record the trigram→bigram supersession and rationale
+- Modify: `test_fts_tokenizer.py` — drop/adjust the trigram assertions that Task 11/12 obsolete (JP is now `unicode61`, not `trigram`)
+
+- [ ] **Step 1: Reconcile the obsolete trigram tests**
+
+`test_fts_tokenizer.py::test_ja_uses_trigram` and `test_ja_substring_match_on_cjk` assert `trigram`. Replace them with the `unicode61`-for-ja expectation and let `test_cjk_search.py` own the JP-match assertion. Run `python3 -m pytest test_fts_tokenizer.py test_cjk_search.py -v` → PASS.
+
+- [ ] **Step 2: DECISIONS + docs**
+
+Add a DECISIONS.md entry: "CJK keyword search = app-side character bigrams (not trigram, not a morphological segmenter); 2-char floor; rationale = 2-char 熟語 dominance + zero-dependency + uniform ja/zh/ko." Mirror to the Enterprise copy. Note the reindex requirement for existing CJK installs in the Admin Guide.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add README.md EndUser_docs/Admin_Guide.md status_docs/DECISIONS.md test_fts_tokenizer.py
+git commit -m "docs(i18n): CJK bigram segmentation supersedes trigram (DECISIONS + guides)"
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage:**

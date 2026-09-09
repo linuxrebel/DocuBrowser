@@ -38,7 +38,7 @@ interpret/search the corpus; it does **not** translate the user's documents.
 | Model config | Data-driven `LANG_MODELS` table | Adding a language = one row + one locale file |
 | JP embedder | `bge-m3` (multilingual, ~2.2GB, 1024-dim) | Strong multilingual incl. Japanese; well supported on Ollama |
 | JP summary | `fuukeidaisuki/nvidia-nemotron-nano-9b-v2-japanese` | Already validated by the user for JP summaries |
-| JP keyword tokenizer | FTS5 `trigram` | Japanese has no word spaces; default `unicode61` won't segment it. Built-in, no dependency |
+| JP keyword tokenizer | ~~FTS5 `trigram`~~ → **app-side character bigram** (see Addendum A) | Japanese has no word spaces. Trigram shipped first but can't match 1–2 char queries (2-char kanji 熟語 like 栽培/品種 are ubiquitous). Superseded by app-side bigram segmentation — still zero-dependency, and uniform across ja/zh/ko |
 | Model provisioning | Lazy pull on first-run / language-switch | Nothing pre-bundled; pull only the active language's set |
 
 ## 4. The per-language table
@@ -169,3 +169,65 @@ switcher invoked once with no prior `lang`.
 Japanese ships first as the reference implementation. Each subsequent language
 (es/fr/de/nl/ko/zh) is a follow-on that adds a `LANG_MODELS` row, a locale file,
 and its chosen models — no new architecture.
+
+---
+
+## Addendum A — CJK keyword segmentation via app-side bigrams (2026-09-09)
+
+**Supersedes** the "CJK → FTS5 `trigram`" tokenizer decision (§3, §4, §5.4).
+
+### Why the change
+
+The first Japanese test run exposed that `trigram` indexes 3-character
+sequences, so **1–2 character queries cannot match**. In Japanese (and Chinese
+and Korean) two-character kanji/hanja compounds (熟語) — 栽培, 品種, 収穫, 会社 —
+are the *typical* search term, so pure **Keyword** mode returned nothing for
+them (verified: `リンゴ` matched, `栽培`/`品種` did not). The default **Both**
+mode masks it (semantic via bge-m3 still finds them), but Keyword mode is broken
+for the most common CJK terms. Fixing this before Chinese/Korean arrive avoids
+baking the flaw into three languages.
+
+### Decision
+
+Segment CJK text in **application code** into overlapping **character bigrams**
+and index/query them under the plain `unicode61` tokenizer. No external
+dependency, uniform across ja/zh/ko, and fully recoverable (it only changes how
+we fill and query an FTS column, plus a reindex).
+
+- **Index time:** each run of CJK characters is expanded to space-joined
+  overlapping bigrams before it goes into the `doc_fts` columns. Example:
+  `機械学習` → `機械 械学 学習`. Non-CJK spans (ASCII/European words) pass through
+  unchanged, so mixed text still works with `unicode61`.
+- **Query time:** the query's CJK runs are bigram-expanded the *same* way and the
+  bigrams AND-combined. `品種` → one bigram → matches; `機械学習` → `機械 械学 学習`
+  (all present) → matches.
+- **Floor:** bigram-only, so queries of **2+ CJK characters** match. Single-CJK-
+  character queries do not exact-match in Keyword mode (they still surface via
+  Both/semantic) — deliberate: 1-char CJK search is low-value/noisy, like
+  searching a single letter in English. This keeps the index small and false
+  positives low.
+
+### What this changes vs the original design
+
+- `LANG_MODELS`: CJK entries use `tokenizer: "unicode61"` plus a new
+  `cjk_ngram: True` flag (instead of `tokenizer: "trigram"`). European entries
+  keep `unicode61` + `remove_diacritics`; `cjk_ngram` is absent/False for them.
+- A new pure-Python helper (`_cjk_bigrams(text)` / `segment_for_index(text)` and
+  `segment_query(q)`) lives alongside the table (or in a small `cjk.py`).
+- The scanner applies index-time segmentation to the text before the `doc_fts`
+  insert; the search handler applies query-time segmentation to the FTS `MATCH`
+  string. Both gated on the active language's `cjk_ngram` flag.
+- `doc_fts` for CJK installs is created with `unicode61` (not `trigram`); the
+  contentless-FTS drop/recreate/repopulate migration already handles the change.
+
+### Scope / non-goals
+
+- **Not** a morphological segmenter (mecab/jieba/konlpy). Bigrams give strong
+  recall for a keyword index without per-language external dependencies; true
+  word-boundary segmentation stays out of scope (revisit only if bigram recall
+  proves insufficient on a real CJK corpus).
+- Precision: bigram matching can hit a compound-boundary coincidence, but
+  keyword results JOIN back and are semantically re-ranked, so recall-over-
+  precision is acceptable here.
+- Applies uniformly when zh/ko land — they set `cjk_ngram: True` and inherit
+  this path with no new code.
