@@ -902,22 +902,31 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         mode = query.get('mode', ['both'])[0]  # both, keyword, semantic
         offset = int(query.get('offset', ['0'])[0])
         limit = max(1, min(200, int(query.get('limit', ['50'])[0])))
+        # Exclude docs tagged 'hidden' so a page of `limit` stays full of
+        # visible docs; the UI's "Show 🙈" toggle sets include_hidden=1.
+        include_hidden = query.get('include_hidden', ['0'])[0] in ('1', 'true', 'yes')
 
         # Empty query: return documents in alphabetical order with pagination
         if not q:
             # Optional first-letter filter for the alphabetic index bar.
             # 'letter' is a single A-Z character, or '0-9' for digits/symbols.
             letter = query.get('letter', [''])[0].strip().upper()
-            where_clause = ''
+            conditions = []
             where_params = []
             if letter == '0-9':
-                where_clause = (
-                    "WHERE upper(substr(COALESCE(d.title, d.name, ''), 1, 1))"
+                conditions.append(
+                    "upper(substr(COALESCE(d.title, d.name, ''), 1, 1))"
                     " NOT GLOB '[A-Z]'"
                 )
             elif len(letter) == 1 and letter.isalpha():
-                where_clause = "WHERE upper(substr(COALESCE(d.title, d.name, ''), 1, 1)) = ?"
+                conditions.append("upper(substr(COALESCE(d.title, d.name, ''), 1, 1)) = ?")
                 where_params.append(letter)
+            if not include_hidden:
+                conditions.append(
+                    "d.id NOT IN (SELECT doc_id FROM doc_tags"
+                    " WHERE tag = 'hidden' COLLATE NOCASE)"
+                )
+            where_clause = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
 
             conn = get_db(self.db_path)
 
@@ -1011,6 +1020,14 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                     final = max(fts, sem)
                 if final > 0.01:
                     scored.append((doc_id, final, fts, sem))
+
+        if not include_hidden:
+            hidden_ids = {
+                r[0] for r in conn.execute(
+                    "SELECT doc_id FROM doc_tags WHERE tag = 'hidden' COLLATE NOCASE"
+                )
+            }
+            scored = [t for t in scored if t[0] not in hidden_ids]
 
         scored.sort(key=lambda x: x[1], reverse=True)
         total_results = len(scored)

@@ -395,6 +395,10 @@ let renderSeq = 0;
 let pageSize = parseInt(localStorage.getItem('db-page-size') || '50');
 let showHidden = false;
 
+// When Show 🙈 is on, ask the server to include hidden docs; otherwise the
+// server excludes them so each page stays full of visible docs.
+function hiddenParam() { return showHidden ? '&include_hidden=1' : ''; }
+
 function showHiddenHtml() {
   const label = showHidden ? 'Hide' : 'Show';
   return ` <button class="load-more-btn-inline" onclick="toggleShowHidden()" title="Show Hidden Cards">${label} 🙈</button>`;
@@ -602,7 +606,7 @@ async function doSearch() {
   meta.innerHTML = '<span class="spinner"></span> searching…';
   const t0 = performance.now();
   try {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&offset=0&limit=${pageSize}`);
+    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&offset=0&limit=${pageSize}${hiddenParam()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (seq !== renderSeq) return;   // superseded by a newer search/render
@@ -658,7 +662,7 @@ async function renderAll() {
     currentQuery = '';
     currentLetter = '';
 
-    const res = await fetch(`/api/search?q=&offset=0&limit=${pageSize}`);
+    const res = await fetch(`/api/search?q=&offset=0&limit=${pageSize}${hiddenParam()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (seq !== renderSeq) return;   // superseded by a newer search/render
@@ -743,7 +747,7 @@ async function filterByLetter(letter) {
   const seq = ++renderSeq;
 
   try {
-    const res = await fetch(`/api/search?letter=${encodeURIComponent(letter)}&offset=0&limit=${pageSize}`);
+    const res = await fetch(`/api/search?letter=${encodeURIComponent(letter)}&offset=0&limit=${pageSize}${hiddenParam()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (seq !== renderSeq) { isLoadingMore = false; return; }
@@ -850,9 +854,9 @@ async function loadMoreTop() {
   try {
     const q = currentQuery ? encodeURIComponent(currentQuery) : '';
     let url;
-    if (q) url = `/api/search?q=${q}&offset=${currentOffset}&limit=${pageSize}`;
-    else if (currentLetter) url = `/api/search?letter=${encodeURIComponent(currentLetter)}&offset=${currentOffset}&limit=${pageSize}`;
-    else url = `/api/search?q=&offset=${currentOffset}&limit=${pageSize}`;
+    if (q) url = `/api/search?q=${q}&offset=${currentOffset}&limit=${pageSize}${hiddenParam()}`;
+    else if (currentLetter) url = `/api/search?letter=${encodeURIComponent(currentLetter)}&offset=${currentOffset}&limit=${pageSize}${hiddenParam()}`;
+    else url = `/api/search?q=&offset=${currentOffset}&limit=${pageSize}${hiddenParam()}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -899,9 +903,9 @@ async function loadMorePrev() {
     const newOffset = Math.max(0, currentOffset - pageSize * 2);
     const q = currentQuery ? encodeURIComponent(currentQuery) : '';
     let url;
-    if (q) url = `/api/search?q=${q}&offset=${newOffset}&limit=${pageSize}`;
-    else if (currentLetter) url = `/api/search?letter=${encodeURIComponent(currentLetter)}&offset=${newOffset}&limit=${pageSize}`;
-    else url = `/api/search?q=&offset=${newOffset}&limit=${pageSize}`;
+    if (q) url = `/api/search?q=${q}&offset=${newOffset}&limit=${pageSize}${hiddenParam()}`;
+    else if (currentLetter) url = `/api/search?letter=${encodeURIComponent(currentLetter)}&offset=${newOffset}&limit=${pageSize}${hiddenParam()}`;
+    else url = `/api/search?q=&offset=${newOffset}&limit=${pageSize}${hiddenParam()}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -935,6 +939,51 @@ async function loadMorePrev() {
   } catch (e) {
     console.error('Load prev error:', e);
     showToast('⚠ Error loading previous documents: ' + friendlyError(e), 4000);
+  }
+  isLoadingMore = false;
+}
+
+// Re-fetch and repaint the CURRENT page window (same offset), so hiding or
+// unhiding a doc reflows the server-filtered set into a full page without a
+// manual refresh and without jumping to page 1. Scroll position is preserved.
+async function reloadCurrentPage() {
+  if (isLoadingMore) return;
+  isLoadingMore = true;
+  const seq = ++renderSeq;
+  try {
+    const startOffset = Math.max(0, currentOffset - (allDocs ? allDocs.length : pageSize));
+    const q = currentQuery ? encodeURIComponent(currentQuery) : '';
+    let url;
+    if (q) url = `/api/search?q=${q}&offset=${startOffset}&limit=${pageSize}${hiddenParam()}`;
+    else if (currentLetter) url = `/api/search?letter=${encodeURIComponent(currentLetter)}&offset=${startOffset}&limit=${pageSize}${hiddenParam()}`;
+    else url = `/api/search?q=&offset=${startOffset}&limit=${pageSize}${hiddenParam()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (seq !== renderSeq) { isLoadingMore = false; return; }
+    let docs = data.results || data.documents || data.docs || [];
+    if (currentQuery) {
+      if (searchMode === 'keyword') docs = docs.filter(d => d.fts_score > 0).sort((a,b) => b.fts_score - a.fts_score);
+      else if (searchMode === 'semantic') docs = docs.filter(d => d.sem_score > 0).sort((a,b) => b.sem_score - a.sem_score);
+    }
+    allDocs = docs;
+    currentTotal = data.total || 0;
+    currentHasMore = data.has_more || false;
+    currentOffset = startOffset + docs.length;
+
+    grid.innerHTML = '';
+    renderDocs(docs, !!currentQuery, false);
+
+    const endIdx = currentOffset;
+    const startIdx = docs.length ? currentOffset - docs.length + 1 : 0;
+    const backBtn = currentOffset > pageSize ? `<button class="load-more-btn-inline" onclick="loadMorePrev()">Back</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Back</button>';
+    const nextBtn = currentHasMore ? `<button class="load-more-btn-inline" onclick="loadMoreTop()">Next</button>` : '<button class="load-more-btn-inline" disabled style="opacity:0.3;">Next</button>';
+    const title = currentQuery ? 'Search Results' : (currentLetter ? `Starting with "${esc(currentLetter)}"` : 'All Documents');
+    meta.innerHTML = `<span class="results-title">${title}</span><span class="results-info">showing <b>${startIdx}-${endIdx}</b> of <b>${currentTotal}</b> ${backBtn} ${nextBtn}${pageSizeHtml()}${showHiddenHtml()}</span>`;
+    await renderIndexBar();
+  } catch (e) {
+    console.error('Reload page error:', e);
+    showToast('⚠ Error refreshing page: ' + friendlyError(e), 4000);
   }
   isLoadingMore = false;
 }
@@ -1319,18 +1368,13 @@ async function _submitTags() {
 
 // ── Hide document (adds "hidden" tag) ────────────────────────────────────────
 async function hideDoc(path, el) {
-  const card = el.closest('.doc-card');
   try {
     const res = await apiPost('/api/add-tags?path=' + encodeURIComponent(path) + '&tags=hidden');
     if (!res.ok) { showToast('⚠ Server error: ' + res.status, 3000); return; }
     const data = await res.json();
     if (data.ok) {
       showToast('Document hidden');
-      if (card) {
-        card.style.transition = 'opacity 0.25s';
-        card.style.opacity = '0';
-        setTimeout(() => card.remove(), 260);
-      }
+      await reloadCurrentPage();
     } else {
       showToast('⚠ ' + (data.error || 'Failed to hide'), 3000);
     }
@@ -1340,25 +1384,15 @@ async function hideDoc(path, el) {
 }
 
 async function unhideDoc(path, el) {
-  const card = el.closest('.doc-card');
   try {
     const res = await apiPost('/api/remove-tag?path=' + encodeURIComponent(path) + '&tag=hidden');
     if (!res.ok) { showToast('⚠ Server error: ' + res.status, 3000); return; }
     const data = await res.json();
     if (data.ok) {
       showToast('Document unhidden');
-      // Swap the unhide icon back to hide icon
-      if (card) {
-        const btn = card.querySelector('.doc-unhide-btn');
-        if (btn) {
-          btn.className = 'doc-action-icon doc-hide-btn';
-          btn.title = 'Hide';
-          btn.textContent = '🙈';
-        }
-        // Remove the "hidden" tag chip if present
-        const hiddenTag = card.querySelector('.tag[data-tag="hidden"]');
-        if (hiddenTag) hiddenTag.remove();
-      }
+      // Reflow the current page so the un-hidden doc settles into place and
+      // (when Show 🙈 is off) any now-surplus doc drops to the next page.
+      await reloadCurrentPage();
     } else {
       showToast('⚠ ' + (data.error || 'Failed to unhide'), 3000);
     }
