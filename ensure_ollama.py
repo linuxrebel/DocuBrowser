@@ -9,7 +9,7 @@ Checks (in order):
      - Linux : curl -fsSL https://ollama.com/install.sh | sh
      - macOS : brew install ollama  (fallback: direct download URL)
   2. ollama service is reachable → starts `ollama serve` in background if not
-  3. each model in REQUIRED_MODELS is present → prompts to pull if missing
+  3. each model required by the active language is present → prompts to pull if missing
 
 The Ollama API base URL defaults to http://localhost:11434 and can be
 overridden with OLLAMA_HOST or DOCUBROWSE_OLLAMA_HOST (useful when Ollama
@@ -27,6 +27,8 @@ import time
 from urllib.error import URLError
 from urllib.request import urlopen
 
+from lang_models import resolve, config_lang
+
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -34,11 +36,24 @@ if sys.platform == "win32":
     except AttributeError:
         pass
 
-# (model name, approx download size, what it's used for)
-REQUIRED_MODELS = [
-    ('nomic-embed-text:latest', '~274 MB', 'semantic search embeddings (ingestion)'),
-    ('dolphin3:latest', '~4.9 GB', 'document synopsis generation (operational AI)'),
-]
+def required_models(lang):
+    """Return the (model, size_hint, purpose) rows this language needs.
+
+    Size hints are only shown for the two models we have real download-size
+    data for (the English defaults); other languages show an empty hint
+    rather than a guessed number.
+    """
+    m = resolve(lang)
+    embed = m["embed"] if ":" in m["embed"] else m["embed"] + ":latest"
+    synopsis = m["synopsis"] if ":" in m["synopsis"] else m["synopsis"] + ":latest"
+    size_hints = {
+        "nomic-embed-text:latest": "~274 MB",
+        "dolphin3:latest": "~4.9 GB",
+    }
+    return [
+        (embed, size_hints.get(embed, ""), "semantic search embeddings (ingestion)"),
+        (synopsis, size_hints.get(synopsis, ""), "document synopsis generation (operational AI)"),
+    ]
 
 def _ollama_api() -> str:
     """Resolve the Ollama base URL from the environment.
@@ -254,8 +269,9 @@ def main():
     else:
         ok('Ollama service reachable.')
 
+    lang = config_lang()
     names = installed_models()
-    for model, size, purpose in REQUIRED_MODELS:
+    for model, size, purpose in required_models(lang):
         if model_present(model, names):
             ok(f'{model} model present.')
         else:
