@@ -152,6 +152,23 @@ else
 fi
 echo
 
+# ─── Interface + document language ──────────────────────────────────────────
+# Set DOCUBROWSE_LANG=en or DOCUBROWSE_LANG=ja to answer non-interactively.
+if [[ -n "${DOCUBROWSE_LANG:-}" ]]; then
+    case "${DOCUBROWSE_LANG,,}" in
+        ja|japanese) LANG_CHOICE="ja" ;;
+        *)           LANG_CHOICE="en" ;;
+    esac
+    echo "==> Language: $LANG_CHOICE (from DOCUBROWSE_LANG)"
+else
+    read -rp "Interface + document language — English or Japanese? [E/j]: " _lang_ans || _lang_ans=""
+    case "${_lang_ans,,}" in
+        j|ja|japanese) LANG_CHOICE="ja" ;;
+        *)             LANG_CHOICE="en" ;;
+    esac
+fi
+echo
+
 # ─── Refuse to clobber an existing install ──────────────────────────────────
 if [[ -e "$INSTALL_DIR" ]]; then
     echo "ERROR: $INSTALL_DIR already exists." >&2
@@ -222,6 +239,8 @@ port     = $PORT
 # localhost-only. There is no authentication yet — leave false unless you
 # understand the exposure. Changing this takes effect on the next start.
 allow_remote = $ALLOW_REMOTE
+# lang: interface + document language (en, ja). Change later via Settings.
+lang = $LANG_CHOICE
 EOF
 
 # ─── Create venv + install Python dependencies ──────────────────────────────

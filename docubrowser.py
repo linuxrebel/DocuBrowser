@@ -248,6 +248,61 @@ def clear_pid():
     PID_FILE.unlink(missing_ok=True)
 
 
+# ─── First-run language selection ────────────────────────────────────────────
+
+def resolve_or_prompt_lang(config, is_tty):
+    """Return the install's language: keep an existing choice untouched
+    (upgrade path — never re-prompt), or prompt on a fresh interactive
+    first run, defaulting to English non-interactively.
+    """
+    from lang_models import LANG_MODELS, lang_from_config
+    if "lang" in (config or {}):
+        return lang_from_config(config)          # upgrade / already-configured: keep existing, no prompt
+    if not is_tty:
+        return "en"                              # non-interactive fresh install
+    print("Choose interface + document language:")
+    opts = list(LANG_MODELS.keys())
+    for i, code in enumerate(opts, 1):
+        print(f"  {i}) {code}")
+    choice = input(f"[1-{len(opts)}] (default 1=en): ").strip()
+    try:
+        return opts[int(choice) - 1]
+    except (ValueError, IndexError):
+        return "en"
+
+
+def _persist_lang(lang):
+    """Write/update the `lang = <code>` line in docubrowse.config, preserving
+    every other line already there. Creates the file (with just this one line)
+    if none exists yet.
+    """
+    cfg_path = None
+    for candidate in CONFIG_PATHS:
+        if candidate.exists():
+            cfg_path = candidate
+            break
+    if cfg_path is None:
+        cfg_path = _default_data_dir() / "docubrowse.config"
+
+    lines = []
+    found = False
+    if cfg_path.exists():
+        for line in cfg_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#") and "=" in stripped:
+                key = stripped.partition("=")[0].strip().lower()
+                if key == "lang":
+                    lines.append(f"lang = {lang}")
+                    found = True
+                    continue
+            lines.append(line)
+    if not found:
+        lines.append(f"lang = {lang}")
+
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 # ─── Ollama prerequisite gate ────────────────────────────────────────────────
 
 def ensure_ollama() -> bool:
@@ -373,6 +428,15 @@ def cmd_start(config: dict, args):
         print(f"DocuBrowse is already running on port {port}.")
         print(f"  UI: {server_url(port)}")
         return
+
+    # First-run language selection: keep an existing choice untouched (upgrade
+    # path), or prompt/default on a fresh install — persisted to disk BEFORE
+    # ensure_ollama() (below) subprocess-invokes ensure_ollama.py, which reads
+    # the language back out of this same config file to pull the right models.
+    lang = resolve_or_prompt_lang(config, sys.stdin.isatty())
+    if "lang" not in config:
+        _persist_lang(lang)
+        config["lang"] = lang
 
     # Verify Ollama is available before starting (needed for semantic search)
     if not ensure_ollama():
