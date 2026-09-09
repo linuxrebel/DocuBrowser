@@ -7,12 +7,23 @@ stopwords. Adding a language = add a row here + a locales/<lang>.json file."""
 # a compact equivalent keeps behavior identical. Keep the EN text byte-for-byte
 # equal to the string currently in doc_search.generate_synopsis when Task 2 runs.
 _EN_SYNOPSIS_PROMPT = (
-    "Write a short, engaging book-jacket style synopsis (2-4 sentences) of the "
-    "following document. Do not add a preamble; return only the synopsis.\n\n{text}"
+    "Summarize the document excerpt below in one concise paragraph. "
+    "Describe only what the document actually contains — its subject matter, "
+    "purpose, and key topics. Base the summary entirely on the excerpt text; "
+    "do not invent content or draw on the document title alone. "
+    "Do not use markdown, headings, or bullet points. Output only the "
+    "paragraph itself, with no preamble.\n\n"
+    "Title: {title}\n\n"
+    "Document excerpt:\n{context}"
 )
 _JA_SYNOPSIS_PROMPT = (
-    "次の文書の内容を、本の帯のような魅力的な紹介文として2〜4文で日本語で書いてください。"
-    "前置きは不要で、紹介文のみを返してください。\n\n{text}"
+    "以下の文書抜粋を一段落で簡潔に要約してください。文書が実際に含む内容"
+    "(主題、目的、主要なトピック)のみを説明してください。要約は抜粋のテキスト"
+    "のみに基づいてください。タイトルだけから内容を推測したり、存在しない内容"
+    "を作り出したりしないでください。マークダウン、見出し、箇条書きは使用しな"
+    "いでください。出力は前置きなしで段落のみとしてください。\n\n"
+    "タイトル: {title}\n\n"
+    "文書抜粋:\n{context}"
 )
 
 # English articles + FANBOYS (matches the current strip_stopwords set).
@@ -54,4 +65,43 @@ def resolve(lang):
 def lang_from_config(config):
     """Read + normalize the configured language, defaulting to English."""
     lang = str((config or {}).get("lang", "en")).lower()
+    return lang if lang in LANG_MODELS else "en"
+
+
+def config_lang(app_dir=None, user_data=None):
+    """Read the configured language from docubrowse.config.
+
+    Checks the packaged-install path (user_data/docubrowse.config) before the
+    dev/standalone path (app_dir/docubrowse.config) — same precedence as
+    doc_search.handle_config. DOCUBROWSE_LANG env var overrides the file.
+    Falls back to "en" when no lang key is set or the value is unrecognized.
+    """
+    import os as _os
+    from pathlib import Path as _Path
+
+    if app_dir is None:
+        app_dir = _Path(__file__).resolve().parent
+    if user_data is None:
+        user_data = _Path.home() / ".docubrowser"
+
+    lang = "en"
+    for cfg_path in (_Path(user_data) / "docubrowse.config", _Path(app_dir) / "docubrowse.config"):
+        if cfg_path.exists():
+            try:
+                text = cfg_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for line in text.splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                if key.strip().lower() == "lang":
+                    lang = val.strip().lower()
+            break  # first existing config file wins (mirrors handle_config)
+
+    env = _os.environ.get("DOCUBROWSE_LANG")
+    if env:
+        lang = env.strip().lower()
+
     return lang if lang in LANG_MODELS else "en"

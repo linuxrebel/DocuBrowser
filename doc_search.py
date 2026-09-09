@@ -60,6 +60,7 @@ from scan_docs import (                                                  # noqa:
     purge_path_prefix,
 )
 from deep_links import locate_passages, strip_stopwords                  # noqa: E402
+from lang_models import resolve, config_lang                            # noqa: E402
 # pylint: enable=wrong-import-position
 
 try:
@@ -204,8 +205,10 @@ def _ollama_host() -> str:
 
 
 OLLAMA_HOST = _ollama_host()
-EMBEDDING_MODEL = "nomic-embed-text"
-SYNOPSIS_MODEL = "dolphin3:latest"
+_ACTIVE_LANG = config_lang(app_dir=APP_DIR, user_data=USER_DATA)
+_ACTIVE = resolve(_ACTIVE_LANG)
+EMBEDDING_MODEL = _ACTIVE["embed"]
+SYNOPSIS_MODEL = _ACTIVE["synopsis"]
 SERVER_VERSION = "1.3.0"
 
 _SERVER_START_TIME = None  # set by main(); used by /api/status
@@ -359,16 +362,7 @@ def generate_synopsis(title: str, description: str, snippet: str) -> tuple:
     if not context.strip():
         return None, "empty"
 
-    prompt = (
-        "Summarize the document excerpt below in one concise paragraph. "
-        "Describe only what the document actually contains — its subject matter, "
-        "purpose, and key topics. Base the summary entirely on the excerpt text; "
-        "do not invent content or draw on the document title alone. "
-        "Do not use markdown, headings, or bullet points. Output only the "
-        "paragraph itself, with no preamble.\n\n"
-        f"Title: {title or '(untitled)'}\n\n"
-        f"Document excerpt:\n{context[:4000]}"
-    )
+    prompt = _ACTIVE["synopsis_prompt"].format(title=title or "(untitled)", context=context[:4000])
 
     try:
         url = f"{OLLAMA_HOST}/api/generate"

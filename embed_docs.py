@@ -27,6 +27,8 @@ from datetime import datetime
 from pathlib import Path
 from urllib.request import Request, urlopen
 
+from lang_models import resolve, config_lang
+
 
 # embed_docs.py can be run standalone (not via docubrowser.py), so it sets its
 # own Windows encoding rather than relying on the platform_paths side-effect.
@@ -64,7 +66,8 @@ def _ollama_host() -> str:
 
 
 OLLAMA_HOST     = _ollama_host()
-EMBEDDING_MODEL = "nomic-embed-text"
+_ACTIVE_LANG    = config_lang()
+EMBEDDING_MODEL = resolve(_ACTIVE_LANG)["embed"]
 BATCH_SIZE      = 25
 
 # GPU-aware default: 6 workers with CUDA, 3 for CPU-only Ollama
