@@ -60,7 +60,7 @@ from scan_docs import (                                                  # noqa:
     purge_path_prefix,
 )
 from deep_links import locate_passages, strip_stopwords                  # noqa: E402
-from lang_models import resolve, config_lang, lang_from_config          # noqa: E402
+from lang_models import resolve, config_lang, lang_from_config, SUPPORTED_LANGS  # noqa: E402
 # pylint: enable=wrong-import-position
 
 try:
@@ -87,6 +87,13 @@ def load_locale(lang):
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def rebuild_required(old_lang, new_lang):
+    """True when switching languages changes the embedder or FTS tokenizer
+    (both require re-embedding / rebuilding the corpus index to take effect)."""
+    a, b = resolve(old_lang), resolve(new_lang)
+    return a["embed"] != b["embed"] or a["tokenizer"] != b["tokenizer"]
 
 
 __all__ = [
@@ -714,6 +721,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             '/api/config':      self.handle_config_post,
             '/api/ignore-dirs': self.handle_ignore_dirs_post,
             '/api/scan-dirs':   self.handle_scan_dirs_post,
+            '/api/language':    self.handle_language_post,
         }
         with_query = {
             '/api/synopsis':    self.handle_synopsis,
@@ -1756,6 +1764,24 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         data_dir = _default_data_dir()
         data_dir.mkdir(parents=True, exist_ok=True)
         cfg_path = data_dir / "docubrowse.config"
+
+        # Preserve `lang` across saves that don't explicitly change it —
+        # otherwise any Settings save from the General panel (which never
+        # sends `lang`) would silently reset the install back to English.
+        existing_lang = None
+        if cfg_path.exists():
+            try:
+                for line in cfg_path.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, _, val = line.partition("=")
+                    if key.strip().lower() == "lang":
+                        existing_lang = val.strip().lower()
+            except OSError:
+                pass
+        lang = str(data.get("lang", existing_lang or "")).strip().lower()
+
         try:
             lines = [
                 "# docubrowse.config — written by the Settings UI\n",
@@ -1763,6 +1789,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 f"work_dir = {work_dir}\n",
                 f"port     = {port}\n",
             ]
+            if lang:
+                lines.append(f"lang     = {lang}\n")
             cfg_path.write_text("".join(lines), encoding="utf-8")
             self.json_response({
                 "message": f"Config saved to {cfg_path}",
@@ -1770,6 +1798,81 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             })
         except OSError as e:
             self.error_response(500, f"Could not write config file: {e}")
+
+    def handle_language_post(self):
+        """POST /api/language - Switch the install's active language.
+
+        Writes `lang` to docubrowse.config (preserving docPath/workDir/port via
+        the same file), and reports whether the embedder/tokenizer changed
+        (rebuild_required) so the UI can prompt for a re-embed + FTS rebuild.
+        Model provisioning for the new language is NOT triggered synchronously
+        here (that would block the HTTP response on a multi-GB Ollama pull) —
+        a background thread kicks off ensure_ollama provisioning, matching how
+        the synopsis warm-up already fires-and-forgets elsewhere in this file.
+        """
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length)
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            self.error_response(400, "Invalid JSON")
+            return
+
+        new_lang = str(data.get("lang", "")).strip().lower()
+        if new_lang not in SUPPORTED_LANGS:
+            self.error_response(400, f"Unsupported lang: {new_lang!r}. Supported: {list(SUPPORTED_LANGS)}")
+            return
+
+        old_lang = config_lang(app_dir=APP_DIR, user_data=USER_DATA)
+        needs_rebuild = rebuild_required(old_lang, new_lang)
+
+        # Preserve doc_dir/work_dir/port from whatever config already exists.
+        data_dir = _default_data_dir()
+        data_dir.mkdir(parents=True, exist_ok=True)
+        cfg_path = data_dir / "docubrowse.config"
+        existing = {}
+        if cfg_path.exists():
+            try:
+                for line in cfg_path.read_text(encoding="utf-8").splitlines():
+                    self._apply_config_line(line, existing)
+            except OSError:
+                pass
+        doc_dir = existing.get("docPath", "")
+        work_dir = existing.get("workDir", str(data_dir))
+        port = existing.get("port", self.server_port)
+
+        try:
+            lines = [
+                "# docubrowse.config — written by the Settings UI\n",
+                f"doc_dir  = {doc_dir}\n",
+                f"work_dir = {work_dir}\n",
+                f"port     = {port}\n",
+                f"lang     = {new_lang}\n",
+            ]
+            cfg_path.write_text("".join(lines), encoding="utf-8")
+        except OSError as e:
+            self.error_response(500, f"Could not write config file: {e}")
+            return
+
+        # Fire-and-forget model provisioning for the new language; don't block
+        # the HTTP response on a multi-GB Ollama pull.
+        def _provision():
+            try:
+                import ensure_ollama
+                names = ensure_ollama.installed_models()
+                for model, _size, _purpose in ensure_ollama.required_models(new_lang):
+                    if not ensure_ollama.model_present(model, names):
+                        subprocess.run(['ollama', 'pull', model], check=False)
+            except Exception:  # pylint: disable=broad-exception-caught
+                logging.exception("Background model provisioning failed for lang=%s", new_lang)
+
+        threading.Thread(target=_provision, daemon=True).start()
+
+        self.json_response({
+            "ok": True,
+            "lang": new_lang,
+            "rebuild_required": needs_rebuild,
+        })
 
     def serve_file(self, filename):
         """Serve a file from the current directory."""

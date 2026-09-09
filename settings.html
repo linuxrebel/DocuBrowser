@@ -209,6 +209,13 @@
     <div class="field-row">
       <input type="number" id="cfgPort" placeholder="8643" min="1024" max="65535" style="max-width:140px">
     </div>
+    <label>Language — interface + document language</label>
+    <div class="field-row">
+      <select id="langSelect" onchange="switchLanguage()">
+        <option value="en">English</option>
+        <option value="ja">日本語 (Japanese)</option>
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn-primary" onclick="saveConfig()">Save</button>
     </div>
@@ -287,7 +294,7 @@ const CSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content |
 // ── Settings ──────────────────────────────────────────────────
 // Loaded config kept in JS state so directory add/remove logic can
 // re-save the config without losing workDir/port.
-let cfgState = { docPath: '', workDir: '', port: 8643 };
+let cfgState = { docPath: '', workDir: '', port: 8643, lang: 'en' };
 
 async function loadConfig() {
   loadIgnoreDirs();
@@ -298,10 +305,13 @@ async function loadConfig() {
     cfgState = {
       docPath: cfg.docPath || '',
       workDir: cfg.workDir || '',
-      port: cfg.port || 8643
+      port: cfg.port || 8643,
+      lang: cfg.lang || 'en'
     };
     document.getElementById('cfgWorkDir').value = cfg.workDir || '';
     document.getElementById('cfgPort').value = cfg.port || 8643;
+    const langSel = document.getElementById('langSelect');
+    if (langSel) langSel.value = cfgState.lang;
     const status = document.getElementById('configStatus');
     if (cfg.installed) {
       status.innerHTML = `<span class="ok">✓ Config loaded from /etc/docubrowse.config</span>`;
@@ -328,7 +338,7 @@ async function saveConfig() {
   try {
     const res = await fetch('/api/config', {
       method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
-      body: JSON.stringify({docPath, workDir, port})
+      body: JSON.stringify({docPath, workDir, port, lang: cfgState.lang})
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     await res.json();
@@ -339,6 +349,44 @@ async function saveConfig() {
     console.error('Config save error:', e);
     alert('Error saving config: ' + e.message);
     return false;
+  }
+}
+
+async function switchLanguage() {
+  const previousLang = cfgState.lang;
+  const newLang = document.getElementById('langSelect').value;
+  if (newLang === previousLang) return;
+  try {
+    const res = await fetch('/api/language', {
+      method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
+      body: JSON.stringify({lang: newLang})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.rebuild_required) {
+      const proceed = confirm(
+        'Switching languages changes the embedding model and search index — ' +
+        'existing documents need to be re-embedded and the search index rebuilt ' +
+        'for search quality to match the new language. This can take a while ' +
+        'depending on your document count. Continue?'
+      );
+      if (!proceed) {
+        await fetch('/api/language', {
+          method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
+          body: JSON.stringify({lang: previousLang})
+        });
+        document.getElementById('langSelect').value = previousLang;
+        showToast('Language switch cancelled');
+        return;
+      }
+    }
+    cfgState.lang = data.lang;
+    showToast('Language updated — reloading…');
+    setTimeout(() => window.location.reload(), 800);
+  } catch (e) {
+    console.error('Language switch error:', e);
+    alert('Error switching language: ' + e.message);
+    document.getElementById('langSelect').value = previousLang;
   }
 }
 
@@ -545,7 +593,7 @@ function renderDocDirs() {
 async function postConfig(docPath) {
   const res = await fetch('/api/config', {
     method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
-    body: JSON.stringify({docPath, workDir: cfgState.workDir, port: cfgState.port})
+    body: JSON.stringify({docPath, workDir: cfgState.workDir, port: cfgState.port, lang: cfgState.lang})
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   await res.json();
