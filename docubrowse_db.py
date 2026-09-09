@@ -21,12 +21,28 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from lang_models import resolve
+from lang_models import resolve, config_lang
 
 # Track which (process, db_path) pairs have had their schema initialized so the
 # expensive init_db() runs once per process instead of on every connection.
 _initialized_paths = set()
 _init_lock = threading.Lock()
+
+# Resolve the configured language once per process. The FTS tokenizer is chosen
+# at first init per (process, db_path); reading config_lang() here means every
+# get_db() caller picks up the install's language without threading it through
+# all 25 call sites. Cached because config_lang() reads files.
+_default_lang = None
+
+
+def _process_lang():
+    global _default_lang
+    if _default_lang is None:
+        try:
+            _default_lang = config_lang()
+        except Exception:  # pylint: disable=broad-except
+            _default_lang = "en"
+    return _default_lang
 
 
 def check_missing_path(path):
@@ -212,17 +228,22 @@ def init_db(conn, lang="en"):
         conn.commit()
 
 
-def get_db(db_path, lang="en"):
+def get_db(db_path, lang=None):
     """
     Get or create a SQLite connection with proper settings.
 
     Args:
         db_path: Path to SQLite database file
-        lang: language code used to pick the FTS5 tokenizer on first init
+        lang: language code used to pick the FTS5 tokenizer on first init.
+              When None (the default), it is resolved from the install's
+              configured language via config_lang(), so callers don't have to
+              thread it through — the tokenizer matches lang=ja instances.
 
     Returns:
         sqlite3.Connection with row_factory and WAL mode enabled
     """
+    if lang is None:
+        lang = _process_lang()
     conn = sqlite3.connect(db_path, timeout=10.0)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA journal_mode=WAL')

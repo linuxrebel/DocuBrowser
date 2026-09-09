@@ -234,8 +234,10 @@ _SERVER_START_TIME = None  # set by main(); used by /api/status
 # Cold Ollama starts (e.g. right after a reboot) need to load the model into
 # memory before the first generation can begin, which can take well over 30s
 # on top of the generation time itself. Use a generous timeout so the first
-# request after startup doesn't spuriously fail.
-SYNOPSIS_TIMEOUT_SECS = 90
+# request after startup doesn't spuriously fail. Larger language models (e.g.
+# the ~9B Japanese nemotron) can take well over 90s to load-and-generate cold
+# on a modest GPU, so the ceiling is 180s; subsequent synopses are cached.
+SYNOPSIS_TIMEOUT_SECS = 180
 
 # ── Synopsis model warmup ───────────────────────────────────────────────────
 # Ollama loads models on-demand. On 8 GB systems, loading dolphin3 (~4.9 GB)
@@ -389,6 +391,11 @@ def generate_synopsis(title: str, description: str, snippet: str) -> tuple:
             "model": SYNOPSIS_MODEL,
             "prompt": prompt,
             "stream": False,
+            # Disable reasoning: some synopsis models (e.g. the Japanese
+            # nemotron-nano-9b-v2) are hybrid reasoning models that otherwise
+            # spend the whole token budget "thinking" and return an empty
+            # response. Ignored by non-reasoning models (dolphin3).
+            "think": False,
         }).encode('utf-8')
 
         request = Request(url, data=payload, method='POST')

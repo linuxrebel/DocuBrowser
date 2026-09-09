@@ -78,3 +78,23 @@ def test_get_db_default_lang_still_works():
         sql = _fts_sql(conn)
         conn.close()
         assert "trigram" not in sql
+
+
+def test_get_db_resolves_lang_from_config_when_not_passed(monkeypatch):
+    """Integration guard: a lang=ja install must get the trigram tokenizer
+    through get_db() WITHOUT any caller passing lang. Reproduces the wiring gap
+    where all 25 get_db() call sites used the default and JP keyword search
+    silently fell back to unicode61."""
+    import docubrowse_db
+    monkeypatch.setenv("DOCUBROWSE_LANG", "ja")  # config_lang() honors this
+    docubrowse_db._default_lang = None           # clear the per-process cache
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = str(Path(tmp) / "config_ja.db")
+            conn = get_db(db_path)               # NOTE: no lang argument
+            sql = _fts_sql(conn)
+            conn.close()
+            docubrowse_db._initialized_paths.discard(db_path)
+        assert "trigram" in sql
+    finally:
+        docubrowse_db._default_lang = None
