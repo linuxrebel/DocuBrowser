@@ -21,6 +21,8 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+from lang_models import resolve
+
 # Track which (process, db_path) pairs have had their schema initialized so the
 # expensive init_db() runs once per process instead of on every connection.
 _initialized_paths = set()
@@ -82,8 +84,14 @@ def check_missing_path(path):
     return "missing"
 
 
-def init_db(conn):
+def init_db(conn, lang="en"):
     """Create all tables if they don't exist. Idempotent and migration-safe."""
+    _tok = resolve(lang)["tokenizer"]
+    _tok_clause = {
+        "trigram": ", tokenize='trigram'",
+        "unicode61": ", tokenize=\"unicode61 remove_diacritics 2\"",
+    }.get(_tok, "")
+
     conn.executescript('''
         -- Core documents table
         CREATE TABLE IF NOT EXISTS documents (
@@ -131,15 +139,17 @@ def init_db(conn):
             docs_added INTEGER,
             docs_updated INTEGER
         );
+    ''')
 
-        -- FTS5 virtual table (contentless, smaller footprint)
-        -- NOTE: if this table already exists without author/subject columns,
-        -- the migration block below will drop and recreate it.
+    # FTS5 virtual table (contentless, smaller footprint)
+    # NOTE: if this table already exists without author/subject columns,
+    # the migration block below will drop and recreate it.
+    conn.execute(f"""
         CREATE VIRTUAL TABLE IF NOT EXISTS doc_fts USING fts5(
             name, title, author, subject, description, content_snippet, tags,
-            content='', content_rowid='rowid'
-        );
-    ''')
+            content='', content_rowid='rowid'{_tok_clause}
+        )
+    """)
 
     # Migration: ensure all expected columns exist in documents table
     conn.execute('PRAGMA foreign_keys=ON')
@@ -176,10 +186,10 @@ def init_db(conn):
         conn.execute("SELECT author FROM doc_fts LIMIT 0")
     except sqlite3.OperationalError:
         conn.execute("DROP TABLE IF EXISTS doc_fts")
-        conn.execute("""
+        conn.execute(f"""
             CREATE VIRTUAL TABLE doc_fts USING fts5(
                 name, title, author, subject, description, content_snippet, tags,
-                content='', content_rowid='rowid'
+                content='', content_rowid='rowid'{_tok_clause}
             )
         """)
         # Repopulate index from existing documents + tags
@@ -202,12 +212,13 @@ def init_db(conn):
         conn.commit()
 
 
-def get_db(db_path):
+def get_db(db_path, lang="en"):
     """
     Get or create a SQLite connection with proper settings.
 
     Args:
         db_path: Path to SQLite database file
+        lang: language code used to pick the FTS5 tokenizer on first init
 
     Returns:
         sqlite3.Connection with row_factory and WAL mode enabled
@@ -227,7 +238,7 @@ def get_db(db_path):
     if key not in _initialized_paths:
         with _init_lock:
             if key not in _initialized_paths:
-                init_db(conn)
+                init_db(conn, lang=lang)
                 _initialized_paths.add(key)
 
     return conn
