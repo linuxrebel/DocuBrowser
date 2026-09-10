@@ -157,9 +157,14 @@ supported natively. See D-23 for what a future mixed-corpus effort would need
 to add.
 
 ### D-21: Japanese stack — `bge-m3` embedder + FTS5 `trigram` tokenizer
-**Status:** By design — resolved 2026-09-09
+**Status:** Superseded by D-24 (FTS5 tokenizer choice only) — 2026-09-10
 **Priority:** Medium
 **Added:** 2026-09-09
+
+> **Superseded, item 1 only.** The FTS5 `trigram` tokenizer described below
+> was replaced by app-side character-bigram segmentation over `unicode61`
+> — see D-24. Items 2 (`bge-m3` embedder) and 3 (synopsis model) are
+> unaffected and remain current.
 
 Japanese needed a different embedding model and a different FTS5 tokenizer
 than English, for two independent reasons:
@@ -234,6 +239,62 @@ Scope intentionally left out of the Japanese-first multi-language release:
    locale-JSON mechanism as built).
 5. **RTL (right-to-left) languages.** Not addressed at all — the UI locale
    layer swaps strings, not layout direction/mirroring.
+
+### D-24: CJK keyword search — app-side character bigrams (supersedes D-21's trigram tokenizer)
+**Status:** By design — resolved 2026-09-10
+**Priority:** Medium
+**Added:** 2026-09-10
+
+D-21's FTS5 `trigram` tokenizer for Japanese turned out to break the most
+common real-world query shape: 2-character CJK keyword searches (e.g.
+栽培, 品種) — 2-character kanji/kanji compounds (熟語) are the dominant
+form of CJK search term, not incidental. `trigram` indexes overlapping
+3-character sequences, so a 2-character query has no matching trigram in the
+index and silently fails to match even when the term is present verbatim in
+the document. This was found and root-caused after D-21 shipped, and is
+recorded here as the fix superseding D-21's tokenizer choice (D-21's
+embedder and synopsis-model choices are unaffected and still stand).
+
+**The fix:** keep FTS5's standard `unicode61` tokenizer for `ja` (and for
+CJK languages generally as they're added), and instead segment CJK runs into
+overlapping 2-character (bigram) tokens **in the application**, both when
+indexing (`scan_docs.py`) and when querying (`doc_search.py`), before the
+text ever reaches FTS5. The segmentation itself lives in `cjk.py`
+(`cjk_segment()`), which walks the string and only bigrams contiguous CJK
+character runs — non-CJK spans (English words mixed into the same document,
+punctuation) pass through unsegmented and keep their normal `unicode61`
+tokenization.
+
+**Why bigrams, not a real morphological segmenter.** A proper segmenter
+(MeCab/fugashi for Japanese, jieba for Chinese, konlpy for Korean) would
+produce linguistically correct word boundaries, but each is a real runtime
+dependency (often with its own compiled dictionary data) per language, and
+DocuBrowse's zero-extra-runtime-dependency posture for the FOSS package
+(see D-22) weighed against adding one just to fix keyword search. Character
+bigrams need no dictionary and no per-language library: the same
+`cjk_segment()` function is reused as-is for `ja` today and is intended to
+serve `zh`/`ko` uniformly when those are added, rather than bringing in a
+different segmenter per language.
+
+**Why the 2-character floor, and why that's acceptable.** Bigram
+segmentation means a search index only contains overlapping *pairs* of CJK
+characters — there is no indexed single-character token. A 1-character
+Keyword-mode query therefore cannot exact-match via FTS5. This is accepted
+as by-design rather than fixed further: single CJK characters are extremely
+common (a few hundred cover the bulk of any CJK text) and indexing them
+individually would produce very high-recall, very low-precision keyword
+matches — effectively "does this document contain any of these extremely
+common characters," which is not a useful keyword search result. A
+1-character query is not left dead, though — Both/semantic search mode still
+surfaces relevant documents for it via the `bge-m3` embedding, which doesn't
+depend on FTS5 tokenization at all.
+
+**Operational impact.** Any install that already indexed Japanese documents
+under D-21's `trigram` tokenizer needs a one-time reindex after upgrading —
+the existing on-disk FTS index was built under `trigram` semantics and will
+not match bigram-segmented queries. See `EndUser_docs/Admin_Guide.md` for
+the explicit reindex instructions; this does not happen automatically on
+upgrade.
 
 ### D-19: Search fires on Enter, not as-you-type
 **Status:** Done — 2026-08-25

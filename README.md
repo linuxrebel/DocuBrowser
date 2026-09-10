@@ -483,11 +483,17 @@ language, and does not support mixed-language corpora or per-document
 language detection.
 
 **Currently supported:** English (`en`, default) and Japanese (`ja`).
-Japanese uses the `bge-m3` multilingual embedding model and FTS5's `trigram`
-tokenizer instead of the default `unicode61` tokenizer — Japanese text has no
-spaces between words, so `unicode61` can't segment it into searchable tokens;
-`trigram` indexes overlapping 3-character sequences instead, which supports
-substring matching without needing word boundaries.
+Japanese uses the `bge-m3` multilingual embedding model. For keyword (FTS5)
+search, CJK text (currently Japanese) is indexed with the standard `unicode61`
+tokenizer plus app-side character-bigram segmentation (see `cjk.py`) rather
+than FTS5's built-in `trigram` tokenizer — Japanese text has no spaces
+between words, so both index-time and query-time text are pre-split into
+overlapping 2-character bigrams before FTS5 ever sees them. This is not a
+morphological segmenter (no MeCab/jieba/konlpy dependency); it's a
+zero-dependency stand-in that trades linguistic correctness for indexing
+every 2+ character CJK substring reliably. A single CJK character will not
+exact-match in Keyword mode (by design — 1-character matches are too noisy),
+but still surfaces via Both/semantic search.
 
 **Choosing a language:**
 

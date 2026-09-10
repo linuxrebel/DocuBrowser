@@ -740,13 +740,29 @@ documents may rank poorly or be missed by keyword/semantic search under the
 new language, though the interface text itself switches immediately.
 
 **Japanese specifics.** Japanese uses the `bge-m3` multilingual embedding
-model (instead of `nomic-embed-text`) and FTS5's `trigram` tokenizer
-(instead of `unicode61`). Japanese text has no spaces between words, so
-`unicode61` cannot segment it into indexable tokens; `trigram` indexes
-overlapping 3-character sequences instead, which supports substring matching
-without needing word boundaries. The synopsis model for Japanese is
+model (instead of `nomic-embed-text`). Keyword (FTS5) search for CJK text
+(currently Japanese) uses the standard `unicode61` tokenizer combined with
+app-side character-bigram segmentation (`cjk.py`), not FTS5's built-in
+`trigram` tokenizer — Japanese text has no spaces between words, so
+DocuBrowse pre-splits Japanese text into overlapping 2-character bigrams at
+both index time and query time before handing it to FTS5. This is a
+zero-dependency approach — not a morphological segmenter like MeCab — so
+queries of 2 or more CJK characters match reliably, but a single CJK
+character deliberately does not exact-match in Keyword mode (to avoid noisy
+1-character hits); a 1-character query still surfaces relevant documents via
+Both/semantic search. The synopsis model for Japanese is
 `fuukeidaisuki/nvidia-nemotron-nano-9b-v2-japanese:latest`. `ensure_ollama.py`
 pulls the correct model set for whichever `lang` is configured.
+
+**Reindexing required after upgrading to bigram-segmented CJK search.** If
+this install was indexing Japanese documents under an older DocuBrowse
+version that used FTS5's `trigram` tokenizer, the on-disk FTS index was
+built under `trigram` semantics and will **not** correctly match queries
+under the new `unicode61` + bigram-segmentation scheme. This is a one-time,
+manual operational step, not something the upgrade does automatically: after
+upgrading, run `docubrowser rescan` (or `scan_docs.py` directly) once to
+rebuild the FTS index under the new tokenizer/segmentation before relying on
+Japanese keyword search again.
 
 **Known gaps in this version:**
 
