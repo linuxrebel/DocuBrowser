@@ -1,3 +1,7 @@
+<!-- Translations: keep README-ja.md (and any future README-<lang>.md) in sync with this file. -->
+
+**Language:** **English** | [日本語](README-ja.md)
+
 # DocuBrowse v1.3.0
 
 <a name="top"></a>
@@ -930,6 +934,34 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 ## Recent Changes
 
 [↑ Top](#top)
+
+## Unreleased (targeting v1.4.0) — Multi-language support (Japanese first)
+
+DocuBrowse can now run entirely in a second language. See [Languages](#languages).
+
+- **Per-install language.** One install serves one language — interface strings,
+  embedding model, synopsis model, and FTS tokenizer are all selected together.
+  English (`en`, default) and **Japanese** (`ja`) are supported today; adding a
+  language is a data change (`lang_models.py` row + `locales/<code>.json`), not
+  new code.
+- **Localized UI.** All interface strings are served from per-language locale
+  files (`locales/en.json`, `locales/ja.json`) and resolved client-side; the
+  active locale ships with `GET /api/config`.
+- **Language-appropriate AI.** Japanese uses the `bge-m3` multilingual embedder
+  and a Japanese synopsis model; models are pulled from Ollama on demand at
+  first run (and when switching languages), nothing is bundled.
+- **CJK keyword search** uses app-side character-bigram segmentation over the
+  `unicode61` tokenizer (not `trigram`), so 2+ character Japanese terms (e.g.
+  2-character kanji compounds) match reliably; single-character queries surface
+  via Both/semantic. Zero dependency, and it applies uniformly to Chinese/Korean
+  when they land.
+- **Choosing a language.** Asked once on a fresh install (upgrades never
+  re-prompt — an existing `lang` is preserved), or switched later from the
+  Settings gear (`POST /api/language`), which warns that a rescan is needed to
+  rebuild embeddings/index for the new language.
+- **Reasoning-model synopsis fix.** Hybrid reasoning synopsis models (e.g. the
+  Japanese nemotron) no longer return blank summaries; the synopsis timeout is
+  also raised for large cold models.
 
 ## v1.3.0 (2026-08-25) — Deep Links coverage + semantic tuning
 
