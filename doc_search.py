@@ -1781,19 +1781,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         # Preserve `lang` across saves that don't explicitly change it —
         # otherwise any Settings save from the General panel (which never
         # sends `lang`) would silently reset the install back to English.
-        existing_lang = None
-        if cfg_path.exists():
-            try:
-                for line in cfg_path.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if not line or line.startswith("#") or "=" not in line:
-                        continue
-                    key, _, val = line.partition("=")
-                    if key.strip().lower() == "lang":
-                        existing_lang = val.strip().lower()
-            except OSError:
-                pass
-        lang = str(data.get("lang", existing_lang or "")).strip().lower()
+        existing_lang = config_lang(app_dir=APP_DIR, user_data=data_dir)
+        lang = str(data.get("lang") or existing_lang).strip().lower()
 
         try:
             lines = [
@@ -1812,7 +1801,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         except OSError as e:
             self.error_response(500, f"Could not write config file: {e}")
 
-    def handle_language_post(self):
+    def handle_language_post(self):  # pylint: disable=too-many-locals
         """POST /api/language - Switch the install's active language.
 
         Writes `lang` to docubrowse.config (preserving docPath/workDir/port via
@@ -1833,7 +1822,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         new_lang = str(data.get("lang", "")).strip().lower()
         if new_lang not in SUPPORTED_LANGS:
-            self.error_response(400, f"Unsupported lang: {new_lang!r}. Supported: {list(SUPPORTED_LANGS)}")
+            self.error_response(
+                400, f"Unsupported lang: {new_lang!r}. Supported: {list(SUPPORTED_LANGS)}")
             return
 
         old_lang = config_lang(app_dir=APP_DIR, user_data=USER_DATA)
@@ -1871,7 +1861,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         # the HTTP response on a multi-GB Ollama pull.
         def _provision():
             try:
-                import ensure_ollama
+                import ensure_ollama  # pylint: disable=import-outside-toplevel
                 names = ensure_ollama.installed_models()
                 for model, _size, _purpose in ensure_ollama.required_models(new_lang):
                     if not ensure_ollama.model_present(model, names):

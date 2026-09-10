@@ -9,7 +9,7 @@ from cjk import cjk_segment
 
 def test_two_char_cjk_query_matches(monkeypatch):
     monkeypatch.setenv("DOCUBROWSE_LANG", "ja")
-    docubrowse_db._default_lang = None
+    docubrowse_db._LANG_CACHE.clear()
     try:
         with tempfile.TemporaryDirectory() as tmp:
             db = str(Path(tmp) / "cjk.db")
@@ -25,4 +25,4 @@ def test_two_char_cjk_query_matches(monkeypatch):
             docubrowse_db._initialized_paths.discard(db)
         assert n == 1
     finally:
-        docubrowse_db._default_lang = None
+        docubrowse_db._LANG_CACHE.clear()

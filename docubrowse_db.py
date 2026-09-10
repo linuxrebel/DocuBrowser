@@ -31,18 +31,18 @@ _init_lock = threading.Lock()
 # Resolve the configured language once per process. The FTS tokenizer is chosen
 # at first init per (process, db_path); reading config_lang() here means every
 # get_db() caller picks up the install's language without threading it through
-# all 25 call sites. Cached because config_lang() reads files.
-_default_lang = None
+# all 25 call sites. Cached (a dict, so no module-global rebinding) because
+# config_lang() reads files. Tests clear it with _LANG_CACHE.clear().
+_LANG_CACHE = {}
 
 
 def _process_lang():
-    global _default_lang
-    if _default_lang is None:
+    if "lang" not in _LANG_CACHE:
         try:
-            _default_lang = config_lang()
+            _LANG_CACHE["lang"] = config_lang()
         except Exception:  # pylint: disable=broad-except
-            _default_lang = "en"
-    return _default_lang
+            _LANG_CACHE["lang"] = "en"
+    return _LANG_CACHE["lang"]
 
 
 def check_missing_path(path):

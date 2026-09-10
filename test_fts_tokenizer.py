@@ -76,7 +76,7 @@ def test_get_db_resolves_lang_from_config_when_not_passed(monkeypatch):
     silently fell back to the wrong tokenizer."""
     import docubrowse_db
     monkeypatch.setenv("DOCUBROWSE_LANG", "ja")  # config_lang() honors this
-    docubrowse_db._default_lang = None           # clear the per-process cache
+    docubrowse_db._LANG_CACHE.clear()            # clear the per-process cache
     try:
         with tempfile.TemporaryDirectory() as tmp:
             db_path = str(Path(tmp) / "config_ja.db")
@@ -87,4 +87,4 @@ def test_get_db_resolves_lang_from_config_when_not_passed(monkeypatch):
         assert "unicode61" in sql
         assert "trigram" not in sql
     finally:
-        docubrowse_db._default_lang = None
+        docubrowse_db._LANG_CACHE.clear()

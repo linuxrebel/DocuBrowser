@@ -450,7 +450,7 @@ def _semantic_passage(text, location, score, tokens):
     }
 
 
-def _semantic_passages(units, query, embed_fn, max_passages, lang="en"):
+def _semantic_passages(units, query, embed_fn, max_passages, lang="en"):  # pylint: disable=too-many-locals
     """Rank passages by cosine similarity of their embeddings to the query.
 
     Only the first ``_SEMANTIC_SCAN_CAP`` passages are embedded, to keep the
@@ -481,7 +481,7 @@ def _semantic_passages(units, query, embed_fn, max_passages, lang="en"):
     return {"passages": passages, "truncated": truncated}
 
 
-def locate_passages(path, query, mode, *, max_passages=200, embed_fn=None, lang="en"):
+def locate_passages(path, query, mode, *, max_passages=200, embed_fn=None, lang="en"):  # pylint: disable=too-many-arguments
     """
     Locate the passages in *path* that match *query*.
 

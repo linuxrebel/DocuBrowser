@@ -3,9 +3,9 @@
 """Single source of truth for per-language models, prompts, tokenizer, and
 stopwords. Adding a language = add a row here + a locales/<lang>.json file."""
 
-# The existing English synopsis prompt is moved here verbatim in Task 2; for now
-# a compact equivalent keeps behavior identical. Keep the EN text byte-for-byte
-# equal to the string currently in doc_search.generate_synopsis when Task 2 runs.
+import os
+from pathlib import Path
+
 _EN_SYNOPSIS_PROMPT = (
     "Summarize the document excerpt below in one concise paragraph. "
     "Describe only what the document actually contains — its subject matter, "
@@ -78,16 +78,13 @@ def config_lang(app_dir=None, user_data=None):
     doc_search.handle_config. DOCUBROWSE_LANG env var overrides the file.
     Falls back to "en" when no lang key is set or the value is unrecognized.
     """
-    import os as _os
-    from pathlib import Path as _Path
-
     if app_dir is None:
-        app_dir = _Path(__file__).resolve().parent
+        app_dir = Path(__file__).resolve().parent
     if user_data is None:
-        user_data = _Path.home() / ".docubrowser"
+        user_data = Path.home() / ".docubrowser"
 
     lang = "en"
-    for cfg_path in (_Path(user_data) / "docubrowse.config", _Path(app_dir) / "docubrowse.config"):
+    for cfg_path in (Path(user_data) / "docubrowse.config", Path(app_dir) / "docubrowse.config"):
         if cfg_path.exists():
             try:
                 text = cfg_path.read_text(encoding="utf-8")
@@ -102,7 +99,7 @@ def config_lang(app_dir=None, user_data=None):
                     lang = val.strip().lower()
             break  # first existing config file wins (mirrors handle_config)
 
-    env = _os.environ.get("DOCUBROWSE_LANG")
+    env = os.environ.get("DOCUBROWSE_LANG")
     if env:
         lang = env.strip().lower()
 
