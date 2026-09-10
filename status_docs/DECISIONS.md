@@ -296,6 +296,31 @@ not match bigram-segmented queries. See `EndUser_docs/Admin_Guide.md` for
 the explicit reindex instructions; this does not happen automatically on
 upgrade.
 
+### D-26: End-user docs — FOSS vs Enterprise split
+**Status:** Done — 2026-09-10
+The Administrator Guide and the **full** API Reference are Enterprise-only and
+live in the DocuBrowse-Ent repo (`EndUser_docs/`). FOSS `EndUser_docs/` ships
+`User_Guide.md`/`.docx` + a trimmed `API_Reference.md` covering only the
+localhost API (Enterprise Tier / remote / `enterprise_mode` content removed,
+with a pointer to the Enterprise reference). Rationale: the admin/role
+separation and ~90% of API usage are Enterprise concerns. The old `info_docs/`
+dir (a single stale User Guide docx) was deleted. Both the Admin Guide and the
+Enterprise API Reference carry OUT-OF-DATE banners (content ~v0.8.1/v1.0.3-era)
+pending a rewrite.
+
+### D-25: Release checklist — verify + update ALL docs on every tag/release
+**Status:** Adopted — 2026-09-10
+A release is not done until the docs match the shipped version. On every
+tag/release, verify and update: version strings (`docubrowser.py VERSION`,
+`doc_search.py SERVER_VERSION`, RPM spec `Version:`, README/README-<lang>/INSTALL
+titles + footers), `status_docs/project_status.md`, the changelog entry (convert
+"Unreleased" → dated release), the `EndUser_docs/` guides (check stale behavior,
+not just the tag), and the Enterprise docs when affected. **Do not fake-bump** a
+doc's version tag if its content wasn't actually refreshed — add an out-of-date
+banner instead. Prompted by v1.4.0 shipping with several stale docs. Also
+recorded in the FOSS `.claude/CLAUDE.md` (local, gitignored) so Claude follows
+it each session.
+
 ### D-19: Search fires on Enter, not as-you-type
 **Status:** Done — 2026-08-25
 The main search box used a 250 ms debounce firing on every keystroke, which
