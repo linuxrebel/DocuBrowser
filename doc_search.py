@@ -61,6 +61,7 @@ from scan_docs import (                                                  # noqa:
 )
 from deep_links import locate_passages, strip_stopwords                  # noqa: E402
 from lang_models import resolve, config_lang, lang_from_config, SUPPORTED_LANGS  # noqa: E402
+from cjk import cjk_segment                                               # noqa: E402
 # pylint: enable=wrong-import-position
 
 try:
@@ -514,6 +515,11 @@ def _keyword_scores(conn, q: str) -> dict:
 
     Replaces the old full-corpus Python substring scan. Column weights echo
     the previous hand-tuned field boosts (title/author highest)."""
+    if _ACTIVE["cjk_ngram"]:
+        # Segment the raw query into the same overlapping bigrams used to
+        # index CJK text (cjk.py) so unicode61 can match 2+ char JP terms.
+        # No-op on pure ASCII, so non-CJK queries are unaffected.
+        q = cjk_segment(q)
     expr = _fts_match_expr(q)
     if not expr:
         return {}

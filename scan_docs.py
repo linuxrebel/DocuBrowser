@@ -50,6 +50,8 @@ except ImportError:
 
 from docubrowse_db import get_db, delete_documents
 from platform_paths import scan_log_paths
+from lang_models import resolve, config_lang
+from cjk import cjk_segment
 
 # Per-format extractors — hoisted so ProcessPool workers pay the import cost
 # once at process start rather than once per file dispatched.
@@ -65,6 +67,13 @@ from eml_extractor import extract_eml
 from csv_extractor import extract_csv
 from rtf_extractor import extract_rtf
 from djvu_extractor import extract_djvu
+
+# Active-language resolution mirrors embed_docs.py / doc_search.py: read once
+# at module load. When the configured language's tokenizer needs app-side CJK
+# bigram segmentation (see cjk.py), text-bearing FTS columns get segmented
+# before they're indexed so unicode61 can match 2+ char CJK queries.
+_ACTIVE_LANG = config_lang()
+_CJK_NGRAM = resolve(_ACTIVE_LANG)["cjk_ngram"]
 
 
 # HTtrack-mirrored sites save pages as extensionless files (e.g. "index"
@@ -816,6 +825,18 @@ def _write_result(conn, result: dict, _doc_dir: Path):
 
         # FTS
         tags_str = " ".join(result.get("tags", []))
+        fts_title = result.get("title", "")
+        fts_subject = result.get("subject") or ""
+        fts_description = result.get("description", "")
+        fts_snippet = result.get("snippet", "")
+        fts_tags = tags_str
+        if _CJK_NGRAM:
+            # name/author stay unsegmented (filenames/author names, not prose).
+            fts_title = cjk_segment(fts_title)
+            fts_subject = cjk_segment(fts_subject)
+            fts_description = cjk_segment(fts_description)
+            fts_snippet = cjk_segment(fts_snippet)
+            fts_tags = cjk_segment(fts_tags)
         conn.execute(
             """INSERT OR REPLACE INTO doc_fts
                (rowid, name, title, author, subject, description, tags, content_snippet)
@@ -823,12 +844,12 @@ def _write_result(conn, result: dict, _doc_dir: Path):
             (
                 doc_id,
                 result["name"],
-                result.get("title", ""),
+                fts_title,
                 result.get("author") or "",
-                result.get("subject") or "",
-                result.get("description", ""),
-                tags_str,
-                result.get("snippet", ""),
+                fts_subject,
+                fts_description,
+                fts_tags,
+                fts_snippet,
             ),
         )
         return doc_id
