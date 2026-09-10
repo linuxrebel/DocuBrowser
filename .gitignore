@@ -102,3 +102,6 @@ bus_docs/
 
 # Lint report — local only, not versioned
 Lint-Results.txt
+
+# Personal Obsidian vault landing page — local only
+Home.md
