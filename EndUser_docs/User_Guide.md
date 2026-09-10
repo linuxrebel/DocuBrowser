@@ -1,4 +1,4 @@
-# DocuBrowse v1.0.3 — User Guide
+# DocuBrowse v1.4.0 — User Guide
 
 ---
 
@@ -63,7 +63,7 @@ If you see an error saying the page cannot be reached, the DocuBrowse service is
 
 ## 3. Searching Your Documents
 
-The search bar is at the top of the page, centered in the header. Start typing and results appear within a fraction of a second. You do not need to press Enter.
+The search bar is at the top of the page, centered in the header. Type your query and press **Enter** to search — results appear within a fraction of a second. Clearing the search box shows all documents again.
 
 ### Search Modes: Keyword, Semantic, Both
 
@@ -81,11 +81,17 @@ Example: searching `payment dispute` might surface documents about billing disag
 
 ### Phrase Search
 
-In **Keyword** mode only, you can wrap a phrase in double quotes to search for that exact sequence of words.
+Wrap a phrase in double quotes to require that exact sequence of words. For
+example, typing `"import fmt"` finds documents containing that exact phrase —
+useful for searching source code or technical documentation. Matching is
+case-insensitive.
 
-For example, typing `"import fmt"` will find documents containing that exact phrase — useful for searching source code or technical documentation.
-
-Phrase search does not work in Semantic or Both modes. In those modes, the quotes are ignored and DocuBrowse searches by meaning instead.
+Quotes work in **every** mode. In **Keyword** mode the phrase must appear
+literally. In **Semantic** and **Both** modes the quoted phrase acts as a
+presence filter first — only documents that actually contain the phrase are
+considered — and that set is then ranked by meaning. You can mix forms:
+`golang "import fmt"` means *the phrase "import fmt"* or the loose word
+*golang*.
 
 ### What the Results Show
 
@@ -285,17 +291,21 @@ This means the AI service (Ollama) is not available. The synopsis feature requir
 - Ollama has not been started.
 - The required AI model has not been downloaded yet.
 
-Your administrator can resolve this by starting Ollama and ensuring both the `nomic-embed-text:latest` and `dolphin3:latest` models are installed.
+Your administrator can resolve this by starting Ollama and ensuring the AI models for the configured language are installed (English uses `nomic-embed-text` for search and `dolphin3` for synopsis; other languages use different models, pulled automatically on first run).
 
 ### Clicking a file does nothing, or shows an error
 
 DocuBrowse opens files using your operating system's default application for each file type. If clicking a PDF does nothing, your system may not have a PDF viewer configured. Your administrator can fix this by installing an appropriate application and configuring it as the default for that file type using your system's file association settings.
 
-### Phrase search is not working
+### Phrase search is not matching what I expect
 
-Phrase search — typing `"exact phrase"` in double quotes — only works in **Keyword** mode. If you are in **Semantic** or **Both** mode, the quotes are ignored and the search runs by meaning instead.
-
-To use phrase search, click the **Keyword** button in the header to switch to Keyword mode, then enter your quoted phrase.
+Phrase search — typing `"exact phrase"` in double quotes — requires that the
+words appear together in that exact order (matching is case-insensitive). It
+works in every mode: in **Keyword** mode it matches the literal phrase; in
+**Semantic** and **Both** modes it first keeps only documents that contain the
+phrase, then ranks them by meaning. If a quoted phrase returns nothing, no
+document contains those words in that exact order — try removing the quotes or
+using fewer words.
 
 ### A document appears in search results but the file is missing
 
