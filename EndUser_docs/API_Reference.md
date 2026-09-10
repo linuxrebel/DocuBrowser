@@ -1,4 +1,11 @@
-# DocuBrowse v1.0.3 — API Reference
+# DocuBrowse v1.0.3 — API Reference (FOSS subset)
+
+> **FOSS subset.** This covers the localhost HTTP API shipped in the FOSS build.
+> Enterprise-only API features (remote access, `enterprise_mode` status fields,
+> and other tier-specific behavior) live in the **Enterprise API Reference** in
+> the DocuBrowse-Ent repository — most API usage is Enterprise. **Note:** tagged
+> v1.0.3 and due for a refresh — the i18n `POST /api/language` endpoint and the
+> `lang`/`locale` fields on `/api/config` are not yet documented below.
 
 **Date:** 2026-07-23
 **Base URL:** `http://127.0.0.1:8643`
@@ -42,7 +49,7 @@
 
 ## 1. Overview
 
-DocuBrowse exposes a local HTTP API on port **8643** (default). All endpoints return JSON. By default the server binds to `127.0.0.1` only; it is not reachable from other machines unless the server is started with `--allow-remote`.
+DocuBrowse exposes a local HTTP API on port **8643** (default). All endpoints return JSON. The FOSS server binds to `127.0.0.1` only and is not reachable from other machines. (Remote / network access is an Enterprise feature — see the Enterprise API Reference.)
 
 **Base URL (default):** `http://127.0.0.1:8643`
 
@@ -1201,67 +1208,10 @@ The 70/30 weighting favors semantic relevance, which handles synonyms and paraph
 
 ## 6. Enterprise Tier
 
-The `enterprise_mode` flag on `DocSearchHandler` defaults to `False` in the standard distribution. When an enterprise access layer is active, it sets `DocSearchHandler.enterprise_mode = True` at startup.
-
-When `enterprise_mode` is `True`, the `GET /api/status` response includes additional fields:
-
-**Additional `components.db` fields:**
-
-| Field | Type | Description |
-|---|---|---|
-| doc_count | integer | Total number of indexed documents. |
-| embedded_count | integer | Number of documents with stored embeddings. |
-
-**Additional `components.ollama` fields:**
-
-| Field | Type | Description |
-|---|---|---|
-| embedding_model.name | string | Configured embedding model name (e.g. "nomic-embed-text"). |
-| embedding_model.present | boolean | Whether the embedding model is loaded in Ollama. |
-| synopsis_model.name | string | Configured synopsis model name (e.g. "dolphin3:latest"). |
-| synopsis_model.present | boolean | Whether the synopsis model is loaded in Ollama. |
-
-**Additional top-level fields:**
-
-| Field | Type | Description |
-|---|---|---|
-| config.allow_remote | boolean | Whether the server is accepting remote connections. |
-| config.port | integer | The port the server is listening on. |
-
-**Example enterprise status response:**
-
-```json
-{
-  "ok": true,
-  "version": "1.0.3",
-  "uptime_seconds": 7200.0,
-  "timestamp": "2026-06-27T16:00:00.000000",
-  "components": {
-    "db": {
-      "ok": true,
-      "doc_count": 4812,
-      "embedded_count": 4790
-    },
-    "ollama": {
-      "ok": true,
-      "embedding_model": {
-        "name": "nomic-embed-text",
-        "present": true
-      },
-      "synopsis_model": {
-        "name": "dolphin3:latest",
-        "present": true
-      }
-    }
-  },
-  "config": {
-    "allow_remote": false,
-    "port": 8643
-  }
-}
-```
-
-Model presence is determined by checking Ollama's `/api/tags` endpoint. The comparison strips the `:latest` tag suffix so that `"nomic-embed-text:latest"` and `"nomic-embed-text"` both match the configured name. Model absence does not affect the top-level `ok` field.
+Enterprise-only API behavior — remote/network access, the `enterprise_mode`
+status fields on `GET /api/status`, and other tier-specific features — is **not
+part of the FOSS build**. It is documented in the **Enterprise API Reference**
+(in the DocuBrowse-Ent repository).
 
 ---
 
