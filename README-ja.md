@@ -2,7 +2,7 @@
 
 **言語 / Language:** [English](README.md) | **日本語**
 
-# DocuBrowse v1.3.0
+# DocuBrowse v1.4.0
 
 <a name="top"></a>
 
@@ -916,7 +916,7 @@ ollama pull dolphin3:latest                      # 要約生成、無ければ
 
 [↑ トップ](#top)
 
-## 未リリース（v1.4.0 を予定）— 多言語対応（日本語が最初）
+## v1.4.0 (2026-09-09) — 多言語対応（日本語が最初）
 
 DocuBrowse を完全に第 2 言語で動作させられるようになりました。[言語](#languages)を参照。
 
@@ -1190,4 +1190,4 @@ Copyright (C) 2026 James Sparenberg
 
 ---
 
-**DocuBrowse v1.3.0** — 高速・ローカル・AI 駆動の文書検索。
+**DocuBrowse v1.4.0** — 高速・ローカル・AI 駆動の文書検索。

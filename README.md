@@ -2,7 +2,7 @@
 
 **Language:** **English** | [日本語](README-ja.md)
 
-# DocuBrowse v1.3.0
+# DocuBrowse v1.4.0
 
 <a name="top"></a>
 
@@ -935,7 +935,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
-## Unreleased (targeting v1.4.0) — Multi-language support (Japanese first)
+## v1.4.0 (2026-09-09) — Multi-language support (Japanese first)
 
 DocuBrowse can now run entirely in a second language. See [Languages](#languages).
 
@@ -1436,4 +1436,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v1.3.0** — Fast, local, AI-powered document search.
+**DocuBrowse v1.4.0** — Fast, local, AI-powered document search.

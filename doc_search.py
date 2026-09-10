@@ -229,7 +229,7 @@ _ACTIVE_LANG = config_lang(app_dir=APP_DIR, user_data=USER_DATA)
 _ACTIVE = resolve(_ACTIVE_LANG)
 EMBEDDING_MODEL = _ACTIVE["embed"]
 SYNOPSIS_MODEL = _ACTIVE["synopsis"]
-SERVER_VERSION = "1.3.0"
+SERVER_VERSION = "1.4.0"
 
 _SERVER_START_TIME = None  # set by main(); used by /api/status
 # Cold Ollama starts (e.g. right after a reboot) need to load the model into

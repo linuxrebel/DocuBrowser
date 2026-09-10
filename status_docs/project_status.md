@@ -1,8 +1,8 @@
 # DocuBrowse Project Status
 
-**Version**: v1.3.0  
-**Status**: 🟢 **v1.3.0 — Deep Links coverage + semantic tuning; feature-complete, packaged for all platforms**  
-**Last Updated**: 2026-08-25  
+**Version**: v1.4.0  
+**Status**: 🟢 **v1.4.0 — Multi-language support (Japanese first); feature-complete, packaged for all platforms**  
+**Last Updated**: 2026-09-09  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
