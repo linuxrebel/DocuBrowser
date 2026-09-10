@@ -317,7 +317,7 @@ curl "http://127.0.0.1:8643/api/search?q=network+observability&mode=both&limit=5
       "author": "Brendan Gregg",
       "subject": "",
       "description": "A guide to eBPF, perf, and tracing tools for Linux system analysis.",
-      "path": "/home/james/docs/linux_perf_guide.pdf",
+      "path": "/home/user/docs/linux_perf_guide.pdf",
       "tags": ["linux", "performance", "observability"],
       "score": 0.847,
       "fts_score": 0.612,
@@ -388,7 +388,7 @@ This endpoint can block for **30–90 seconds** on the first call if Ollama must
 **Example request:**
 
 ```bash
-curl "http://127.0.0.1:8643/api/synopsis?path=/home/james/docs/linux_perf_guide.pdf"
+curl "http://127.0.0.1:8643/api/synopsis?path=/home/user/docs/linux_perf_guide.pdf"
 ```
 
 **Example response (freshly generated):**
@@ -552,11 +552,11 @@ curl http://127.0.0.1:8643/api/config
 
 ```json
 {
-  "docPath": "/home/james/docs",
-  "workDir": "/home/james/git/AI/DocuBrowse",
+  "docPath": "/home/user/docs",
+  "workDir": "/home/user/git/AI/DocuBrowse",
   "port": 8643,
   "installed": false,
-  "configSource": "/home/james/git/AI/DocuBrowse/docubrowse.config"
+  "configSource": "/home/user/git/AI/DocuBrowse/docubrowse.config"
 }
 ```
 
@@ -587,8 +587,8 @@ curl http://127.0.0.1:8643/api/ignore-dirs
 ```json
 {
   "dirs": [
-    "/home/james/.cache",
-    "/home/james/docs/private",
+    "/home/user/.cache",
+    "/home/user/docs/private",
     "/tmp"
   ]
 }
@@ -621,8 +621,8 @@ curl http://127.0.0.1:8643/api/scan-dirs
 ```json
 {
   "dirs": [
-    "/home/james/books",
-    "/home/james/docs",
+    "/home/user/books",
+    "/home/user/docs",
     "/mnt/nas/reference"
   ]
 }
@@ -664,19 +664,19 @@ Results are capped at 201 entries. If the directory has a parent, a `..` entry i
 
 ```bash
 curl -H "X-CSRF-Token: <token>" \
-  "http://127.0.0.1:8643/api/browse?path=/home/james"
+  "http://127.0.0.1:8643/api/browse?path=/home/user"
 ```
 
 **Example response:**
 
 ```json
 {
-  "path": "/home/james",
+  "path": "/home/user",
   "entries": [
     { "name": "..", "path": "/home", "parent": true },
-    { "name": "books", "path": "/home/james/books" },
-    { "name": "docs", "path": "/home/james/docs" },
-    { "name": "projects", "path": "/home/james/projects" }
+    { "name": "books", "path": "/home/user/books" },
+    { "name": "docs", "path": "/home/user/docs" },
+    { "name": "projects", "path": "/home/user/projects" }
   ]
 }
 ```
@@ -731,7 +731,7 @@ Opens a file using the desktop's default application. The path must be present i
 ```bash
 curl -X POST \
   -H "X-CSRF-Token: <token>" \
-  "http://127.0.0.1:8643/api/open?path=/home/james/docs/linux_perf_guide.pdf"
+  "http://127.0.0.1:8643/api/open?path=/home/user/docs/linux_perf_guide.pdf"
 ```
 
 **Example response (success):**
@@ -739,7 +739,7 @@ curl -X POST \
 ```json
 {
   "ok": true,
-  "path": "/home/james/docs/linux_perf_guide.pdf"
+  "path": "/home/user/docs/linux_perf_guide.pdf"
 }
 ```
 
@@ -749,7 +749,7 @@ curl -X POST \
 {
   "ok": false,
   "error": "No default application for this file type (application/epub+zip)",
-  "detail": "xdg-open: no method available for opening '/home/james/docs/book.epub'",
+  "detail": "xdg-open: no method available for opening '/home/user/docs/book.epub'",
   "hint": "To fix: run  xdg-mime default <app>.desktop application/epub+zip  or edit ~/.config/mimeapps.list"
 }
 ```
@@ -784,7 +784,7 @@ Removes a document from the index, with optional blacklisting or disk deletion. 
 ```bash
 curl -X POST \
   -H "X-CSRF-Token: <token>" \
-  "http://127.0.0.1:8643/api/delete?path=/home/james/docs/old_report.pdf"
+  "http://127.0.0.1:8643/api/delete?path=/home/user/docs/old_report.pdf"
 ```
 
 **Example response (success):**
@@ -792,7 +792,7 @@ curl -X POST \
 ```json
 {
   "ok": true,
-  "deleted": "/home/james/docs/old_report.pdf"
+  "deleted": "/home/user/docs/old_report.pdf"
 }
 ```
 
@@ -832,7 +832,7 @@ Writes a new `docubrowse.config` file next to `doc_search.py`. `workDir` is requ
 curl -X POST \
   -H "X-CSRF-Token: <token>" \
   -H "Content-Type: application/json" \
-  -d '{"docPath": "/home/james/docs", "workDir": "/home/james/git/AI/DocuBrowse", "port": 8643}' \
+  -d '{"docPath": "/home/user/docs", "workDir": "/home/user/git/AI/DocuBrowse", "port": 8643}' \
   http://127.0.0.1:8643/api/config
 ```
 
@@ -840,8 +840,8 @@ curl -X POST \
 
 ```json
 {
-  "message": "Config saved to /home/james/git/AI/DocuBrowse/docubrowse.config",
-  "configSource": "/home/james/git/AI/DocuBrowse/docubrowse.config"
+  "message": "Config saved to /home/user/git/AI/DocuBrowse/docubrowse.config",
+  "configSource": "/home/user/git/AI/DocuBrowse/docubrowse.config"
 }
 ```
 
@@ -879,7 +879,7 @@ Add or remove a directory from the ignored-directories list (`ignore_dirs.txt`).
 curl -X POST \
   -H "X-CSRF-Token: <token>" \
   -H "Content-Type: application/json" \
-  -d '{"action": "add", "path": "/home/james/docs/private"}' \
+  -d '{"action": "add", "path": "/home/user/docs/private"}' \
   http://127.0.0.1:8643/api/ignore-dirs
 ```
 
@@ -888,7 +888,7 @@ curl -X POST \
 ```json
 {
   "ok": true,
-  "dirs": ["/home/james/.cache", "/home/james/docs/private"],
+  "dirs": ["/home/user/.cache", "/home/user/docs/private"],
   "purged": 12
 }
 ```
@@ -899,7 +899,7 @@ curl -X POST \
 curl -X POST \
   -H "X-CSRF-Token: <token>" \
   -H "Content-Type: application/json" \
-  -d '{"action": "remove", "path": "/home/james/docs/private"}' \
+  -d '{"action": "remove", "path": "/home/user/docs/private"}' \
   http://127.0.0.1:8643/api/ignore-dirs
 ```
 
@@ -908,7 +908,7 @@ curl -X POST \
 ```json
 {
   "ok": true,
-  "dirs": ["/home/james/.cache"]
+  "dirs": ["/home/user/.cache"]
 }
 ```
 
@@ -953,7 +953,7 @@ curl -X POST \
 ```json
 {
   "ok": true,
-  "dirs": ["/home/james/docs", "/mnt/nas/reference"]
+  "dirs": ["/home/user/docs", "/mnt/nas/reference"]
 }
 ```
 
@@ -1005,7 +1005,7 @@ The body is streamed in 64 KB chunks — no full-file buffering.
 
 ```bash
 curl -H "X-CSRF-Token: <token>" \
-  "https://192.168.1.50:8643/api/download?path=/home/james/docs/linux_perf_guide.pdf" \
+  "https://192.168.1.50:8643/api/download?path=/home/user/docs/linux_perf_guide.pdf" \
   -o linux_perf_guide.pdf
 ```
 
@@ -1037,7 +1037,7 @@ Append one or more tags to a document. Existing tags are preserved (uses `INSERT
 
 ```bash
 curl -X POST -H "X-CSRF-Token: <token>" \
-  "https://localhost:8643/api/add-tags?path=/home/james/docs/guide.pdf&tags=security,reference"
+  "https://localhost:8643/api/add-tags?path=/home/user/docs/guide.pdf&tags=security,reference"
 ```
 
 **Example response:**
@@ -1045,7 +1045,7 @@ curl -X POST -H "X-CSRF-Token: <token>" \
 ```json
 {
   "ok": true,
-  "path": "/home/james/docs/guide.pdf",
+  "path": "/home/user/docs/guide.pdf",
   "added": 2,
   "tags": ["linux", "reference", "security"]
 }
@@ -1079,7 +1079,7 @@ Remove a single tag from a document.
 
 ```bash
 curl -X POST -H "X-CSRF-Token: <token>" \
-  "https://localhost:8643/api/remove-tag?path=/home/james/docs/guide.pdf&tag=hidden"
+  "https://localhost:8643/api/remove-tag?path=/home/user/docs/guide.pdf&tag=hidden"
 ```
 
 **Example response:**
@@ -1087,7 +1087,7 @@ curl -X POST -H "X-CSRF-Token: <token>" \
 ```json
 {
   "ok": true,
-  "path": "/home/james/docs/guide.pdf",
+  "path": "/home/user/docs/guide.pdf",
   "removed": 1,
   "tags": ["linux", "reference", "security"]
 }
@@ -1136,7 +1136,7 @@ Each **passage** object:
 **Example request:**
 
 ```bash
-curl "http://127.0.0.1:8643/api/deep-links?path=/home/james/docs/security.pdf&q=firewall&mode=keyword"
+curl "http://127.0.0.1:8643/api/deep-links?path=/home/user/docs/security.pdf&q=firewall&mode=keyword"
 ```
 
 **Example response:**
