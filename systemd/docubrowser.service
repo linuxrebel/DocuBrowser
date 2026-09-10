@@ -1,3 +1,10 @@
+# Reference template for a system-wide install at /opt/docubrowser.
+# NOTE: the tarball installer (`install.sh`, system mode) GENERATES the actual
+# unit at /etc/systemd/system/docubrowser.service with the real install dir,
+# venv, service user, and port substituted in — you do not normally edit this
+# file. It is kept here only as a manual-setup reference. Adjust the User/Group,
+# paths, and port to your install before using it directly.
+
 [Unit]
 Description=DocuBrowse search server
 After=network.target ollama.service
@@ -5,10 +12,10 @@ Wants=ollama.service
 
 [Service]
 Type=simple
-User=james
-Group=james
-WorkingDirectory=/mnt/data/git/AI/DocuBrowse
-ExecStart=/usr/bin/python3 /mnt/data/git/AI/DocuBrowse/doc_search.py /mnt/data/git/AI/DocuBrowse/du-docs.db 8643
+User=docubrowser
+Group=docubrowser
+WorkingDirectory=/opt/docubrowser
+ExecStart=/opt/docubrowser/venv/bin/python3 /opt/docubrowser/doc_search.py /opt/docubrowser/du-docs.db 8643
 
 # Creates /run/docubrowser (-> /var/run/docubrowser) owned by james, used for
 # docubrowser.pid by docubrowser.py's _pick_runtime_path()
