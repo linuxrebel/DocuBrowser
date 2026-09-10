@@ -363,9 +363,9 @@ Usage: docubrowser.py <command> [options]
 ./docubrowser.py purge                         # PII 文書を削除（確認あり）
 
 # スキャンからディレクトリを除外
-./docubrowser.py ignore add /mnt/data/Documents/myWorkDocs   # 除外 + 配下のインデックス済み文書を削除
+./docubrowser.py ignore add ~/Documents/myWorkDocs   # 除外 + 配下のインデックス済み文書を削除
 ./docubrowser.py ignore list                                  # 除外ディレクトリを表示
-./docubrowser.py ignore remove /mnt/data/Documents/myWorkDocs # 再許可（再スキャンで再インデックス）
+./docubrowser.py ignore remove ~/Documents/myWorkDocs # 再許可（再スキャンで再インデックス）
 
 # 重複の検出とクリーンアップ
 ./docubrowser.py duplist                       # 厳密 SHA256 重複を検出
@@ -431,7 +431,7 @@ Web UI は構成を促すバナーを表示し、文書ディレクトリを必�
 
 ```ini
 # docubrowse.config
-doc_dir      = /mnt/data/Documents
+doc_dir      = ~/Documents
 db_path      = /home/user/DocuBrowse/du-docs.db
 port         = 8643
 work_dir     = /home/user/DocuBrowse
@@ -654,7 +654,7 @@ GET /api/search?q=QUERY&offset=0&mode=both
       "author": "Jane Smith",
       "subject": "Cloud Security",
       "description": "First 500 chars of content...",
-      "path": "/mnt/data/Documents/doc.pdf",
+      "path": "~/Documents/doc.pdf",
       "tags": ["pdf", "security", "cloud"],
       "modified_at": "2026-06-07T14:30:00",
       "score": 0.95,
@@ -1093,7 +1093,7 @@ FOSS リリースに含まれなかった未使用のコード経路と実験的
 - 要約モーダルの "Generating synopsis..." メッセージが 6 秒/25 秒で安心させるテキストに更新され、Ollama のコールドスタート（最大約 90 秒）が固まって見えないように。
 
 ### 既定 doc_dir なし、構成バナー、uninstall.sh
-- `doc_dir`/`docPath` が `/mnt/data/Documents` を既定にしなくなりました — 未構成の文書ディレクトリが CLI（`docubrowser.py`）、API（`doc_search.py` の `/api/config`）、`install.sh` の生成する設定を通じて有効な状態に。
+- `doc_dir`/`docPath` が `~/Documents` を既定にしなくなりました — 未構成の文書ディレクトリが CLI（`docubrowser.py`）、API（`doc_search.py` の `/api/config`）、`install.sh` の生成する設定を通じて有効な状態に。
 - 文書ディレクトリを必要とする CLI コマンド（`rescan`、`report`、`scan`）は、未構成の場合、設定歯車・`docubrowse.config`・`--doc-dir` を指す明確なエラーで終了。
 - `index.html` は `/api/config` が空の `docPath` を報告するたびにバナー（"No document directory configured yet. Click the Settings (gear) icon..."）を表示。
 - `uninstall.sh` を追加。`install.sh` のユーザー/システムモード検出をミラーし、systemd ユニットを停止/無効化/削除、CLI ラッパーとインストールディレクトリを削除、pid/ログファイルを整理、（システムモード、別途確認）専用の `docubrowse` ユーザー/グループを削除できます。

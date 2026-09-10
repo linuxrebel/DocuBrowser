@@ -289,7 +289,7 @@ Copy the example config and edit it:
 cp docubrowse.config.example docubrowse.config   # if present
 # or create from scratch:
 cat > docubrowse.config << 'EOF'
-doc_dir      = /mnt/data/Documents      # directory to index
+doc_dir      = ~/Documents      # directory to index
 db_path      = /path/to/DocuBrowse/du-docs.db
 port         = 8643
 work_dir     = /path/to/DocuBrowse

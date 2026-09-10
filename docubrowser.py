@@ -206,17 +206,22 @@ def resolve_doc_dirs(args, config) -> list:
     scan_dirs.txt — deduplicated, empties dropped. This is what makes the
     single 'Document directories' list actually get scanned by rescan/scan.
     """
+    # expanduser so a `~`-based doc_dir (e.g. `~/Documents`) works everywhere,
+    # including for the primary/--doc-dir which the scanner otherwise receives
+    # raw. `~` is expanded cross-platform by pathlib (incl. Windows).
     if getattr(args, "doc_dir", None):
-        return [args.doc_dir]
+        return [str(Path(args.doc_dir).expanduser())]
     dirs = []
     primary = (config.get("doc_dir") or "").strip()
     if primary:
-        dirs.append(primary)
+        dirs.append(str(Path(primary).expanduser()))
     try:
         for d in sorted(_load_scan_dirs(Path(config.get("db_path") or DEFAULT_DB))):
             d = (d or "").strip()
-            if d and d not in dirs:
-                dirs.append(d)
+            if d:
+                d = str(Path(d).expanduser())
+                if d not in dirs:
+                    dirs.append(d)
     except Exception:
         pass
     return dirs

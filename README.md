@@ -363,9 +363,9 @@ Usage: docubrowser.py <command> [options]
 ./docubrowser.py purge                         # remove PII documents (prompts)
 
 # Excluding directories from scanning
-./docubrowser.py ignore add /mnt/data/Documents/myWorkDocs   # exclude + purge indexed docs under it
+./docubrowser.py ignore add ~/Documents/myWorkDocs   # exclude + purge indexed docs under it
 ./docubrowser.py ignore list                                  # show ignored directories
-./docubrowser.py ignore remove /mnt/data/Documents/myWorkDocs # re-allow (rescan to re-index)
+./docubrowser.py ignore remove ~/Documents/myWorkDocs # re-allow (rescan to re-index)
 
 # Duplicate detection and cleanup
 ./docubrowser.py duplist                       # find exact SHA256 duplicates
@@ -433,7 +433,7 @@ how to set it.
 
 ```ini
 # docubrowse.config
-doc_dir      = /mnt/data/Documents
+doc_dir      = ~/Documents
 db_path      = /home/user/DocuBrowse/du-docs.db
 port         = 8643
 work_dir     = /home/user/DocuBrowse
@@ -664,7 +664,7 @@ GET /api/search?q=QUERY&offset=0&mode=both
       "author": "Jane Smith",
       "subject": "Cloud Security",
       "description": "First 500 chars of content...",
-      "path": "/mnt/data/Documents/doc.pdf",
+      "path": "~/Documents/doc.pdf",
       "tags": ["pdf", "security", "cloud"],
       "modified_at": "2026-06-07T14:30:00",
       "score": 0.95,
@@ -1303,7 +1303,7 @@ FOSS release, leaving a cleaner and more focused codebase.
   reassuring text so a slow cold-start Ollama request (up to ~90s) doesn't look hung.
 
 ### No-default doc_dir, configure banner, uninstall.sh
-- `doc_dir`/`docPath` no longer default to `/mnt/data/Documents` — an
+- `doc_dir`/`docPath` no longer default to `~/Documents` — an
   unconfigured document directory is now a valid state across the CLI
   (`docubrowser.py`), API (`doc_search.py` `/api/config`), and `install.sh`'s
   generated config.
