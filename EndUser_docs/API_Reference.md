@@ -59,6 +59,16 @@ All API paths begin with `/api/`. The root path `/` and `/settings` serve the we
 
 ## 2. Authentication and Security
 
+> **Localhost-only (network exposure).** The FOSS server is not reachable from
+> other machines. By default it binds to `127.0.0.1` only, so the port is not
+> exposed on any external network interface (a LAN or port scan sees nothing).
+> Even in the opt-in private-network mode (`DOCUBROWSE_TRUSTED_CIDRS`, e.g. a
+> Docker bridge), the server binds `0.0.0.0` but `DocuBrowseServer.verify_request()`
+> **rejects any connection whose source IP is neither loopback (`127.0.0.0/8` /
+> `::1`) nor in the trusted CIDR list — at the TCP-accept level, before any HTTP
+> is read.** Access control does **not** depend on the host OS firewall. This
+> holds for every endpoint below.
+
 ### 2.1 CSRF Protection
 
 DocuBrowse uses a **per-process secret token** to protect all state-changing endpoints against Cross-Site Request Forgery (CSRF).

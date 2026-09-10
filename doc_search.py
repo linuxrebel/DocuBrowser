@@ -1985,11 +1985,15 @@ def main():   # pylint: disable=too-many-statements
     DocSearchHandler.server_port  = port
     DocSearchHandler.csrf_token   = secrets.token_urlsafe(32)
 
-    # Always bind 0.0.0.0 so the entire 127.0.0.0/8 loopback subnet is
-    # reachable (127.0.0.1, 127.0.1.1, etc.).  DocuBrowseServer.verify_request
-    # drops connections from outside 127.0.0.0/8 unless DOCUBROWSE_TRUSTED_CIDRS
-    # lists additional private networks.
-    server_address = ('0.0.0.0', port)
+    # Bind loopback-only by default (127.0.0.1) so the port is not reachable
+    # from any other interface at the kernel level — a LAN/port scan sees
+    # nothing. Only when DOCUBROWSE_TRUSTED_CIDRS lists extra private networks
+    # (e.g. a Docker bridge) do we bind 0.0.0.0 so those peers can connect;
+    # DocuBrowseServer.verify_request then still drops anything that is neither
+    # loopback nor in the trusted list. (Binding 127.0.0.1 does not serve other
+    # 127.x aliases such as 127.0.1.1 — use localhost / 127.0.0.1.)
+    bind_host = '0.0.0.0' if _TRUSTED_CIDRS else '127.0.0.1'
+    server_address = (bind_host, port)
     try:
         httpd = DocuBrowseServer(server_address, DocSearchHandler)
     except OSError as e:
@@ -2013,8 +2017,8 @@ def main():   # pylint: disable=too-many-statements
             print(f"  Allowed Hosts: {', '.join(sorted(_ALLOWED_HOSTS))}")
         print("  WARNING: trusted peers can reach the API with no auth — keep CIDRs private.")
     else:
-        print(f"  Listening on http://127.0.0.0/8:{port}  (loopback subnet only)")
-        print("  Any 127.x.x.x address works; all external interfaces rejected.")
+        print(f"  Listening on http://127.0.0.1:{port}  (loopback only)")
+        print("  Not reachable from other machines — no external interface is bound.")
 
     # Self-test: confirm semantic search will actually work. A silent
     # embed failure (e.g. wrong response key, Ollama down) degrades

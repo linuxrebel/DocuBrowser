@@ -754,9 +754,12 @@ is hardened so a malicious web page you happen to visit can't reach it:
   numbers by ABA checksum + Federal Reserve prefix — so it both catches more
   real PII and avoids deleting docs over incidental number groups.
 
-The server is localhost-only by default — it binds the loopback subnet and
-rejects all non-loopback connections at the socket level. No authentication
-is needed because only the local user can reach the server.
+The server is localhost-only by default — it binds `127.0.0.1` only (so the
+port is not exposed on any external interface) and, in the opt-in
+`DOCUBROWSE_TRUSTED_CIDRS` mode, rejects all connections outside loopback + the
+trusted list at the socket level. No authentication is needed because only the
+local user can reach the server, and access control does not rely on the host
+firewall.
 
 Optional: set `DOCUBROWSE_TRUSTED_CIDRS` (and usually `DOCUBROWSE_ALLOWED_HOSTS`)
 to allow a private-network reverse proxy or BFF (e.g. Docker Compose) to reach
