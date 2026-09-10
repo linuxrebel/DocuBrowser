@@ -625,8 +625,11 @@ class ThemeResponsiveValidator:
 
 def main():
     """Run validation"""
-    db_path = '/sessions/bold-beautiful-mayer/mnt/DocuBrowse/test_docs.db'
-    output_path = './PHASE3_C_REPORT.txt'
+    # Point this at your own DB via the env var (set it in a gitignored .env,
+    # or export it) — no machine-specific path is committed. Falls back to a
+    # local ./test_docs.db so the script is still runnable out of the box.
+    db_path = os.environ.get('DOCUBROWSE_TEST_DB', './test_docs.db')
+    output_path = os.environ.get('DOCUBROWSE_TEST_REPORT', './PHASE3_C_REPORT.txt')
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
