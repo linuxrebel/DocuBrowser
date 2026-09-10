@@ -99,3 +99,6 @@ bus_docs/
 # Release tarballs (uploaded to GitHub Releases, not tracked in repo)
 *.tar.gz
 .claude/
+
+# Lint report — local only, not versioned
+Lint-Results.txt
