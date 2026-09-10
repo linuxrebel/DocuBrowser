@@ -44,7 +44,7 @@ MOCK_DOCUMENTS = [
         "id": 1,
         "name": "Q4_2025_Financial_Report.pdf",
         "title": "Q4 2025 Financial Report",
-        "path": "/mnt/data/Documents/reports/Q4_2025_Financial_Report.pdf",
+        "path": "/example/Documents/reports/Q4_2025_Financial_Report.pdf",
         "description": "Comprehensive quarterly financial analysis covering revenue, expenses, and projections for the fourth quarter of 2025.",
         "content_snippet": "This report details the financial performance of Q4 2025, showing strong year-over-year growth...",
         "tags": "report,financial,quarterly",
@@ -57,7 +57,7 @@ MOCK_DOCUMENTS = [
         "id": 2,
         "name": "Strategic_Planning_2026.docx",
         "title": "Strategic Planning for 2026",
-        "path": "/mnt/data/Documents/planning/Strategic_Planning_2026.docx",
+        "path": "/example/Documents/planning/Strategic_Planning_2026.docx",
         "description": "Long-term strategic initiatives and goals for 2026 with detailed implementation roadmap and success metrics.",
         "content_snippet": "Our strategic priorities for 2026 include digital transformation, market expansion, and operational efficiency...",
         "tags": "strategic,planning,proposal",
@@ -70,7 +70,7 @@ MOCK_DOCUMENTS = [
         "id": 3,
         "name": "Budget_Analysis_2026.xlsx",
         "title": "Budget Analysis 2026",
-        "path": "/mnt/data/Documents/budget/Budget_Analysis_2026.xlsx",
+        "path": "/example/Documents/budget/Budget_Analysis_2026.xlsx",
         "description": "Detailed budget breakdown for 2026 with department allocations, variance analysis, and contingency planning.",
         "content_snippet": "The 2026 budget proposal allocates resources across five major departments with 15% contingency reserves...",
         "tags": "budget,analysis,financial",
@@ -83,7 +83,7 @@ MOCK_DOCUMENTS = [
         "id": 4,
         "name": "Meeting_Minutes_November.md",
         "title": "November Board Meeting Minutes",
-        "path": "/mnt/data/Documents/meetings/2025_11_Board_Meeting.md",
+        "path": "/example/Documents/meetings/2025_11_Board_Meeting.md",
         "description": "Summary of key decisions and action items from November board meeting including strategic direction.",
         "content_snippet": "The board met on November 15, 2025 to review Q3 results and approve 2026 strategic initiatives...",
         "tags": "meeting,board,quarterly,review",
@@ -96,7 +96,7 @@ MOCK_DOCUMENTS = [
         "id": 5,
         "name": "employee_handbook.pdf",
         "title": "Employee Handbook",
-        "path": "/mnt/data/Documents/policies/employee_handbook.pdf",
+        "path": "/example/Documents/policies/employee_handbook.pdf",
         "description": "Complete employee handbook covering HR policies, benefits, workplace guidelines, and code of conduct.",
         "content_snippet": "Welcome to our organization. This handbook outlines the policies and procedures governing employment...",
         "tags": "policies,handbook",
@@ -109,7 +109,7 @@ MOCK_DOCUMENTS = [
         "id": 6,
         "name": "IT_Security_Policy.pdf",
         "title": "IT Security Policy",
-        "path": "/mnt/data/Documents/policies/IT_Security_Policy.pdf",
+        "path": "/example/Documents/policies/IT_Security_Policy.pdf",
         "description": "Information technology security policies and procedures including access control and data protection.",
         "content_snippet": "This policy establishes the information security governance framework for the organization...",
         "tags": "security,policy,IT",
@@ -122,7 +122,7 @@ MOCK_DOCUMENTS = [
         "id": 7,
         "name": "Quarterly_Review_Q3.xlsx",
         "title": "Quarterly Review Q3 2025",
-        "path": "/mnt/data/Documents/reviews/Quarterly_Review_Q3.xlsx",
+        "path": "/example/Documents/reviews/Quarterly_Review_Q3.xlsx",
         "description": "Q3 2025 quarterly review document including performance metrics, departmental reviews, and forward projections.",
         "content_snippet": "Q3 2025 showed solid performance across most departments with revenue up 12% year-over-year...",
         "tags": "quarterly,review,analysis,report",
@@ -163,8 +163,8 @@ class MockAPIHandler(BaseHTTPRequestHandler):
         # API: /api/config
         elif path == '/api/config':
             self.json_response({
-                "docPath": "/mnt/data/Documents",
-                "workDir": "/mnt/data/git/AI/DocuBrowse",
+                "docPath": "/example/Documents",
+                "workDir": "/example/DocuBrowse",
                 "installed": False,
                 "configSource": None
             })
@@ -237,7 +237,7 @@ class MockAPIHandler(BaseHTTPRequestHandler):
         try:
             path_obj = Path(path_param)
             if not path_obj.exists():
-                path_param = '/mnt/data/Documents'
+                path_param = '/example/Documents'
                 path_obj = Path(path_param)
 
             entries = []

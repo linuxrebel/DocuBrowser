@@ -53,7 +53,7 @@ def main():
         try:
             topic = topics[(i-1) % 10]
             name = f'doc_{i:03d}_{topic}.pdf'
-            path = f'/home/james/git/AI/DocuBrowse/test_docs/{name}'
+            path = f'/example/test_docs/{name}'
             title = f'{topic} Guide - Document {i}'
             description = descriptions[topic]
             snippet = description[:200] + "..."

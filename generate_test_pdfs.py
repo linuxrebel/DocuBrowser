@@ -176,7 +176,7 @@ def generate_test_pdfs(output_dir: str, num_pdfs: int = 100):
 
 
 if __name__ == '__main__':
-    _out_dir = sys.argv[1] if len(sys.argv) > 1 else '/mnt/data/git/AI/DocuBrowse/test_pdfs_sample'
+    _out_dir = sys.argv[1] if len(sys.argv) > 1 else './test_pdfs_sample'
     _n = int(sys.argv[2]) if len(sys.argv) > 2 else 100
 
     if not HAS_REPORTLAB:

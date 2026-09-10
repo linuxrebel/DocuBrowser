@@ -626,7 +626,7 @@ class ThemeResponsiveValidator:
 def main():
     """Run validation"""
     db_path = '/sessions/bold-beautiful-mayer/mnt/DocuBrowse/test_docs.db'
-    output_path = '/mnt/data/git/AI/DocuBrowse/PHASE3_C_REPORT.txt'
+    output_path = './PHASE3_C_REPORT.txt'
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

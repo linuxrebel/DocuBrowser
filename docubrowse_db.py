@@ -372,7 +372,7 @@ def _selftest() -> None:   # pylint: disable=too-many-statements,too-many-locals
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             'example.pdf',
-            '/mnt/data/Documents/example.pdf',
+            '/example/example.pdf',
             102400,
             '.pdf',
             'Example Document',
