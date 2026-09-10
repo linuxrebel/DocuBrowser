@@ -511,7 +511,7 @@ curl http://127.0.0.1:8643/api/letters
 
 Returns the current server configuration, read from `docubrowse.config`. The server checks `/etc/docubrowse.config` first, then the directory containing `doc_search.py`. If no config file is found, defaults are returned.
 
-The `DOCUBROWSE_DOC_DIR`, `DOCUBROWSE_WORK_DIR`, and `DOCUBROWSE_PORT` environment variables override the corresponding config-file values in this response, so a container that injects settings via the environment (with no config file) still reports them here. See the Administrator Guide, section 5.1, for the full list.
+The `DOCUBROWSE_DOC_DIR`, `DOCUBROWSE_WORK_DIR`, and `DOCUBROWSE_PORT` environment variables override the corresponding config-file values in this response, so a container that injects settings via the environment (with no config file) still reports them here. See the Configuration section of the README (Environment Variables) for the full list.
 
 **Parameters:** None
 

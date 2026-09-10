@@ -15,7 +15,6 @@ Graph View and see how the docs connect.
 ## End-user documentation
 
 - [[User_Guide]] — everyday use of the web UI
-- [[Admin_Guide]] — install, configuration, environment variables, services
 - [[API_Reference]] — HTTP API endpoints
 
 ## Project status & planning
