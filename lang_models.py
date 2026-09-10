@@ -41,14 +41,16 @@ LANG_MODELS = {
         "tokenizer": "unicode61",
         "stopwords": _EN_STOPWORDS,
         "has_letter_index": True,
+        "cjk_ngram": False,
     },
     "ja": {
         "embed": "bge-m3",
         "synopsis": "fuukeidaisuki/nvidia-nemotron-nano-9b-v2-japanese:latest",
         "synopsis_prompt": _JA_SYNOPSIS_PROMPT,
-        "tokenizer": "trigram",
+        "tokenizer": "unicode61",
         "stopwords": _JA_STOPWORDS,
         "has_letter_index": False,
+        "cjk_ngram": True,
     },
 }
 

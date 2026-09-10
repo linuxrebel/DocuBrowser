@@ -15,8 +15,9 @@ def test_ja_stack_matches_spec():
     ja = LANG_MODELS["ja"]
     assert ja["embed"] == "bge-m3"
     assert ja["synopsis"] == "fuukeidaisuki/nvidia-nemotron-nano-9b-v2-japanese:latest"
-    assert ja["tokenizer"] == "trigram"
+    assert ja["tokenizer"] == "unicode61"
     assert ja["has_letter_index"] is False  # CJK: hide A–Z bar
+    assert ja["cjk_ngram"] is True
 
 
 def test_en_stack_unchanged():
