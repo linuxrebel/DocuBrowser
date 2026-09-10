@@ -18,6 +18,12 @@ def test_ja_required():
     assert any("nemotron-nano-9b-v2-japanese" in n for n in names)
 
 
+def test_ko_required():
+    names = _names(required_models("ko"))
+    assert "bge-m3:latest" in names       # reuses the multilingual embedder
+    assert "exaone3.5:latest" in names     # Korean-tuned synopsis model
+
+
 def test_unknown_lang_falls_back_to_en():
     assert _names(required_models("xx")) == {"nomic-embed-text:latest", "dolphin3:latest"}
 

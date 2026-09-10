@@ -25,6 +25,15 @@ _JA_SYNOPSIS_PROMPT = (
     "タイトル: {title}\n\n"
     "文書抜粋:\n{context}"
 )
+_KO_SYNOPSIS_PROMPT = (
+    "아래의 문서 발췌를 한 단락으로 간결하게 요약하십시오. 문서가 실제로 담고 "
+    "있는 내용(주제, 목적, 핵심 토픽)만 설명하십시오. 요약은 전적으로 발췌 "
+    "텍스트에만 근거해야 하며, 제목만으로 내용을 추측하거나 존재하지 않는 내용을 "
+    "지어내지 마십시오. 마크다운, 제목, 글머리 기호를 사용하지 마십시오. 앞말 없이 "
+    "단락 자체만 출력하십시오.\n\n"
+    "제목: {title}\n\n"
+    "문서 발췌:\n{context}"
+)
 
 # English articles + FANBOYS (matches the current strip_stopwords set).
 _EN_STOPWORDS = frozenset({
@@ -32,6 +41,9 @@ _EN_STOPWORDS = frozenset({
 })
 # Japanese: v1 does not strip particles (segmentation is nontrivial); empty set.
 _JA_STOPWORDS = frozenset()
+# Korean: agglutinative particles attach to nouns; v1 relies on bigram
+# segmentation (cjk.py) rather than a particle list. Empty set, like Japanese.
+_KO_STOPWORDS = frozenset()
 
 LANG_MODELS = {
     "en": {
@@ -52,9 +64,18 @@ LANG_MODELS = {
         "has_letter_index": False,
         "cjk_ngram": True,
     },
+    "ko": {
+        "embed": "bge-m3",
+        "synopsis": "exaone3.5:latest",
+        "synopsis_prompt": _KO_SYNOPSIS_PROMPT,
+        "tokenizer": "unicode61",
+        "stopwords": _KO_STOPWORDS,
+        "has_letter_index": False,
+        "cjk_ngram": True,
+    },
 }
 
-SUPPORTED_LANGS = ("en", "ja")
+SUPPORTED_LANGS = ("en", "ja", "ko")
 
 
 def resolve(lang):

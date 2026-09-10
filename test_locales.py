@@ -16,6 +16,7 @@ def _load(name):
 def test_en_and_ja_exist():
     assert os.path.exists(os.path.join(LOCALE_DIR, "en.json"))
     assert os.path.exists(os.path.join(LOCALE_DIR, "ja.json"))
+    assert os.path.exists(os.path.join(LOCALE_DIR, "ko.json"))
 
 
 def test_all_locales_have_identical_keys():

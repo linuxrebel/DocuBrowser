@@ -4,8 +4,8 @@
 from lang_models import LANG_MODELS, SUPPORTED_LANGS, resolve, lang_from_config
 
 
-def test_en_and_ja_present_with_required_fields():
-    for lang in ("en", "ja"):
+def test_en_ja_ko_present_with_required_fields():
+    for lang in ("en", "ja", "ko"):
         m = LANG_MODELS[lang]
         for key in ("embed", "synopsis", "synopsis_prompt", "tokenizer", "stopwords", "has_letter_index"):
             assert key in m, f"{lang} missing {key}"
@@ -18,6 +18,16 @@ def test_ja_stack_matches_spec():
     assert ja["tokenizer"] == "unicode61"
     assert ja["has_letter_index"] is False  # CJK: hide A–Z bar
     assert ja["cjk_ngram"] is True
+
+
+def test_ko_stack_matches_spec():
+    ko = LANG_MODELS["ko"]
+    assert ko["embed"] == "bge-m3"  # multilingual, reused from ja
+    assert ko["synopsis"] == "exaone3.5:latest"
+    assert ko["tokenizer"] == "unicode61"
+    assert ko["has_letter_index"] is False  # CJK: hide A–Z bar
+    assert ko["cjk_ngram"] is True  # Hangul bigram segmentation (agglutinative)
+    assert "ko" in SUPPORTED_LANGS
 
 
 def test_en_stack_unchanged():

@@ -1,6 +1,6 @@
 <!-- 翻訳版 — 英語版 README.md と同期して更新してください / Translation — keep in sync with README.md -->
 
-**言語 / Language:** [English](README.md) | **日本語**
+**言語 / Language:** [English](README.md) | **日本語** | [한국어](README-ko.md)
 
 # DocuBrowse v1.4.0
 

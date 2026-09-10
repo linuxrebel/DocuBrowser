@@ -61,7 +61,7 @@ APP_FILES=(
     lang_models.py cjk.py
     index.html settings.html
     requirements.txt du-docs.db.example
-    README.md README-ja.md LICENSE INSTALL.md
+    README.md README-ja.md README-ko.md LICENSE INSTALL.md
 )
 
 for f in "${APP_FILES[@]}"; do

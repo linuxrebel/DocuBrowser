@@ -1,6 +1,6 @@
-<!-- Translations: keep README-ja.md (and any future README-<lang>.md) in sync with this file. -->
+<!-- Translations: keep README-ja.md, README-ko.md (and any future README-<lang>.md) in sync with this file. -->
 
-**Language:** **English** | [日本語](README-ja.md)
+**Language:** **English** | [日本語](README-ja.md) | [한국어](README-ko.md)
 
 # DocuBrowse v1.4.0
 
