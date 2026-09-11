@@ -6,6 +6,8 @@ stopwords. Adding a language = add a row here + a locales/<lang>.json file."""
 import os
 from pathlib import Path
 
+from cjk import KO_INDEX_LETTERS
+
 _EN_SYNOPSIS_PROMPT = (
     "Summarize the document excerpt below in one concise paragraph. "
     "Describe only what the document actually contains — its subject matter, "
@@ -73,7 +75,8 @@ LANG_MODELS = {
         "synopsis_prompt": _KO_SYNOPSIS_PROMPT,
         "tokenizer": "unicode61",
         "stopwords": _KO_STOPWORDS,
-        "has_letter_index": False,
+        "has_letter_index": True,
+        "index_letters": KO_INDEX_LETTERS,  # leading consonants (choseong)
         "cjk_ngram": True,
     },
 }

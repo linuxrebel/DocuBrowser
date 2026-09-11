@@ -12,6 +12,7 @@
   "back": "뒤로",
   "next": "다음",
   "home": "홈",
+  "scroll_top": "맨 위로",
   "open": "열기",
   "hide": "숨기기",
   "unhide": "숨김 해제",
@@ -22,5 +23,19 @@
   "no_dir_banner": "아직 문서 디렉터리가 설정되지 않았습니다. 위의 <strong>설정</strong>(톱니바퀴) 아이콘을 클릭하고 문서 디렉터리를 지정하여 시작하세요.",
   "synopsis_generating": "아직 생성 중입니다… AI 모델이 메모리에 로드되는 중일 수 있습니다. 잠시만 기다려 주세요.",
   "load_more": "더 보기",
-  "search_for": "검색어"
+  "search_for": "검색어",
+  "synopsis_title": "요약",
+  "synopsis_generating_initial": "요약 생성 중…",
+  "synopsis_still_working": "처리 중… 재시작 후 처음에는 시간이 조금 더 걸릴 수 있습니다.",
+  "synopsis_error_generate": "이 문서의 요약을 생성할 수 없습니다.",
+  "synopsis_error_fetch": "요약을 가져오는 중 오류: ",
+  "close": "닫기",
+  "error_unreachable": "DocuBrowse 서비스에 연결할 수 없습니다. 실행 중인지 확인한 후 이 페이지를 새로고침하세요.",
+  "stats_docs": "문서 {n}개",
+  "stats_tags": "태그 {n}개",
+  "tags_heading": "태그",
+  "tags_unavailable": "태그를 사용할 수 없습니다",
+  "tag_code": "코드",
+  "tag_diagram": "다이어그램",
+  "tag_markup": "마크업"
 }

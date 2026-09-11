@@ -113,8 +113,9 @@ DEFAULT_DB      = _default_data_dir() / "du-docs.db"
 DEFAULT_DOC_DIR = ""  # no default — user must configure via Settings (gear icon) or docubrowse.config
 SERVER_SCRIPT   = "doc_search.py"  # Enterprise overrides to its own server
 CONFIG_PATHS    = [
-    USER_DATA / "docubrowse.config",          # packaged install
-    APP_DIR   / "docubrowse.config",          # dev / standalone
+    _default_data_dir() / "docubrowse.config",  # where the Settings UI writes (must win)
+    USER_DATA / "docubrowse.config",            # packaged install
+    APP_DIR   / "docubrowse.config",            # dev / standalone
 ]
 
 

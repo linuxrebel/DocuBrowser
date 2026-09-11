@@ -12,6 +12,7 @@
   "back": "Back",
   "next": "Next",
   "home": "Home",
+  "scroll_top": "Top",
   "open": "Open",
   "hide": "Hide",
   "unhide": "Unhide",
@@ -22,5 +23,19 @@
   "no_dir_banner": "No document directory configured yet. Click the <strong>Settings</strong> (gear) icon above and set a document directory to get started.",
   "synopsis_generating": "Still generating… the AI model may still be loading into memory. Hang tight.",
   "load_more": "Load More",
-  "search_for": "for"
+  "search_for": "for",
+  "synopsis_title": "Synopsis",
+  "synopsis_generating_initial": "Generating synopsis…",
+  "synopsis_still_working": "Still working… this can take a bit longer the first time after a restart.",
+  "synopsis_error_generate": "Could not generate a synopsis for this document.",
+  "synopsis_error_fetch": "Error fetching synopsis: ",
+  "close": "Close",
+  "error_unreachable": "Cannot reach the DocuBrowse service. Make sure it is running, then reload this page.",
+  "stats_docs": "{n} docs",
+  "stats_tags": "{n} tags",
+  "tags_heading": "tags",
+  "tags_unavailable": "tags unavailable",
+  "tag_code": "code",
+  "tag_diagram": "diagram",
+  "tag_markup": "markup"
 }

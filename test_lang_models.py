@@ -2,6 +2,20 @@
 # Copyright (C) 2026 James Sparenberg
 """Tests for the per-language model/resolver table. Run: python3 -m pytest test_lang_models.py -v"""
 from lang_models import LANG_MODELS, SUPPORTED_LANGS, resolve, lang_from_config
+from cjk import ko_letter_of, ko_letter_range, KO_INDEX_LETTERS
+
+
+def test_ko_choseong_index():
+    # First-syllable → leading consonant (tense folds into base).
+    assert ko_letter_of("한국") == "ㅎ"
+    assert ko_letter_of("국가") == "ㄱ"
+    assert ko_letter_of("사전") == "ㅅ"
+    assert ko_letter_of("까치") == "ㄱ"      # ㄲ folds → ㄱ
+    assert ko_letter_of("Report.pdf") is None  # non-Hangul
+    # Every consonant's range is non-empty and maps back to itself.
+    for L in KO_INDEX_LETTERS:
+        lo, hi = ko_letter_range(L)
+        assert lo < hi and ko_letter_of(lo) == L
 
 
 def test_en_ja_ko_present_with_required_fields():
@@ -26,7 +40,8 @@ def test_ko_stack_matches_spec():
     assert ko["embed"] == "bge-m3"  # multilingual, reused from ja
     assert ko["synopsis"] == "exaone3.5:latest"
     assert ko["tokenizer"] == "unicode61"
-    assert ko["has_letter_index"] is False  # CJK: hide A–Z bar
+    assert ko["has_letter_index"] is True  # Hangul: leading-consonant index bar
+    assert ko["index_letters"] == list("ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎ")  # 14 choseong
     assert ko["cjk_ngram"] is True  # Hangul bigram segmentation (agglutinative)
     assert "ko" in SUPPORTED_LANGS
 

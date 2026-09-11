@@ -342,7 +342,7 @@
     <h2 id="synopsisTitle">Synopsis</h2>
     <div class="synopsis-body" id="synopsisBody">Generating synopsis…</div>
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeSynopsis()">Close</button>
+      <button id="synopsisCloseBtn" class="btn-secondary" onclick="closeSynopsis()">Close</button>
     </div>
   </div>
 </div>
@@ -363,13 +363,13 @@
   </div>
   <button class="tag-cloud-toggle" id="tagToggle">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-    tags
+    <span id="tagToggleLabel">tags</span>
   </button>
   <div class="tag-cloud" id="tagCloud" style="display:none"></div>
   <div class="results-meta" id="resultsMeta"></div>
   <div class="doc-grid" id="docGrid"></div>
   <div class="scroll-top-container">
-    <button class="scroll-top-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">↑ Top</button>
+    <button id="scrollTopBtn" class="scroll-top-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">↑ Top</button>
   </div>
 </div>
 
@@ -398,7 +398,16 @@ let showHidden = false;
 // ── i18n: locale bootstrap ──────────────────────────────────────
 let LOCALE = {};
 let HAS_LETTER_INDEX = true;
+let INDEX_LETTERS = null;   // non-Latin index alphabet (e.g. Korean); null → A-Z
 function t(key) { return LOCALE[key] || key; }
+// Localized display label for the fixed category tags. Other tags (file
+// extensions, folder names, content keywords) show verbatim. `data-tag` keeps
+// the canonical English value so filtering and search stay language-independent.
+const TAG_LABEL_KEYS = { code: 'tag_code', diagram: 'tag_diagram', markup: 'tag_markup' };
+function tagLabel(tag) {
+  const k = TAG_LABEL_KEYS[String(tag).toLowerCase()];
+  return k ? t(k) : tag;
+}
 async function loadLocale() {
   try {
     const cfg = await (await fetch('/api/config')).json();
@@ -409,9 +418,12 @@ async function loadLocale() {
     HAS_LETTER_INDEX = cfg.hasLetterIndex !== undefined
       ? cfg.hasLetterIndex !== false
       : cfg.lang !== 'ja';
+    INDEX_LETTERS = Array.isArray(cfg.indexLetters) && cfg.indexLetters.length
+      ? cfg.indexLetters : null;
   } catch (e) {
     LOCALE = {};
     HAS_LETTER_INDEX = true;
+    INDEX_LETTERS = null;
   }
   applyStaticLocale();
 }
@@ -437,6 +449,14 @@ function applyStaticLocale() {
   }
   const banner = document.getElementById('configBanner');
   if (banner) banner.innerHTML = t('no_dir_banner');
+  const topBtn = document.getElementById('scrollTopBtn');
+  if (topBtn) topBtn.textContent = '↑ ' + t('scroll_top');
+  const synTitle = document.getElementById('synopsisTitle');
+  if (synTitle) synTitle.textContent = t('synopsis_title');
+  const synClose = document.getElementById('synopsisCloseBtn');
+  if (synClose) synClose.textContent = t('close');
+  const tagLbl = document.getElementById('tagToggleLabel');
+  if (tagLbl) tagLbl.textContent = t('tags_heading');
   applyTheme(html.getAttribute('data-theme') || 'dark');
 }
 
@@ -523,7 +543,8 @@ function loadStats() {
       // API returns: {docs, embedded, tags} — embedded count no longer displayed
       const docs = d.docs || d.total_docs || 0;
       const tags = d.tags || d.unique_tags || 0;
-      statsEl.innerHTML = `<b>${docs}</b> docs · <b>${tags}</b> tags`;
+      statsEl.innerHTML = t('stats_docs').replace('{n}', `<b>${docs}</b>`) +
+        ' · ' + t('stats_tags').replace('{n}', `<b>${tags}</b>`);
     })
     .catch(e => {
       console.error('Stats fetch error:', e);
@@ -545,11 +566,11 @@ function loadTags() {
         tagsList = Object.entries(d).map(([tag, count]) => ({tag, count}));
       }
       tagCloud.innerHTML = tagsList.filter(t => t.count >= 3)
-        .map(t => `<span class="tag" data-tag="${esc(t.tag)}">${esc(t.tag)} <small style="opacity:0.5">${t.count}</small></span>`).join('');
+        .map(t => `<span class="tag" data-tag="${esc(t.tag)}">${esc(tagLabel(t.tag))} <small style="opacity:0.5">${t.count}</small></span>`).join('');
     })
     .catch(e => {
       console.error('Tags fetch error:', e);
-      tagCloud.innerHTML = '<span style="color:var(--text-dim)">⚠ tags unavailable</span>';
+      tagCloud.innerHTML = `<span style="color:var(--text-dim)">⚠ ${t('tags_unavailable')}</span>`;
     });
 }
 
@@ -744,10 +765,9 @@ async function getActiveLetters() {
     if (res.ok) {
       const data = await res.json();
       const set = new Set();
-      (data.letters || []).forEach(l => {
-        if (/^[A-Z]$/.test(l)) set.add(l);
-        else set.add('0');  // digits / symbols → '0-9' bucket
-      });
+      // Server returns already-bucketed index letters (A-Z, a Korean leading
+      // consonant, or '0' for the digits/symbols bucket).
+      (data.letters || []).forEach(l => set.add(l));
       cachedActiveLetters = set;
       return set;
     }
@@ -761,7 +781,8 @@ async function renderIndexBar() {
     if (existing) existing.remove();
     return;
   }
-  const letters = ['Home', '0-9', ...Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ')];
+  const alpha = INDEX_LETTERS || Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+  const letters = ['Home', '0-9', ...alpha];
   const activeLetters = await getActiveLetters();
 
   const indexBar = document.createElement('div');
@@ -881,7 +902,7 @@ function renderDocs(docs, showScore, append = false) {
         <span class="doc-action-icon doc-delete-btn" data-path="${esc(d.path)}" title="Remove document…">❌</span>
       </div>
       ${desc ? `<div class="doc-desc">${esc(desc)}</div>` : ''}
-      ${tags.length ? `<div class="doc-tags">${tags.map(t=>`<span class="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}</div>` : ''}
+      ${tags.length ? `<div class="doc-tags">${tags.map(t=>`<span class="tag" data-tag="${esc(t)}">${esc(tagLabel(t))}</span>`).join('')}</div>` : ''}
       <div class="doc-meta">
         <div class="doc-meta-left"></div>
         <div class="doc-meta-right">${dateStr}</div>
@@ -1095,7 +1116,7 @@ async function downloadFile(path) {
 // internet/network problem. Give a more accurate message in that case.
 function friendlyError(e) {
   if (e instanceof TypeError) {
-    return 'Cannot reach the DocuBrowse service. Make sure it is running, then reload this page.';
+    return t('error_unreachable');
   }
   return e.message;
 }
@@ -1105,15 +1126,15 @@ async function showSynopsis(path, title) {
   const titleEl = document.getElementById('synopsisTitle');
   const bodyEl  = document.getElementById('synopsisBody');
 
-  titleEl.textContent = title || 'Synopsis';
-  bodyEl.textContent = 'Generating synopsis…';
+  titleEl.textContent = title || t('synopsis_title');
+  bodyEl.textContent = t('synopsis_generating_initial');
   bodyEl.className = 'synopsis-body loading';
   overlay.classList.add('open');
 
   // Reassure the user the request isn't stuck: cold-start Ollama loads can take
   // a while, so update the message if we're still waiting after a few seconds.
   const reassureTimer1 = setTimeout(() => {
-    bodyEl.textContent = 'Still working… this can take a bit longer the first time after a restart.';
+    bodyEl.textContent = t('synopsis_still_working');
   }, 6000);
   const reassureTimer2 = setTimeout(() => {
     bodyEl.textContent = t('synopsis_generating');
@@ -1136,11 +1157,11 @@ async function showSynopsis(path, title) {
       bodyEl.textContent = data.synopsis;
       bodyEl.className = 'synopsis-body';
     } else {
-      bodyEl.textContent = data.error || 'Could not generate a synopsis for this document.';
+      bodyEl.textContent = data.error || t('synopsis_error_generate');
       bodyEl.className = 'synopsis-body error';
     }
   } catch (e) {
-    bodyEl.textContent = e instanceof TypeError ? friendlyError(e) : 'Error fetching synopsis: ' + e.message;
+    bodyEl.textContent = e instanceof TypeError ? friendlyError(e) : t('synopsis_error_fetch') + e.message;
     bodyEl.className = 'synopsis-body error';
   } finally {
     clearTimeout(reassureTimer1);
@@ -1394,7 +1415,7 @@ async function _submitTags() {
       // Update the card's tag display in-place
       if (card && data.tags) {
         const tagDiv = card.querySelector('.doc-tags');
-        const newHtml = data.tags.map(t => `<span class="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('');
+        const newHtml = data.tags.map(t => `<span class="tag" data-tag="${esc(t)}">${esc(tagLabel(t))}</span>`).join('');
         if (tagDiv) {
           tagDiv.innerHTML = newHtml;
         } else {

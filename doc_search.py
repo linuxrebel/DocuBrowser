@@ -61,7 +61,7 @@ from scan_docs import (                                                  # noqa:
 )
 from deep_links import locate_passages, strip_stopwords                  # noqa: E402
 from lang_models import resolve, config_lang, lang_from_config, SUPPORTED_LANGS  # noqa: E402
-from cjk import cjk_segment                                               # noqa: E402
+from cjk import cjk_segment, ko_letter_of, ko_letter_range, KO_INDEX_LETTERS  # noqa: E402
 # pylint: enable=wrong-import-position
 
 try:
@@ -904,15 +904,25 @@ class DocSearchHandler(BaseHTTPRequestHandler):
 
         self.json_response({"tags": tags})
 
+    @staticmethod
+    def _index_letter_of(title: str, lang: str) -> str:
+        """Bucket a title under its index-bar letter: Korean leading consonant,
+        else uppercase Latin A-Z, else '0' (digits / symbols / other)."""
+        if lang == 'ko':
+            return ko_letter_of(title) or '0'
+        ch = title[:1].upper()
+        return ch if 'A' <= ch <= 'Z' else '0'
+
     def handle_letters(self):
-        """GET /api/letters - Return set of first letters present in all doc titles."""
+        """GET /api/letters - Return the set of active index letters across all
+        doc titles (Latin A-Z for most langs; leading consonants for Korean)."""
         conn = get_db(self.db_path)
         rows = conn.execute(
-            "SELECT DISTINCT upper(substr(COALESCE(title, name, ''), 1, 1)) AS letter "
-            "FROM documents WHERE letter != ''"
+            "SELECT COALESCE(title, name, '') AS t FROM documents WHERE t != ''"
         ).fetchall()
         conn.close()
-        letters = sorted(r[0] for r in rows if r[0])
+        lang = config_lang(app_dir=APP_DIR, user_data=_default_data_dir())
+        letters = sorted({self._index_letter_of(r[0], lang) for r in rows if r[0]})
         self.json_response({"letters": letters})
 
     # pylint: disable-next=too-many-locals,too-many-branches,too-many-statements
@@ -936,18 +946,27 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         # Empty query: return documents in alphabetical order with pagination
         if not q:
             # Optional first-letter filter for the alphabetic index bar.
-            # 'letter' is a single A-Z character, or '0-9' for digits/symbols.
-            letter = query.get('letter', [''])[0].strip().upper()
+            # 'letter' is A-Z, a Korean leading consonant, or '0-9' for the
+            # digits/symbols/other bucket.
+            letter = query.get('letter', [''])[0].strip()
+            lang = config_lang(app_dir=APP_DIR, user_data=_default_data_dir())
+            first = "substr(COALESCE(d.title, d.name, ''), 1, 1)"
             conditions = []
             where_params = []
             if letter == '0-9':
-                conditions.append(
-                    "upper(substr(COALESCE(d.title, d.name, ''), 1, 1))"
-                    " NOT GLOB '[A-Z]'"
-                )
+                if lang == 'ko':
+                    # Everything not in the Hangul syllable block.
+                    conditions.append(f"{first} NOT BETWEEN ? AND ?")
+                    where_params += ['가', '힣']
+                else:
+                    conditions.append(f"upper({first}) NOT GLOB '[A-Z]'")
+            elif lang == 'ko' and letter in KO_INDEX_LETTERS:
+                lo, hi = ko_letter_range(letter)
+                conditions.append(f"{first} >= ? AND {first} < ?")
+                where_params += [lo, hi]
             elif len(letter) == 1 and letter.isalpha():
-                conditions.append("upper(substr(COALESCE(d.title, d.name, ''), 1, 1)) = ?")
-                where_params.append(letter)
+                conditions.append(f"upper({first}) = ?")
+                where_params.append(letter.upper())
             if not include_hidden:
                 conditions.append(
                     "d.id NOT IN (SELECT doc_id FROM doc_tags"
@@ -1691,7 +1710,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         if key == "doc_dir":
             config["docPath"] = val
         elif key == "work_dir":
-            config["workDir"] = val
+            if val:  # blank work_dir must not clobber the default (_default_data_dir)
+                config["workDir"] = val
         elif key == "port":
             try:
                 config["port"] = int(val)
@@ -1754,6 +1774,9 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         # index bar shows/hides per the active language's `has_letter_index`.
         config["langs"] = [{"code": c, "label": resolve(c)["label"]} for c in SUPPORTED_LANGS]
         config["hasLetterIndex"] = resolve(active_lang)["has_letter_index"]
+        # Non-Latin index alphabets (e.g. Korean leading consonants) ship their
+        # letter list so the bar isn't hardcoded to A-Z; None → UI uses A-Z.
+        config["indexLetters"] = resolve(active_lang).get("index_letters")
 
         self.json_response(config)
 
@@ -1911,6 +1934,9 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             if filename.endswith('.html'):
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
+                # HTML embeds the CSRF token and the active locale, so it must
+                # not be cached — always revalidate to pick up UI/i18n changes.
+                self.send_header('Cache-Control', 'no-cache, must-revalidate')
             elif filename.endswith('.css'):
                 self.send_header('Content-Type', 'text/css; charset=utf-8')
             elif filename.endswith('.js'):

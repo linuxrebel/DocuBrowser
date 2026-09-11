@@ -12,6 +12,7 @@
   "back": "戻る",
   "next": "次へ",
   "home": "ホーム",
+  "scroll_top": "トップ",
   "open": "開く",
   "hide": "非表示",
   "unhide": "表示に戻す",
@@ -22,5 +23,19 @@
   "no_dir_banner": "文書ディレクトリがまだ設定されていません。上部の<strong>設定</strong>(歯車)アイコンをクリックして、文書ディレクトリを設定してください。",
   "synopsis_generating": "生成中です… AIモデルがまだメモリに読み込まれている可能性があります。もうしばらくお待ちください。",
   "load_more": "さらに読み込む",
-  "search_for": "の検索結果"
+  "search_for": "の検索結果",
+  "synopsis_title": "要約",
+  "synopsis_generating_initial": "要約を生成中…",
+  "synopsis_still_working": "処理中… 再起動後の初回は少し時間がかかることがあります。",
+  "synopsis_error_generate": "この文書の要約を生成できませんでした。",
+  "synopsis_error_fetch": "要約の取得中にエラー: ",
+  "close": "閉じる",
+  "error_unreachable": "DocuBrowseサービスに接続できません。実行中であることを確認してから、このページを再読み込みしてください。",
+  "stats_docs": "文書 {n} 件",
+  "stats_tags": "タグ {n} 個",
+  "tags_heading": "タグ",
+  "tags_unavailable": "タグを利用できません",
+  "tag_code": "コード",
+  "tag_diagram": "図",
+  "tag_markup": "マークアップ"
 }
