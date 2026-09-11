@@ -1,4 +1,4 @@
-# DocuBrowse v1.4.0 — Installation Guide
+# DocuBrowse v1.5.0 — Installation Guide
 
 This guide covers a fresh install on Linux (Fedora/RHEL/Debian/Ubuntu/Mint),
 Windows 10/11, or macOS. DocuBrowse runs entirely locally — no cloud
@@ -304,14 +304,17 @@ configure one (via the Settings gear icon in the web UI, or by setting
 CLI commands that need a document directory (`rescan`, `report`, `scan`) exit
 with an error explaining how to set it.
 
-**Language:** the repo-root `./install.sh` asks "English or Japanese?" on a
-fresh install (non-interactively via `DOCUBROWSE_LANG=en`/`DOCUBROWSE_LANG=ja`)
-and writes the answer to `lang` above. The packaged installers (RPM/DEB/
-tarball/Windows/macOS) default new installs to `lang = en` — change it
-afterward from the Settings gear icon in the web UI. **Upgrading an existing
-install never re-prompts and never resets this** — whatever `lang` is already
-in `docubrowse.config` is preserved. Switching languages after documents are
-already indexed shows a warning that a re-embed / FTS index rebuild
+**Language:** the repo-root `./install.sh` asks for the language (English,
+Japanese, or Korean) on a fresh install (non-interactively via
+`DOCUBROWSE_LANG=en`/`=ja`/`=ko`) and writes the answer to `lang` above. The
+packaged installers (RPM/DEB/tarball/Windows/macOS) default new installs to
+`lang = en` — change it afterward from the Settings gear icon in the web UI,
+or start the server in a given language with `docubrowser ko start` (the code
+may come before or after the command and is persisted to `docubrowse.config`).
+**Upgrading an existing install never re-prompts and never resets this** —
+whatever `lang` is already in `docubrowse.config` is preserved. Switching
+languages after documents are already indexed shows a warning that a re-embed
+/ FTS index rebuild
 (`docubrowser rescan`) is needed for full search quality in the new language.
 
 The server is localhost-only — it binds the loopback subnet (`127.0.0.0/8`)

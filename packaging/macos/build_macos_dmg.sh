@@ -92,6 +92,7 @@ APP_FILES=(
     dup_detect.py
     platform_paths.py
     lang_models.py
+    cjk.py
     index.html
     settings.html
     requirements.txt

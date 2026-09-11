@@ -1,4 +1,4 @@
-# DocuBrowse v1.4.0 — User Guide
+# DocuBrowse v1.5.0 — User Guide
 
 ---
 
@@ -194,9 +194,16 @@ Click the currently active letter again to return to All Documents. Alternativel
 
 The index bar stays visible and functional while you are viewing search results, letter-filtered results, or the full document list.
 
+**Korean:** when DocuBrowse is set to Korean, the index bar shows the 14 basic
+Korean leading consonants (choseong) — ㄱ ㄴ ㄷ ㄹ ㅁ ㅂ ㅅ ㅇ ㅈ ㅊ ㅋ ㅌ ㅍ ㅎ —
+instead of A–Z. Click one to display documents whose title begins with a
+syllable led by that consonant (tense consonants such as ㄲ are grouped under
+their base consonant ㄱ). Everything else works the same: **Home** and **0-9**
+remain, and buttons with no matching documents are dimmed.
+
 **Note:** the index bar is hidden when DocuBrowse is set to Japanese — Japanese
-titles are not reliably A–Z sortable, and a reading-based (kana) index is not
-yet available in this version.
+titles are not reliably sortable by first character, and a reading-based (kana)
+index is not yet available in this version.
 
 ---
 
@@ -244,18 +251,24 @@ Currently excluded directories are shown in the **Currently excluded directories
 ### Language
 
 The **General** panel has a **Language** dropdown. DocuBrowse serves one
-language at a time for its interface and search — currently **English** and
-**Japanese**.
+language at a time for its interface and search — currently **English**,
+**Japanese**, and **Korean**.
 
 To switch languages, pick the new language from the dropdown and click
-**Save**. The interface text switches immediately. If the new language uses
-a different search engine under the hood than the old one (this is the case
-switching between English and Japanese), you will see a warning that
-existing documents need to be re-indexed for full search quality — until
-your administrator runs a rescan, documents indexed under the old language
-may not show up correctly in keyword or semantic search results under the
-new one. Newly scanned documents are always indexed correctly for whichever
-language is currently selected.
+**Save**. The interface text switches immediately, and DocuBrowse reminds you
+to refresh any open search page so its interface picks up the new language. If
+the new language uses a different search engine under the hood than the old one
+(for example, switching between English and Japanese/Korean), you will see a
+warning that existing documents need to be re-indexed for full search quality —
+until your administrator runs a rescan, documents indexed under the old
+language may not show up correctly in keyword or semantic search results under
+the new one. (Japanese and Korean share the same search engine, so switching
+between just those two needs no re-index.) Newly scanned documents are always
+indexed correctly for whichever language is currently selected.
+
+Your administrator can also start DocuBrowse directly in a language from the
+command line — for example `docubrowser ko start` (Korean) or
+`docubrowser start ja` (Japanese).
 
 ### Other Settings
 

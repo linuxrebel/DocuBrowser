@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        1.4.0
+Version:        1.5.0
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
@@ -194,6 +194,28 @@ fi
 
 
 %changelog
+* Thu Sep 11 2026 James Sparenberg <james@sparenbergs.us> - 1.5.0-1
+- Korean (ko) language support: bge-m3 embeddings, exaone3.5 synopsis,
+  Hangul bigram keyword search, and full UI translation
+- Korean alphabet index bar: browse by leading consonant (choseong),
+  the 14 basic consonants ㄱ-ㅎ
+- Settings page fully internationalized (English/Japanese/Korean)
+- Start in a chosen language from the CLI: "docubrowser ko start"
+  (or "docubrowser start ja") persists and applies the language
+- Localized synopsis/error messages across the UI
+- Fix: fresh-instance "Error adding directory" (blank work_dir no longer
+  overrides the default) and CLI/server config-path precedence mismatch
+
+* Wed Sep 09 2026 James Sparenberg <james@sparenbergs.us> - 1.4.0-1
+- Multi-language support (Japanese first): data-driven per-install language,
+  interface localization, and CJK bigram keyword search
+- Japanese stack: bge-m3 embeddings + Japanese synopsis model
+
+* Mon Aug 25 2026 James Sparenberg <james@sparenbergs.us> - 1.3.0-1
+- Deep Links tuning: bounded semantic scan, relevance floor, and
+  contentless-passage filtering; search fires on Enter
+- Hidden-document pagination fix; dotfile purge utility
+
 * Mon Aug 24 2026 James Sparenberg <james@sparenbergs.us> - 1.2.0-1
 - Deep Links: in-document passage search from any keyword or semantic result,
   with location labels (page/line/section) and highlighted matched text

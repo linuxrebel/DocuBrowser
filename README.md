@@ -2,7 +2,7 @@
 
 **Language:** **English** | [日本語](README-ja.md) | [한국어](README-ko.md)
 
-# DocuBrowse v1.4.0
+# DocuBrowse v1.5.0
 
 <a name="top"></a>
 
@@ -486,43 +486,58 @@ DocuBrowse assumes the configured document directory is overwhelmingly one
 language, and does not support mixed-language corpora or per-document
 language detection.
 
-**Currently supported:** English (`en`, default) and Japanese (`ja`).
-Japanese uses the `bge-m3` multilingual embedding model. For keyword (FTS5)
-search, CJK text (currently Japanese) is indexed with the standard `unicode61`
-tokenizer plus app-side character-bigram segmentation (see `cjk.py`) rather
-than FTS5's built-in `trigram` tokenizer — Japanese text has no spaces
-between words, so both index-time and query-time text are pre-split into
-overlapping 2-character bigrams before FTS5 ever sees them. This is not a
-morphological segmenter (no MeCab/jieba/konlpy dependency); it's a
-zero-dependency stand-in that trades linguistic correctness for indexing
-every 2+ character CJK substring reliably. A single CJK character will not
-exact-match in Keyword mode (by design — 1-character matches are too noisy),
-but still surfaces via Both/semantic search.
+**Currently supported:** English (`en`, default), Japanese (`ja`), and
+Korean (`ko`). Japanese and Korean both use the `bge-m3` multilingual
+embedding model (English uses `nomic-embed-text`); Korean's synopsis model is
+`exaone3.5`. For keyword (FTS5) search, CJK text (Japanese and Korean) is
+indexed with the standard `unicode61` tokenizer plus app-side character-bigram
+segmentation (see `cjk.py`) rather than FTS5's built-in `trigram` tokenizer —
+Japanese has no spaces between words and Korean is agglutinative, so both
+index-time and query-time text are pre-split into overlapping 2-character
+bigrams before FTS5 ever sees them. This is not a morphological segmenter (no
+MeCab/jieba/konlpy dependency); it's a zero-dependency stand-in that trades
+linguistic correctness for indexing every 2+ character CJK substring reliably.
+A single CJK character will not exact-match in Keyword mode (by design —
+1-character matches are too noisy), but still surfaces via Both/semantic search.
+
+**Korean alphabet index bar:** Korean is a true alphabet (unlike Japanese,
+whose kana and kanji have no first-letter ordering), so the document-list
+index bar is enabled for Korean and shows the 14 basic leading consonants
+(choseong): ㄱ ㄴ ㄷ ㄹ ㅁ ㅂ ㅅ ㅇ ㅈ ㅊ ㅋ ㅌ ㅍ ㅎ. Each button filters
+documents whose title begins with a syllable led by that consonant (tense
+consonants fold into their base, e.g. ㄲ→ㄱ). English uses the A–Z/0–9 bar;
+the bar is hidden for Japanese.
 
 **Choosing a language:**
 
-- **At install time** — `install.sh` asks "English or Japanese?" on a fresh
-  install. Answer non-interactively with `DOCUBROWSE_LANG=en` or
-  `DOCUBROWSE_LANG=ja`. **Upgrades never re-prompt** — an existing `lang`
-  value in `docubrowse.config` is always preserved. (The platform installers
-  — Windows/macOS/RPM/DEB — default new installs to `lang = en`; change it
+- **At install time** — `install.sh` asks for the language on a fresh
+  install. Answer non-interactively with `DOCUBROWSE_LANG=en`, `=ja`, or
+  `=ko`. **Upgrades never re-prompt** — an existing `lang` value in
+  `docubrowse.config` is always preserved. (The platform installers —
+  Windows/macOS/RPM/DEB — default new installs to `lang = en`; change it
   afterward via Settings.)
+- **At start time** — `docubrowser ko start` (or `docubrowser start ja`)
+  starts the server in that language; the code may appear in either position.
+  The choice is written to `docubrowse.config`, so it persists for later
+  plain `docubrowser start` runs until you pick another.
 - **After install** — open the web UI, click the Settings (gear) icon, and
   use the language dropdown in the General panel (calls `POST
   /api/language`). Switching to a language that uses a different embedder or
-  FTS tokenizer (e.g. English ↔ Japanese) shows a warning: existing documents
-  keep their old embeddings and FTS index until you re-run `docubrowser
-  rescan` (or `embed_docs.py`) to rebuild them for the new language — search
-  quality is degraded for previously-indexed documents until then.
+  FTS tokenizer (e.g. English ↔ Japanese/Korean) shows a warning: existing
+  documents keep their old embeddings and FTS index until you re-run
+  `docubrowser rescan` (or `embed_docs.py`) to rebuild them for the new
+  language — search quality is degraded for previously-indexed documents
+  until then. (Japanese ↔ Korean share the `bge-m3` embedder and the same
+  tokenizer, so no rebuild is required between those two.)
 
 **Not yet supported:** mixed-language or per-document language corpora,
-languages beyond English/Japanese (the `LANG_MODELS` table in
+languages beyond English/Japanese/Korean (the `LANG_MODELS` table in
 `lang_models.py` plus a `locales/<code>.json` file is the whole mechanism, so
 adding one is a data change, not a code change), a kana/reading-based (or
-pinyin) index bar for CJK document lists (the A–Z/0–9 letter index bar is
-hidden for Japanese in this version), and Japanese "My Number" PII detection
-(only US PII patterns are implemented today). See `status_docs/DECISIONS.md`
-for the full rationale.
+pinyin) index bar for Japanese/Chinese document lists (Japanese has no
+first-letter ordering; Korean uses the choseong bar described above), and
+Japanese "My Number" PII detection (only US PII patterns are implemented
+today).
 
 ---
 
@@ -928,7 +943,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Hidden files/dotfiles not indexed | By design — any file with a dot-prefixed path component (`.env`, `.bashrc`, and the contents of hidden dirs like `.git/`/`.venv/`) is skipped at scan time. Dotfiles indexed by an **older** version are **not** auto-removed by a rescan (the files still exist on disk); run the standalone `purge_dotfiles.py` tool (or rebuild the index) to purge them |
 | No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure |
 | Semantic *ranking* is document-level | Whole-document embeddings rank *which* documents match; **Deep Links** then pinpoints *where* inside any result on demand. Corpus-wide chunk-level ranking remains future work |
-| No mixed-language corpora | One install serves one language (English or Japanese, chosen at install time or via Settings); per-document language detection or mixed-language corpora are not supported. See [Languages](#languages) |
+| No mixed-language corpora | One install serves one language (English, Japanese, or Korean, chosen at install time or via Settings); per-document language detection or mixed-language corpora are not supported. See [Languages](#languages) |
 | PII detection is US-pattern only | `purge_pii.py` detects US formats (SSN, phone, etc.); Japanese "My Number" and other non-US PII patterns are not yet implemented |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 
@@ -937,6 +952,32 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 ## Recent Changes
 
 [↑ Top](#top)
+
+## v1.5.0 (2026-09-11) — Korean support + full UI localization
+
+DocuBrowse now runs entirely in **Korean**, and the interface localization is
+complete (search page and Settings page). See [Languages](#languages).
+
+- **Korean (`ko`).** Full language stack: `bge-m3` embeddings, `exaone3.5`
+  synopsis, Hangul character-bigram keyword search, and a complete Korean UI
+  translation (`locales/ko.json`).
+- **Korean alphabet index bar.** Because Hangul is a true alphabet, the
+  document-list index bar is enabled for Korean and browses by the 14 basic
+  leading consonants (choseong) ㄱ–ㅎ; tense consonants fold into their base
+  (ㄲ→ㄱ). English keeps the A–Z/0–9 bar; the bar stays hidden for Japanese.
+- **Settings page fully internationalized.** Every label, description,
+  button, placeholder, status line, confirm dialog, toast, and alert on the
+  Settings page is now localized (English/Japanese/Korean).
+- **Start in a chosen language from the CLI.** `docubrowser ko start` (or
+  `docubrowser start ja`) starts the server in that language and persists the
+  choice to `docubrowse.config`; the code may appear in either position.
+- **Localized messages.** Synopsis-modal errors, the document/tag counters,
+  the tag categories (code/diagram/markup), the scroll-to-top button, and
+  network/error messages are now translated.
+- **Fixes.** Fresh-instance "Error adding directory" (a blank `work_dir` line
+  no longer overrides the default); the CLI now reads the same config the
+  Settings UI writes, so `scan` targets the configured directory; HTML is
+  served `no-cache` so UI/localization changes always reload fresh.
 
 ## v1.4.0 (2026-09-09) — Multi-language support (Japanese first)
 
@@ -1439,4 +1480,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v1.4.0** — Fast, local, AI-powered document search.
+**DocuBrowse v1.5.0** — Fast, local, AI-powered document search.

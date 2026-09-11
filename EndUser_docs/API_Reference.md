@@ -1,13 +1,11 @@
-# DocuBrowse v1.0.3 — API Reference (FOSS subset)
+# DocuBrowse v1.5.0 — API Reference (FOSS subset)
 
 > **FOSS subset.** This covers the localhost HTTP API shipped in the FOSS build.
 > Enterprise-only API features (remote access, `enterprise_mode` status fields,
 > and other tier-specific behavior) live in the **Enterprise API Reference** in
-> the DocuBrowse-Ent repository — most API usage is Enterprise. **Note:** tagged
-> v1.0.3 and due for a refresh — the i18n `POST /api/language` endpoint and the
-> `lang`/`locale` fields on `/api/config` are not yet documented below.
+> the DocuBrowse-Ent repository — most API usage is Enterprise.
 
-**Date:** 2026-07-23
+**Date:** 2026-09-11
 **Base URL:** `http://127.0.0.1:8643`
 **Content-Type:** `application/json` (all API requests and responses)
 
@@ -41,6 +39,7 @@
    - 4.17 [POST /api/add-tags](#417-post-apiadd-tags)
    - 4.18 [POST /api/remove-tag](#418-post-apiremove-tag)
    - 4.19 [GET /api/deep-links](#419-get-apideep-links)
+   - 4.20 [POST /api/language](#420-post-apilanguage)
 5. [Search Modes](#5-search-modes)
 6. [Enterprise Tier](#6-enterprise-tier)
 7. [Rate Limits and Performance Notes](#7-rate-limits-and-performance-notes)
@@ -120,6 +119,7 @@ Before checking the token, the server also inspects the `Origin` and `Referer` h
 | **GET /api/download** | **Yes** |
 | **POST /api/add-tags** | **Yes** |
 | **POST /api/remove-tag** | **Yes** |
+| **POST /api/language** | **Yes** |
 
 ### 2.2 Host-Header Allowlist (DNS Rebinding Protection)
 
@@ -268,7 +268,7 @@ Search the document index. Supports three modes: keyword (FTS5 BM25), semantic (
 | mode | string | `both` | Search mode: `keyword`, `semantic`, or `both` (hybrid). |
 | offset | integer | `0` | Zero-based offset into the result set for pagination. |
 | limit | integer | `50` | Number of results to return. Clamped to the range [1, 200]. |
-| letter | string | (none) | When `q` is empty, filter by first letter of title. Single A-Z character, or `0-9` for titles starting with a digit or symbol. |
+| letter | string | (none) | When `q` is empty, filter by the first-letter index bucket. A single `A`–`Z` character (English), a Korean leading consonant `ㄱ`–`ㅎ` (Korean; matches titles whose first syllable is led by that consonant, tense consonants folded into their base), or `0-9` for titles starting with a digit or symbol. |
 
 **Response fields:**
 
@@ -496,7 +496,7 @@ curl http://127.0.0.1:8643/api/tags
 
 **CSRF required:** No
 
-Returns the set of distinct first letters (uppercased) present in the indexed document titles or filenames. Used by the web UI to populate the alphabetic index bar. Only non-empty letters are returned.
+Returns the set of index-bar buckets present in the indexed document titles or filenames. Used by the web UI to populate the alphabetic index bar; buckets with no documents are shown disabled. The bucketing is language-aware: for English the buckets are uppercase letters `A`–`Z` (with `0` for digits/symbols); for Korean each title is bucketed under its leading consonant (choseong), so the values are the Korean consonants `ㄱ`–`ㅎ` (again with `0` for non-Hangul).
 
 **Parameters:** None
 
@@ -504,7 +504,7 @@ Returns the set of distinct first letters (uppercased) present in the indexed do
 
 | Field | Type | Description |
 |---|---|---|
-| letters | array of strings | Sorted list of uppercase letters present in the index. |
+| letters | array of strings | Sorted list of active index-bar buckets: `A`–`Z` (English) or Korean leading consonants `ㄱ`–`ㅎ` (Korean), plus `0` for the digits/symbols bucket. |
 
 **Example request:**
 
@@ -541,6 +541,11 @@ The `DOCUBROWSE_DOC_DIR`, `DOCUBROWSE_WORK_DIR`, and `DOCUBROWSE_PORT` environme
 | port | integer | The configured port number. |
 | installed | boolean | true if the active config was loaded from `/etc/docubrowse.config`. |
 | configSource | string or null | Absolute path of the config file that was loaded, or null if none found. |
+| lang | string | Active interface/document language code (`en`, `ja`, or `ko`). |
+| locale | object | Map of UI string keys to their translations for the active language (the client's `t()` lookup table). |
+| langs | array | Available languages, each `{ "code": string, "label": string }`, used to build the Settings language dropdown. |
+| hasLetterIndex | boolean | Whether the document-list alphabet index bar is shown for the active language (false for Japanese). |
+| indexLetters | array or null | For non-Latin index alphabets (e.g. Korean leading consonants), the ordered letter list the index bar should display; null means use the default A–Z. |
 
 **Example request:**
 
@@ -548,7 +553,7 @@ The `DOCUBROWSE_DOC_DIR`, `DOCUBROWSE_WORK_DIR`, and `DOCUBROWSE_PORT` environme
 curl http://127.0.0.1:8643/api/config
 ```
 
-**Example response:**
+**Example response** (abridged; `locale` holds many keys):
 
 ```json
 {
@@ -556,7 +561,16 @@ curl http://127.0.0.1:8643/api/config
   "workDir": "/home/user/git/AI/DocuBrowse",
   "port": 8643,
   "installed": false,
-  "configSource": "/home/user/git/AI/DocuBrowse/docubrowse.config"
+  "configSource": "/home/user/git/AI/DocuBrowse/docubrowse.config",
+  "lang": "ko",
+  "langs": [
+    { "code": "en", "label": "English" },
+    { "code": "ja", "label": "日本語 (Japanese)" },
+    { "code": "ko", "label": "한국어 (Korean)" }
+  ],
+  "hasLetterIndex": true,
+  "indexLetters": ["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"],
+  "locale": { "search_placeholder": "…", "settings": "설정" }
 }
 ```
 
@@ -1163,6 +1177,53 @@ curl "http://127.0.0.1:8643/api/deep-links?path=/home/user/docs/security.pdf&q=f
 ```json
 { "ok": true, "unsupported": true }
 ```
+
+---
+
+### 4.20 POST /api/language
+
+**CSRF required:** Yes
+
+Switches the install's active language. Writes the `lang` value to
+`docubrowse.config` (preserving `doc_dir`/`work_dir`/`port`) and reports
+whether the change requires re-embedding and rebuilding the search index for
+existing documents. Model provisioning for the new language is kicked off in
+the background (not awaited), so the response returns immediately.
+
+**Request body:**
+
+| Field | Type | Description |
+|---|---|---|
+| lang | string | Target language code: `en`, `ja`, or `ko`. |
+
+**Response fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| ok | boolean | true on success. |
+| lang | string | The newly active language code. |
+| rebuild_required | boolean | true if the embedding model or FTS tokenizer changed, meaning existing documents should be re-scanned/re-embedded for full search quality. English ↔ Japanese/Korean is true; Japanese ↔ Korean is false (shared model and tokenizer). |
+
+An unsupported code returns HTTP 400 with an error message.
+
+**Example request:**
+
+```bash
+curl -X POST "http://127.0.0.1:8643/api/language" \
+  -H "X-CSRF-Token: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"lang": "ko"}'
+```
+
+**Example response:**
+
+```json
+{ "ok": true, "lang": "ko", "rebuild_required": true }
+```
+
+> **Tip:** the server can also be started directly in a language from the CLI:
+> `docubrowser ko start` (or `docubrowser start ja`). The code may appear before
+> or after the command and is persisted to `docubrowse.config`.
 
 ---
 
