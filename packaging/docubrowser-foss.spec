@@ -194,7 +194,7 @@ fi
 
 
 %changelog
-* Thu Sep 11 2026 James Sparenberg <james@sparenbergs.us> - 1.5.0-1
+* Fri Sep 11 2026 James Sparenberg <james@sparenbergs.us> - 1.5.0-1
 - Korean (ko) language support: bge-m3 embeddings, exaone3.5 synopsis,
   Hangul bigram keyword search, and full UI translation
 - Korean alphabet index bar: browse by leading consonant (choseong),
@@ -211,7 +211,7 @@ fi
   interface localization, and CJK bigram keyword search
 - Japanese stack: bge-m3 embeddings + Japanese synopsis model
 
-* Mon Aug 25 2026 James Sparenberg <james@sparenbergs.us> - 1.3.0-1
+* Tue Aug 25 2026 James Sparenberg <james@sparenbergs.us> - 1.3.0-1
 - Deep Links tuning: bounded semantic scan, relevance floor, and
   contentless-passage filtering; search fires on Enter
 - Hidden-document pagination fix; dotfile purge utility
@@ -241,7 +241,7 @@ fi
 - Ship all extractor modules in packaging manifests (visio, markup, eml, csv, rtf)
 - Python 3.9 compatibility: lazy annotations in markup/eml extractors
 
-* Wed Jul 23 2026 James Sparenberg <james@sparenbergs.us> - 1.0.0-1
+* Thu Jul 23 2026 James Sparenberg <james@sparenbergs.us> - 1.0.0-1
 - v1.0.0 feature-complete milestone release
 - All 28 Python source files score pylint 10.00/10
 - Python 3.14 compatibility fix (wait_for_memory kwarg)
