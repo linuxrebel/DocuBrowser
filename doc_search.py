@@ -225,7 +225,7 @@ def _ollama_host() -> str:
 
 
 OLLAMA_HOST = _ollama_host()
-_ACTIVE_LANG = config_lang(app_dir=APP_DIR, user_data=USER_DATA)
+_ACTIVE_LANG = config_lang(app_dir=APP_DIR, user_data=_default_data_dir())
 _ACTIVE = resolve(_ACTIVE_LANG)
 EMBEDDING_MODEL = _ACTIVE["embed"]
 SYNOPSIS_MODEL = _ACTIVE["synopsis"]
@@ -1703,6 +1703,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
     def handle_config(self):
         """GET /api/config - Return current configuration."""
         cfg_paths = [
+            _default_data_dir() / "docubrowse.config",  # where the Settings UI writes
             USER_DATA / "docubrowse.config",    # packaged install
             APP_DIR   / "docubrowse.config",    # dev / standalone
         ]
@@ -1831,7 +1832,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
                 400, f"Unsupported lang: {new_lang!r}. Supported: {list(SUPPORTED_LANGS)}")
             return
 
-        old_lang = config_lang(app_dir=APP_DIR, user_data=USER_DATA)
+        old_lang = config_lang(app_dir=APP_DIR, user_data=_default_data_dir())
         needs_rebuild = rebuild_required(old_lang, new_lang)
 
         # Preserve doc_dir/work_dir/port from whatever config already exists.
