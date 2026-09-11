@@ -211,10 +211,8 @@
     </div>
     <label>Language — interface + document language</label>
     <div class="field-row">
-      <select id="langSelect" onchange="switchLanguage()">
-        <option value="en">English</option>
-        <option value="ja">日本語 (Japanese)</option>
-      </select>
+      <!-- options are populated from /api/config `langs` (data-driven; see loadConfig) -->
+      <select id="langSelect" onchange="switchLanguage()"></select>
     </div>
     <div class="modal-actions">
       <button class="btn-primary" onclick="saveConfig()">Save</button>
@@ -311,7 +309,15 @@ async function loadConfig() {
     document.getElementById('cfgWorkDir').value = cfg.workDir || '';
     document.getElementById('cfgPort').value = cfg.port || 8643;
     const langSel = document.getElementById('langSelect');
-    if (langSel) langSel.value = cfgState.lang;
+    if (langSel) {
+      const langs = Array.isArray(cfg.langs) && cfg.langs.length
+        ? cfg.langs
+        : [{code: 'en', label: 'English'}];
+      langSel.innerHTML = langs
+        .map(l => `<option value="${esc(l.code)}">${esc(l.label)}</option>`)
+        .join('');
+      langSel.value = cfgState.lang;
+    }
     const status = document.getElementById('configStatus');
     if (cfg.installed) {
       status.innerHTML = `<span class="ok">✓ Config loaded from /etc/docubrowse.config</span>`;

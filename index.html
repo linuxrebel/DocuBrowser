@@ -404,7 +404,11 @@ async function loadLocale() {
     const cfg = await (await fetch('/api/config')).json();
     LOCALE = cfg.locale || {};
     document.documentElement.lang = cfg.lang || 'en';
-    HAS_LETTER_INDEX = cfg.lang !== 'ja';
+    // Data-driven from the active language's row; fall back to lang!=='ja'
+    // for an older server that doesn't send hasLetterIndex yet.
+    HAS_LETTER_INDEX = cfg.hasLetterIndex !== undefined
+      ? cfg.hasLetterIndex !== false
+      : cfg.lang !== 'ja';
   } catch (e) {
     LOCALE = {};
     HAS_LETTER_INDEX = true;

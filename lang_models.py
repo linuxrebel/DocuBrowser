@@ -47,6 +47,7 @@ _KO_STOPWORDS = frozenset()
 
 LANG_MODELS = {
     "en": {
+        "label": "English",
         "embed": "nomic-embed-text",
         "synopsis": "dolphin3:latest",
         "synopsis_prompt": _EN_SYNOPSIS_PROMPT,
@@ -56,6 +57,7 @@ LANG_MODELS = {
         "cjk_ngram": False,
     },
     "ja": {
+        "label": "日本語 (Japanese)",
         "embed": "bge-m3",
         "synopsis": "fuukeidaisuki/nvidia-nemotron-nano-9b-v2-japanese:latest",
         "synopsis_prompt": _JA_SYNOPSIS_PROMPT,
@@ -65,6 +67,7 @@ LANG_MODELS = {
         "cjk_ngram": True,
     },
     "ko": {
+        "label": "한국어 (Korean)",
         "embed": "bge-m3",
         "synopsis": "exaone3.5:latest",
         "synopsis_prompt": _KO_SYNOPSIS_PROMPT,

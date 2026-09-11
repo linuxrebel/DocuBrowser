@@ -7,8 +7,9 @@ from lang_models import LANG_MODELS, SUPPORTED_LANGS, resolve, lang_from_config
 def test_en_ja_ko_present_with_required_fields():
     for lang in ("en", "ja", "ko"):
         m = LANG_MODELS[lang]
-        for key in ("embed", "synopsis", "synopsis_prompt", "tokenizer", "stopwords", "has_letter_index"):
+        for key in ("label", "embed", "synopsis", "synopsis_prompt", "tokenizer", "stopwords", "has_letter_index"):
             assert key in m, f"{lang} missing {key}"
+        assert m["label"].strip(), f"{lang} label empty"
 
 
 def test_ja_stack_matches_spec():

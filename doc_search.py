@@ -1748,6 +1748,11 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         active_lang = lang_from_config(config)
         config["lang"] = active_lang
         config["locale"] = load_locale(active_lang)
+        # Data-driven language metadata so the UI never hardcodes the set:
+        # the Settings dropdown builds its options from `langs`, and the letter
+        # index bar shows/hides per the active language's `has_letter_index`.
+        config["langs"] = [{"code": c, "label": resolve(c)["label"]} for c in SUPPORTED_LANGS]
+        config["hasLetterIndex"] = resolve(active_lang)["has_letter_index"]
 
         self.json_response(config)
 
