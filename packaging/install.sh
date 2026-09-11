@@ -80,7 +80,7 @@ APP_FILES=(
     eml_extractor.py csv_extractor.py rtf_extractor.py djvu_extractor.py
     hardware_utils.py docubrowse_db.py purge_pii.py purge_dotfiles.py
     backup_restore.py ensure_ollama.py dup_detect.py platform_paths.py
-    lang_models.py
+    lang_models.py cjk.py
     index.html settings.html
     requirements.txt du-docs.db.example
     README.md LICENSE INSTALL.md

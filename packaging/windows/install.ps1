@@ -20,7 +20,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Version    = "0.9.0"
+$Version    = "1.5.0"
 $InstallDir = Join-Path $env:USERPROFILE "DocuBrowse"
 $AppDir     = Join-Path $InstallDir "app"
 $VenvDir    = Join-Path $InstallDir "venv"
@@ -43,9 +43,11 @@ if (-not (Test-Path $SrcAppDir)) {
 $DevAppFiles = @(
     "docubrowser.py","doc_search.py","scan_docs.py","embed_docs.py",
     "pdf_extractor.py","docx_extractor.py","pptx_extractor.py","xlsx_extractor.py",
-    "ebook_extractor.py","hardware_utils.py","docubrowse_db.py","purge_pii.py",
+    "ebook_extractor.py","odf_extractor.py","csv_extractor.py","eml_extractor.py",
+    "rtf_extractor.py","visio_extractor.py","djvu_extractor.py","markup_extractor.py",
+    "hardware_utils.py","docubrowse_db.py","purge_pii.py","purge_dotfiles.py",
     "backup_restore.py","ensure_ollama.py","dup_detect.py","platform_paths.py",
-    "lang_models.py",
+    "lang_models.py","cjk.py","deep_links.py",
     "index.html","settings.html","requirements.txt","README.md","LICENSE","INSTALL.md"
 )
 
