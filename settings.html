@@ -162,83 +162,95 @@
     z-index:300; animation:slideIn 0.3s ease;
   }
   @keyframes slideIn { from { transform:translateX(400px); opacity:0; } to { transform:translateX(0); opacity:1; } }
+
+  /* ── Modal (language-refresh notice) ── */
+  .modal-overlay {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
+    z-index:400; align-items:center; justify-content:center; padding:1rem;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal-box {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:1.8rem; max-width:420px; width:100%; box-shadow:0 8px 30px rgba(0,0,0,0.35);
+  }
+  .modal-box p { font-size:0.9rem; line-height:1.6; color:var(--text); margin-bottom:1.4rem; }
 </style>
 </head>
 <body>
 <div class="header">
   <div class="logo">docu<span>/</span>browse</div>
-  <div class="header-title">Settings</div>
+  <div class="header-title" data-i18n="settings">Settings</div>
   <button class="theme-btn" id="themeBtn" title="Toggle light/dark theme">
     <svg id="themeIcon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"></svg>
     <span id="themeLabel"></span>
   </button>
-  <button class="btn-primary" id="doneBtn" onclick="doneAndClose()" style="padding:4px 14px; font-size:0.8rem;">Done</button>
+  <button class="btn-primary" id="doneBtn" onclick="doneAndClose()" style="padding:4px 14px; font-size:0.8rem;" data-i18n="set_done">Done</button>
   <a class="back-link" href="/">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-    Back to search
+    <span data-i18n="set_back_search">Back to search</span>
   </a>
 </div>
 
 <div class="content">
   <div class="panel">
-    <h2>General</h2>
+    <h2 data-i18n="set_general">General</h2>
     <div class="config-status" id="configStatus"></div>
 
-    <label>Document directories</label>
-    <p class="panel-desc">
+    <label data-i18n="set_docdirs_label">Document directories</label>
+    <p class="panel-desc" data-i18n="set_docdirs_desc">
       Top-level directories that are indexed. The first directory is the primary docPath;
       any others are additional scan directories. Add a directory below, or click the ✕ to
       the right of a directory to remove it.
     </p>
     <div class="field-row">
-      <input type="text" id="cfgDocDir" placeholder="/folder/to/be/scanned">
-      <button class="browse-btn" onclick="openBrowser('docDir')">Browse…</button>
-      <button class="browse-btn add-btn" onclick="addDocDir()">Add</button>
-      <button class="browse-btn" onclick="clearDocDirInput()">Clear</button>
+      <input type="text" id="cfgDocDir" placeholder="/folder/to/be/scanned" data-i18n-ph="set_docdir_ph">
+      <button class="browse-btn" onclick="openBrowser('docDir')" data-i18n="set_browse">Browse…</button>
+      <button class="browse-btn add-btn" onclick="addDocDir()" data-i18n="set_add">Add</button>
+      <button class="browse-btn" onclick="clearDocDirInput()" data-i18n="set_clear">Clear</button>
     </div>
     <div class="dir-browser" id="browser-docDir"></div>
     <div class="list-box" id="docDirList"></div>
 
-    <label style="margin-top:1rem;">workDir — where docubrowse files live</label>
+    <label style="margin-top:1rem;" data-i18n="set_workdir_label">workDir — where docubrowse files live</label>
     <div class="field-row">
-      <input type="text" id="cfgWorkDir" placeholder="/path/to/DocuBrowse">
-      <button class="browse-btn" onclick="openBrowser('workDir')">Browse…</button>
+      <input type="text" id="cfgWorkDir" placeholder="/path/to/DocuBrowse" data-i18n-ph="set_workdir_ph">
+      <button class="browse-btn" onclick="openBrowser('workDir')" data-i18n="set_browse">Browse…</button>
     </div>
     <div class="dir-browser" id="browser-workDir"></div>
-    <label>port — HTTP server port</label>
+    <label data-i18n="set_port_label">port — HTTP server port</label>
     <div class="field-row">
       <input type="number" id="cfgPort" placeholder="8643" min="1024" max="65535" style="max-width:140px">
     </div>
-    <label>Language — interface + document language</label>
+    <label data-i18n="set_lang_label">Language — interface + document language</label>
     <div class="field-row">
       <!-- options are populated from /api/config `langs` (data-driven; see loadConfig) -->
       <select id="langSelect" onchange="switchLanguage()"></select>
     </div>
     <div class="modal-actions">
-      <button class="btn-primary" onclick="saveConfig()">Save</button>
+      <button class="btn-primary" onclick="saveConfig()" data-i18n="set_save">Save</button>
     </div>
     <div class="save-msg" id="saveMsg"></div>
   </div>
 
   <div class="panel">
-    <h2>Ignored Directories</h2>
-    <p class="panel-desc">
+    <h2 data-i18n="set_ignored">Ignored Directories</h2>
+    <p class="panel-desc" data-i18n="set_ignored_desc">
       Directories listed here are skipped during scans. Adding a directory removes any documents
       already in the index from that location; if you remove a directory from this list later,
       run a rescan to bring its documents back.
     </p>
 
-    <label>Add a directory to exclude</label>
+    <label data-i18n="set_exclude_label">Add a directory to exclude</label>
     <div class="field-row">
-      <input type="text" id="cfgIgnoreDir" placeholder="/path/to/exclude">
-      <button class="browse-btn" onclick="openBrowser('ignoreDir')">Browse…</button>
-      <button class="browse-btn add-btn" onclick="addIgnoreDir()">Add</button>
-      <button class="browse-btn" onclick="clearIgnoreDirInput()">Clear</button>
+      <input type="text" id="cfgIgnoreDir" placeholder="/path/to/exclude" data-i18n-ph="set_exclude_ph">
+      <button class="browse-btn" onclick="openBrowser('ignoreDir')" data-i18n="set_browse">Browse…</button>
+      <button class="browse-btn add-btn" onclick="addIgnoreDir()" data-i18n="set_add">Add</button>
+      <button class="browse-btn" onclick="clearIgnoreDirInput()" data-i18n="set_clear">Clear</button>
     </div>
     <div class="dir-browser" id="browser-ignoreDir"></div>
 
-    <label style="margin-top:1rem;">Currently excluded directories</label>
-    <p class="panel-desc">
+    <label style="margin-top:1rem;" data-i18n="set_excluded_label">Currently excluded directories</label>
+    <p class="panel-desc" data-i18n="set_excluded_desc">
       Click the ✕ to the right of a directory to remove it from the exclusion list, then rescan
       to bring its documents back.
     </p>
@@ -247,8 +259,30 @@
 
 </div>
 
+<div class="modal-overlay" id="refreshModal">
+  <div class="modal-box">
+    <p id="refreshModalMsg" data-i18n="set_refresh_notice">Language updated. Refresh the page to see the interface in your selected language.</p>
+    <div class="modal-actions">
+      <button class="btn-primary" id="refreshModalOk" data-i18n="set_ok" onclick="confirmDoneClose()">OK</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : ''; }
+
+// ── i18n ──────────────────────────────────────────────────────
+// LOCALE is populated from /api/config (cfg.locale) in loadConfig. t() falls
+// back to the key so the untranslated English in the markup stays as a default.
+let LOCALE = {};
+function t(key) { return LOCALE[key] || key; }
+function applyStaticLocale() {
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  document.title = t('set_title');
+  // Theme label depends on the current theme; re-sync it now that LOCALE exists.
+  themeLabel.textContent = t(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+}
 
 function showToast(msg, duration = 2000) {
   const toast = document.createElement('div');
@@ -271,10 +305,10 @@ function applyTheme(theme) {
   localStorage.setItem('db-theme', theme);
   if (theme === 'dark') {
     themeIcon.innerHTML = sunPath;
-    themeLabel.textContent = 'Light';
+    themeLabel.textContent = t('light');
   } else {
     themeIcon.innerHTML = moonPath;
-    themeLabel.textContent = 'Dark';
+    themeLabel.textContent = t('dark');
   }
 }
 
@@ -300,6 +334,9 @@ async function loadConfig() {
     const res = await fetch('/api/config');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const cfg = await res.json();
+    LOCALE = cfg.locale || {};
+    document.documentElement.lang = cfg.lang || 'en';
+    applyStaticLocale();
     cfgState = {
       docPath: cfg.docPath || '',
       workDir: cfg.workDir || '',
@@ -320,17 +357,17 @@ async function loadConfig() {
     }
     const status = document.getElementById('configStatus');
     if (cfg.installed) {
-      status.innerHTML = `<span class="ok">✓ Config loaded from /etc/docubrowse.config</span>`;
+      status.innerHTML = `<span class="ok">${esc(t('set_status_installed'))}</span>`;
     } else if (cfg.configSource) {
-      status.innerHTML = `<span class="warn">Config: ${esc(cfg.configSource)}</span><br>Copy to /etc for system-wide use`;
+      status.innerHTML = `<span class="warn">${esc(t('set_status_config'))}: ${esc(cfg.configSource)}</span><br>${esc(t('set_status_copy'))}`;
     } else {
-      status.innerHTML = `<span class="ok">Using built-in defaults — save to create a config file</span>`;
+      status.innerHTML = `<span class="ok">${esc(t('set_status_defaults'))}</span>`;
     }
     document.getElementById('saveMsg').style.display = 'none';
   } catch (e) {
     console.error('Config fetch error:', e);
     const status = document.getElementById('configStatus');
-    status.innerHTML = `<span class="warn">⚠ Could not load config: ${e.message}</span>`;
+    status.innerHTML = `<span class="warn">${esc(t('set_status_load_err'))} ${esc(e.message)}</span>`;
   }
 }
 
@@ -340,7 +377,7 @@ async function saveConfig() {
   // docPath may be empty (managed via the Document directories list); it is
   // carried through from loaded state so it isn't lost when saving workDir/port.
   const docPath = cfgState.docPath || '';
-  if (!workDir) { alert('workDir is required'); return false; }
+  if (!workDir) { alert(t('set_workdir_required')); return false; }
   try {
     const res = await fetch('/api/config', {
       method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
@@ -348,12 +385,12 @@ async function saveConfig() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     await res.json();
-    showToast('Config saved');
+    showToast(t('set_config_saved'));
     loadConfig();
     return true;
   } catch (e) {
     console.error('Config save error:', e);
-    alert('Error saving config: ' + e.message);
+    alert(t('set_err_save') + ' ' + e.message);
     return false;
   }
 }
@@ -370,28 +407,26 @@ async function switchLanguage() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data.rebuild_required) {
-      const proceed = confirm(
-        'Switching languages changes the embedding model and search index — ' +
-        'existing documents need to be re-embedded and the search index rebuilt ' +
-        'for search quality to match the new language. This can take a while ' +
-        'depending on your document count. Continue?'
-      );
+      const proceed = confirm(t('set_confirm_rebuild'));
       if (!proceed) {
         await fetch('/api/language', {
           method: 'POST', headers: {'Content-Type':'application/json', 'X-CSRF-Token': CSRF},
           body: JSON.stringify({lang: previousLang})
         });
         document.getElementById('langSelect').value = previousLang;
-        showToast('Language switch cancelled');
+        showToast(t('set_lang_cancelled'));
         return;
       }
     }
     cfgState.lang = data.lang;
-    showToast('Language updated — reloading…');
+    // Remember across the reload below that the UI language changed this
+    // session, so Done can prompt the user to refresh the search page.
+    try { sessionStorage.setItem('db-lang-changed', '1'); } catch (e) {}
+    showToast(t('set_lang_updated'));
     setTimeout(() => window.location.reload(), 800);
   } catch (e) {
     console.error('Language switch error:', e);
-    alert('Error switching language: ' + e.message);
+    alert(t('set_err_lang') + ' ' + e.message);
     document.getElementById('langSelect').value = previousLang;
   }
 }
@@ -400,6 +435,24 @@ async function switchLanguage() {
 async function doneAndClose() {
   const ok = await saveConfig();
   if (!ok) return; // validation/save error already shown — stay on page
+  // If the UI language changed this session, remind the user (in the new
+  // language) to refresh the search page before closing.
+  let changed = false;
+  try { changed = sessionStorage.getItem('db-lang-changed') === '1'; } catch (e) {}
+  if (changed) {
+    document.getElementById('refreshModal').classList.add('open');
+    return; // confirmDoneClose() continues once the user clicks OK
+  }
+  closeSettings();
+}
+
+function confirmDoneClose() {
+  try { sessionStorage.removeItem('db-lang-changed'); } catch (e) {}
+  document.getElementById('refreshModal').classList.remove('open');
+  closeSettings();
+}
+
+function closeSettings() {
   // Prefer returning to the opener tab if one exists, then close this tab.
   if (window.opener && !window.opener.closed) {
     try { window.opener.focus(); } catch (e) {}
@@ -439,12 +492,12 @@ async function loadDir(field, path) {
       document.getElementById(fieldInputId(field)).value = data.path;
       html = `<div class="dir-path">${esc(data.path)}</div>`;
     } else {
-      html = `<div class="dir-path">${esc(data.path)} <button class="dir-select-btn" onclick="selectDir('${field}','${esc(data.path)}')">select this</button></div>`;
+      html = `<div class="dir-path">${esc(data.path)} <button class="dir-select-btn" onclick="selectDir('${field}','${esc(data.path)}')">${esc(t('set_select_this'))}</button></div>`;
     }
     if (data.error) html += `<div class="dir-entry" style="color:var(--accent3)">${esc(data.error)}</div>`;
     for (const e of (data.entries || [])) {
       const icon = e.parent ? '⬆️' : '📁';
-      const label = e.parent ? '.. (up)' : esc(e.name);
+      const label = e.parent ? esc(t('set_dir_up')) : esc(e.name);
       html += `<div class="dir-entry" onclick="loadDir('${field}','${esc(e.path)}')"><span class="icon">${icon}</span> ${label}</div>`;
     }
     browser.innerHTML = html;
@@ -452,7 +505,7 @@ async function loadDir(field, path) {
     browser.scrollIntoView({ block: 'nearest' });
   } catch (e) {
     console.error('Dir browse error:', e);
-    browser.innerHTML = `<div class="dir-entry" style="color:var(--accent3)">⚠ Error loading directory: ${e.message}</div>`;
+    browser.innerHTML = `<div class="dir-entry" style="color:var(--accent3)">${esc(t('set_err_dir_load'))} ${esc(e.message)}</div>`;
     browser.scrollIntoView({ block: 'nearest' });
   }
 }
@@ -490,12 +543,12 @@ async function loadIgnoreDirs() {
 function renderIgnoreDirs() {
   const box = document.getElementById('ignoreDirList');
   if (!ignoreDirs.length) {
-    box.innerHTML = `<div class="list-empty">No directories excluded — all document directories are scanned</div>`;
+    box.innerHTML = `<div class="list-empty">${esc(t('set_no_excluded'))}</div>`;
   } else {
     box.innerHTML = ignoreDirs.map(d =>
       `<div class="list-item">
         <span class="list-item-path">${esc(d)}</span>
-        <button class="list-remove-btn" onclick="removeIgnoreDir('${esc(d)}')" title="Remove from exclusion list">✕</button>
+        <button class="list-remove-btn" onclick="removeIgnoreDir('${esc(d)}')" title="${esc(t('set_remove_exclusion_title'))}">✕</button>
       </div>`
     ).join('');
   }
@@ -505,10 +558,7 @@ async function addIgnoreDir() {
   const input = document.getElementById('cfgIgnoreDir');
   const path = input.value.trim();
   if (!path) return;
-  const proceed = confirm(
-    `Excluding "${path}" from scanning will also remove any documents already in the ` +
-    `index from this directory.\n\nContinue?`
-  );
+  const proceed = confirm(t('set_confirm_exclude').replace('{path}', path));
   if (!proceed) return;
   try {
     const res = await fetch('/api/ignore-dirs', {
@@ -521,15 +571,15 @@ async function addIgnoreDir() {
     input.value = '';
     document.getElementById('browser-ignoreDir').classList.remove('open');
     renderIgnoreDirs();
-    showToast(data.purged ? `Added — removed ${data.purged} indexed doc(s)` : 'Added to exclusion list');
+    showToast(data.purged ? t('set_added_purged').replace('{n}', data.purged) : t('set_added_exclude'));
   } catch (e) {
     console.error('Add ignore dir error:', e);
-    alert('Error adding directory: ' + e.message);
+    alert(t('set_err_add') + ' ' + e.message);
   }
 }
 
 async function removeIgnoreDir(path) {
-  const proceed = confirm(`Remove "${path}" from the exclusion list?\n\nA rescan will be needed afterward to bring its documents back into the index.`);
+  const proceed = confirm(t('set_confirm_remove_exclude').replace('{path}', path));
   if (!proceed) return;
   try {
     const res = await fetch('/api/ignore-dirs', {
@@ -540,13 +590,10 @@ async function removeIgnoreDir(path) {
     const data = await res.json();
     ignoreDirs = data.dirs || [];
     renderIgnoreDirs();
-    alert(
-      `"${path}" has been removed from the exclusion list.\n\n` +
-      `To bring documents from this directory back into the index, run a rescan.`
-    );
+    alert(t('set_removed_exclude').replace('{path}', path));
   } catch (e) {
     console.error('Remove ignore dir error:', e);
-    alert('Error removing directory: ' + e.message);
+    alert(t('set_err_remove') + ' ' + e.message);
   }
 }
 
@@ -584,12 +631,12 @@ async function loadDocDirs() {
 function renderDocDirs() {
   const box = document.getElementById('docDirList');
   if (!docDirs.length) {
-    box.innerHTML = `<div class="list-empty">No document directories yet — add one to start indexing.</div>`;
+    box.innerHTML = `<div class="list-empty">${esc(t('set_no_docdirs'))}</div>`;
   } else {
     box.innerHTML = docDirs.map(d =>
       `<div class="list-item">
         <span class="list-item-path">${esc(d)}</span>
-        <button class="list-remove-btn" onclick="removeDocDir('${esc(d)}')" title="Remove from document directories">✕</button>
+        <button class="list-remove-btn" onclick="removeDocDir('${esc(d)}')" title="${esc(t('set_remove_docdir_title'))}">✕</button>
       </div>`
     ).join('');
   }
@@ -629,15 +676,15 @@ async function addDocDir() {
     input.value = '';
     document.getElementById('browser-docDir').classList.remove('open');
     await loadDocDirs();
-    showToast('Document directory added');
+    showToast(t('set_docdir_added'));
   } catch (e) {
     console.error('Add doc dir error:', e);
-    alert('Error adding directory: ' + e.message);
+    alert(t('set_err_add') + ' ' + e.message);
   }
 }
 
 async function removeDocDir(path) {
-  const proceed = confirm(`Remove "${path}" from the document directories?`);
+  const proceed = confirm(t('set_confirm_remove_docdir').replace('{path}', path));
   if (!proceed) return;
   try {
     if (path === cfgState.docPath) {
@@ -651,10 +698,10 @@ async function removeDocDir(path) {
       await postScanDir('remove', path);
     }
     await loadDocDirs();
-    showToast('Document directory removed');
+    showToast(t('set_docdir_removed'));
   } catch (e) {
     console.error('Remove doc dir error:', e);
-    alert('Error removing directory: ' + e.message);
+    alert(t('set_err_remove') + ' ' + e.message);
   }
 }
 

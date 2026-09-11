@@ -1505,9 +1505,11 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         CSRF-protected (via do_POST gate). Generates via Ollama and caches
         the result in the documents table.
         """
+        loc = load_locale(config_lang(app_dir=APP_DIR, user_data=_default_data_dir()))
         path = query.get('path', [''])[0].strip()
         if not path:
-            self.json_response({"ok": False, "error": "Missing path parameter"})
+            self.json_response({"ok": False,
+                                "error": loc.get("syn_err_missing_path", "Missing path parameter")})
             return
 
         conn = get_db(self.db_path)
@@ -1517,7 +1519,8 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         ).fetchone()
         if not row:
             conn.close()
-            self.json_response({"ok": False, "error": "Path not in document index"})
+            self.json_response({"ok": False,
+                                "error": loc.get("syn_err_not_indexed", "Path not in document index")})
             return
 
         doc_id, title, name, description, snippet, synopsis = row
@@ -1532,15 +1535,19 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         if not synopsis:
             conn.close()
             messages = {
-                "empty": "No description or text is available for this document to summarize.",
-                "timeout": "The AI model is still loading after a recent restart — this can "
-                           "take a minute the first time. Please wait a moment and try again.",
-                "error": ("Couldn't reach the AI model (Ollama)."
-                          " Make sure it's running, then try again."),
+                "empty": loc.get("syn_err_empty",
+                                 "No description or text is available for this document to summarize."),
+                "timeout": loc.get("syn_err_timeout",
+                                   "The AI model is still loading after a recent restart — this can "
+                                   "take a minute the first time. Please wait a moment and try again."),
+                "error": loc.get("syn_err_ollama",
+                                 "Couldn't reach the AI model (Ollama)."
+                                 " Make sure it's running, then try again."),
             }
             self.json_response({
                 "ok": False,
-                "error": messages.get(reason, "Synopsis generation failed. Try again.")
+                "error": messages.get(
+                    reason, loc.get("syn_err_failed", "Synopsis generation failed. Try again."))
             })
             return
 

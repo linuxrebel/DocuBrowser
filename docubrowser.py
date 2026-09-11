@@ -1482,6 +1482,8 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""            Examples:
               docubrowser start
+              docubrowser ko start                       start in Korean (also: docubrowser start ko)
+              docubrowser ja start                       start in Japanese
               docubrowser status
               docubrowser scan                           scan all types + embed
               docubrowser scan --doc-dir /folder/to/be/scanned   scan a specific folder
@@ -1840,14 +1842,38 @@ COMMANDS = {
 }
 
 
+def _extract_lang_override(argv):
+    """Pull a bare language code (en/ja/ko) out of *argv* so it can be given in
+    any position: `docubrowser ko start` or `docubrowser start ja`. Returns
+    (lang_or_None, remaining_argv). Only the first match is consumed."""
+    from lang_models import LANG_MODELS
+    valid = set(LANG_MODELS)
+    lang, out = None, []
+    for a in argv:
+        if lang is None and a in valid:
+            lang = a
+        else:
+            out.append(a)
+    return lang, out
+
+
 def main():
+    lang_override, argv = _extract_lang_override(sys.argv[1:])
     parser = build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # Load config (override path if --config given at top level)
     if hasattr(args, "config") and args.config:
         CONFIG_PATHS.insert(0, Path(args.config))
     config = load_config()
+
+    # A bare language code on the command line (e.g. `docubrowser ko start`)
+    # persists that language and exports it so the spawned server and
+    # ensure_ollama.py both pick it up — one source of truth, no drift.
+    if lang_override:
+        os.environ["DOCUBROWSE_LANG"] = lang_override
+        _persist_lang(lang_override)
+        config["lang"] = lang_override
 
     # Dispatch
     handler = COMMANDS.get(args.command)
