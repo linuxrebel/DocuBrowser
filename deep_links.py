@@ -24,6 +24,7 @@ import warnings
 from pathlib import Path
 
 from lang_models import resolve
+from cjk import _CJK_RUN
 
 try:
     import docx as _docx           # python-docx (imported as ``docx``)
@@ -119,8 +120,13 @@ def strip_stopwords(query, lang="en"):
 
 
 def _query_tokens(query):
-    """Lowercased word tokens of the query."""
-    return [t.lower() for t in _WORD_RE.findall(query)]
+    """Query terms: ASCII alnum words (lowercased) plus CJK runs.
+
+    CJK scripts (Hangul, kana, Han) have no ASCII word chars, so the Latin
+    _WORD_RE drops them entirely — without the CJK runs a Korean/Japanese
+    query yields no tokens and keyword matching finds nothing.
+    """
+    return [t.lower() for t in _WORD_RE.findall(query)] + _CJK_RUN.findall(query)
 
 
 def _score_and_mark(text, tokens):
@@ -133,10 +139,11 @@ def _score_and_mark(text, tokens):
     """
     if not tokens:
         return 0, None, None
-    pattern = re.compile(
-        r"\b(" + "|".join(re.escape(t) for t in tokens) + r")\b",
-        re.IGNORECASE,
-    )
+    # CJK runs are matched as bare substrings (no \b — spaceless prose has no
+    # word boundaries between CJK chars); Latin tokens keep whole-word \b.
+    alts = [re.escape(t) if _CJK_RUN.match(t) else rf"\b{re.escape(t)}\b"
+            for t in tokens]
+    pattern = re.compile("|".join(alts), re.IGNORECASE)
     matches = list(pattern.finditer(text))
     if not matches:
         return 0, None, None
