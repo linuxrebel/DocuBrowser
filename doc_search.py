@@ -433,10 +433,16 @@ def _load_embedding_matrix(conn):
     available, else None — in which case callers fall back to per-vector
     cosine using the parallel python 'vectors' list.
     """
+    # Only compare vectors built by the currently active embedder. Vectors
+    # from a different model (e.g. an index scanned under English, then the
+    # language switched to Korean) have a different dimensionality and are
+    # incomparable — including them makes the cosine matmul blow up (HTTP 500).
+    # Filtering them out degrades a stale index to keyword-only search instead.
     row = conn.execute(
-        "SELECT COUNT(*), COALESCE(MAX(updated_at), '') FROM doc_embeddings"
+        "SELECT COUNT(*), COALESCE(MAX(updated_at), '') FROM doc_embeddings "
+        "WHERE model = ?", (EMBEDDING_MODEL,)
     ).fetchone()
-    key = (row[0], row[1])
+    key = (EMBEDDING_MODEL, row[0], row[1])
     if _EMB_CACHE["key"] == key:
         return _EMB_CACHE["ids"], _EMB_CACHE["matrix"], _EMB_CACHE["vectors"]
     with _EMB_LOCK:
@@ -444,7 +450,8 @@ def _load_embedding_matrix(conn):
             return _EMB_CACHE["ids"], _EMB_CACHE["matrix"], _EMB_CACHE["vectors"]
         ids, vectors = [], []
         for doc_id, blob in conn.execute(
-            "SELECT doc_id, embedding FROM doc_embeddings"
+            "SELECT doc_id, embedding FROM doc_embeddings WHERE model = ?",
+            (EMBEDDING_MODEL,)
         ):
             vec = blob_to_vector(blob)
             if vec:
