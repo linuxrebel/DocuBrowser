@@ -24,7 +24,7 @@ import warnings
 from pathlib import Path
 
 from lang_models import resolve
-from cjk import _CJK_RUN
+from cjk import _CJK_RUN, _bigrams
 
 try:
     import docx as _docx           # python-docx (imported as ``docx``)
@@ -123,10 +123,13 @@ def _query_tokens(query):
     """Query terms: ASCII alnum words (lowercased) plus CJK runs.
 
     CJK scripts (Hangul, kana, Han) have no ASCII word chars, so the Latin
-    _WORD_RE drops them entirely — without the CJK runs a Korean/Japanese
-    query yields no tokens and keyword matching finds nothing.
+    _WORD_RE drops them entirely. CJK runs are split into the same overlapping
+    character bigrams the FTS index/search use (cjk._bigrams), so a document
+    that matched search on a partial bigram (e.g. 한국인 → 한국 국인) also
+    yields a deep-link passage instead of demanding the whole run verbatim.
     """
-    return [t.lower() for t in _WORD_RE.findall(query)] + _CJK_RUN.findall(query)
+    cjk = [b for run in _CJK_RUN.findall(query) for b in _bigrams(run).split()]
+    return [t.lower() for t in _WORD_RE.findall(query)] + cjk
 
 
 def _score_and_mark(text, tokens):
