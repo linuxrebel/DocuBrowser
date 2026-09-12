@@ -108,7 +108,14 @@ def config_lang(app_dir=None, user_data=None):
     if app_dir is None:
         app_dir = Path(__file__).resolve().parent
     if user_data is None:
-        user_data = Path.home() / ".docubrowser"
+        # Match doc_search._default_data_dir(): in dev mode the app dir is
+        # writable and config lives beside the code; only a read-only packaged
+        # install (e.g. /opt) falls back to the per-user dir. Without this,
+        # bare callers (scan_docs, embed_docs, docubrowse_db, ensure_ollama)
+        # read ~/.docubrowser while the server reads the app-dir config — so
+        # `docubrowser scan` silently indexed under English while the server
+        # ran the configured language.
+        user_data = app_dir if os.access(app_dir, os.W_OK) else Path.home() / ".docubrowser"
 
     lang = "en"
     for cfg_path in (Path(user_data) / "docubrowse.config", Path(app_dir) / "docubrowse.config"):
