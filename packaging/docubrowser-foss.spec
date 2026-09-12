@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        1.5.0
+Version:        1.5.1
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
@@ -194,6 +194,15 @@ fi
 
 
 %changelog
+* Fri Sep 11 2026 James Sparenberg <james@sparenbergs.us> - 1.5.1-1
+- Fix HTTP 500 on semantic search after a language switch: compare only
+  vectors built by the active embedder (stale index degrades to keyword)
+- Deep Links now find CJK passages: tokenize the query into the same
+  character bigrams the search index uses
+- Honor the configured language at every step (scan/embed/db init resolve
+  the same language as the server), so a configured ko/ja no longer
+  silently indexes under English
+
 * Fri Sep 11 2026 James Sparenberg <james@sparenbergs.us> - 1.5.0-1
 - Korean (ko) language support: bge-m3 embeddings, exaone3.5 synopsis,
   Hangul bigram keyword search, and full UI translation

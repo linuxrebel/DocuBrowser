@@ -20,7 +20,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Version    = "1.5.0"
+$Version    = "1.5.1"
 $InstallDir = Join-Path $env:USERPROFILE "DocuBrowse"
 $AppDir     = Join-Path $InstallDir "app"
 $VenvDir    = Join-Path $InstallDir "venv"

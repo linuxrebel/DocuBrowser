@@ -2,7 +2,7 @@
 
 **Language:** **English** | [日本語](README-ja.md) | [한국어](README-ko.md)
 
-# DocuBrowse v1.5.0
+# DocuBrowse v1.5.1
 
 <a name="top"></a>
 
@@ -953,6 +953,24 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+## v1.5.1 (2026-09-11) — Korean/Japanese search bug fixes
+
+Bug-fix release addressing CJK search and language-configuration issues found
+after v1.5.0.
+
+- **Fixed HTTP 500 on semantic search** after switching languages. Semantic
+  scoring now compares only vectors built by the active embedder, so an index
+  built under a different language degrades to keyword search instead of
+  crashing.
+- **Deep Links now find CJK passages.** Keyword Deep Links tokenize the query
+  into the same character bigrams the search index uses, so any document
+  surfaced by search yields matching passages (previously "No matching
+  passages" even on a 100% match).
+- **Configured language is honored at every step.** `docubrowser scan`,
+  embedding, and database init now resolve the same language as the server, so
+  a configured `ko`/`ja` no longer silently indexes under English. `docubrowser
+  ko scan` is no longer needed once the language is set.
+
 ## v1.5.0 (2026-09-11) — Korean support + full UI localization
 
 DocuBrowse now runs entirely in **Korean**, and the interface localization is
@@ -1480,4 +1498,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v1.5.0** — Fast, local, AI-powered document search.
+**DocuBrowse v1.5.1** — Fast, local, AI-powered document search.

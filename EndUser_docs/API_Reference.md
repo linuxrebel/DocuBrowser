@@ -1,4 +1,4 @@
-# DocuBrowse v1.5.0 — API Reference (FOSS subset)
+# DocuBrowse v1.5.1 — API Reference (FOSS subset)
 
 > **FOSS subset.** This covers the localhost HTTP API shipped in the FOSS build.
 > Enterprise-only API features (remote access, `enterprise_mode` status fields,
