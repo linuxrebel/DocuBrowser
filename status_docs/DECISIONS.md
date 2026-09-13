@@ -296,6 +296,41 @@ not match bigram-segmented queries. See `EndUser_docs/Admin_Guide.md` for
 the explicit reindex instructions; this does not happen automatically on
 upgrade.
 
+### D-27: Chinese (`zh`) stack — `bge-m3` embedder + `ornith-1.5:9b` synopsis
+**Status:** Decided — 2026-09-12 (build starts next; not yet wired into `LANG_MODELS`)
+**Priority:** Medium
+**Added:** 2026-09-12
+
+Chinese support (i18n) needs a `zh` embedder and synopsis model. Both were
+chosen by **empirical test on this hardware** (RTX 3050 4GB + CPU), not by
+spec-sheet reasoning. Priority set by the user: **accuracy over speed**
+(accuracy = understands the Chinese source + emits grammatically correct
+Chinese; synopsis is cached after first generation, so latency is tolerable).
+
+1. **Embedder = `bge-m3`.** Reused from the ja/ko stack (D-21); no new model.
+   A zh retrieval test (semantic queries with minimal literal char overlap
+   against 5 zh passages) scored **bge-m3 4/4** with strong margins
+   (+0.16..+0.27), vs **`nomic-embed-text` 1/4** with near-random misses
+   (margins +0.002/+0.008) — confirming the English default is unusable for
+   zh, same reason it was replaced for ja/ko.
+2. **Synopsis = `ornith-1.5:9b`** (Ollama; Qwen-family, `qwen35` arch tag,
+   9B). Chosen over `dzgg/llama-3.2-3B-Chinese-Elite` and `ornith:latest`
+   after summarizing 4 test docs (English-input + Chinese-input) into
+   Chinese: `ornith-1.5:9b` was the most accurate/complete/grammatical on
+   every doc (correctly rendered domain terms: 深度链接, 退相干, 196方,
+   《》 treaty marks). `ornith:latest` (5.6GB, same Qwen core, no vision
+   tower) is the compressed-but-correct backup — use it to reclaim ~1GB VRAM
+   if the `ornith-1.5` clip tower ever matters. The 3B Chinese-Elite was
+   rejected for **comprehension errors** (mistranslated "semantically
+   relevant" → 象征意义, NDC → 确定性目标).
+
+**Scope:** only the `zh` row is chosen here; `en`/`ja`/`ko` are untouched. A
+full re-embed on model change is a non-issue because each install serves one
+language (D-22) and the DB vector path is dimension-agnostic (`vector_to_blob`
+packs any float32 length; cosine compares within one corpus). CJK keyword
+search follows D-24 (`tokenizer: "unicode61"` + `cjk_ngram: True`).
+`ensure_ollama.py` will provision `bge-m3` + `ornith-1.5:9b` when `lang=zh`.
+
 ### D-26: End-user docs — FOSS vs Enterprise split
 **Status:** Done — 2026-09-10
 The Administrator Guide and the **full** API Reference are Enterprise-only and

@@ -39,6 +39,8 @@ interpret/search the corpus; it does **not** translate the user's documents.
 | JP embedder | `bge-m3` (multilingual, ~2.2GB, 1024-dim) | Strong multilingual incl. Japanese; well supported on Ollama |
 | JP summary | `fuukeidaisuki/nvidia-nemotron-nano-9b-v2-japanese` | Already validated by the user for JP summaries |
 | JP keyword tokenizer | ~~FTS5 `trigram`~~ → **app-side character bigram** (see Addendum A) | Japanese has no word spaces. Trigram shipped first but can't match 1–2 char queries (2-char kanji 熟語 like 栽培/品種 are ubiquitous). Superseded by app-side bigram segmentation — still zero-dependency, and uniform across ja/zh/ko |
+| ZH embedder | `bge-m3` (reused from ja/ko) | Test-confirmed: zh semantic retrieval 4/4 vs `nomic-embed-text` 1/4. See D-27 |
+| ZH summary | `ornith-1.5:9b` (Qwen-family 9B; backup `ornith:latest`) | Chosen by test over 3B Chinese-Elite (comprehension errors) + `ornith:latest` (over-compresses). See D-27 |
 | Model provisioning | Lazy pull on first-run / language-switch | Nothing pre-bundled; pull only the active language's set |
 
 ## 4. The per-language table

@@ -18,6 +18,7 @@
 - **Adding a language = one `LANG_MODELS` row + one `locales/<lang>.json`.** No new code branches per language.
 - **Tokenizer by family:** CJK (`ja`, `zh`, `ko`) → FTS5 `trigram`; European (`es`, `fr`, `de`, `nl`) → `unicode61` with `remove_diacritics 2`.
 - **JP stack:** embedder `bge-m3`; summary `fuukeidaisuki/nvidia-nemotron-nano-9b-v2-japanese:latest`; tokenizer `trigram`.
+- **ZH stack** (test-confirmed 2026-09-12, see D-27): embedder `bge-m3` (zh retrieval 4/4 vs nomic 1/4); summary `ornith-1.5:9b`; tokenizer `unicode61` + `cjk_ngram: True`. Backup summary `ornith:latest`.
 - **License header** on every new `.py`: `# SPDX-License-Identifier: GPL-3.0-or-later` then `# Copyright (C) 2026 James Sparenberg`.
 - **Commits authored as James** (system gitconfig, never override). Work on `development`.
 - Tests are standalone `test_*.py` at repo root; each importable module tested with pytest functions. Run with `python3 -m pytest test_x.py -v`.
