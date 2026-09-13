@@ -46,6 +46,30 @@ def test_ko_stack_matches_spec():
     assert "ko" in SUPPORTED_LANGS
 
 
+def test_zh_stack_matches_spec():
+    zh = LANG_MODELS["zh"]
+    assert zh["embed"] == "bge-m3"  # multilingual, reused from ja/ko
+    assert zh["synopsis"] == "ornith-1.5:9b"
+    assert zh["tokenizer"] == "unicode61"
+    assert zh["has_letter_index"] is False  # Chinese is not alphabetic (like ja)
+    assert "index_letters" not in zh        # no first-letter index bar
+    assert zh["cjk_ngram"] is True           # CJK bigram segmentation
+    assert zh["stopwords"] == frozenset()
+    assert "zh" in SUPPORTED_LANGS
+
+
+def test_zh_hant_stack_matches_spec():
+    zh = LANG_MODELS["zh-hant"]
+    assert zh["embed"] == "bge-m3"
+    assert zh["synopsis"] == "ornith-1.5:9b"  # same model, Traditional-forcing prompt
+    assert zh["synopsis_prompt"] != LANG_MODELS["zh"]["synopsis_prompt"]
+    assert zh["tokenizer"] == "unicode61"
+    assert zh["has_letter_index"] is False
+    assert "index_letters" not in zh
+    assert zh["cjk_ngram"] is True
+    assert "zh-hant" in SUPPORTED_LANGS
+
+
 def test_en_stack_unchanged():
     en = LANG_MODELS["en"]
     assert en["embed"] == "nomic-embed-text"
@@ -58,6 +82,7 @@ def test_resolve_falls_back_to_en():
     assert resolve("kling") is LANG_MODELS["en"]
     assert resolve("") is LANG_MODELS["en"]
     assert resolve("ja") is LANG_MODELS["ja"]
+    assert resolve("ZH-Hant") is LANG_MODELS["zh-hant"]  # hyphenated code, lowercased
 
 
 def test_lang_from_config():

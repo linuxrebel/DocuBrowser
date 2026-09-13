@@ -48,7 +48,8 @@ $DevAppFiles = @(
     "hardware_utils.py","docubrowse_db.py","purge_pii.py","purge_dotfiles.py",
     "backup_restore.py","ensure_ollama.py","dup_detect.py","platform_paths.py",
     "lang_models.py","cjk.py","deep_links.py",
-    "index.html","settings.html","requirements.txt","README.md","LICENSE","INSTALL.md"
+    "index.html","settings.html","requirements.txt",
+    "README.md","README-ja.md","README-ko.md","README-zh.md","README-zh-hant.md","LICENSE","INSTALL.md"
 )
 
 function Fail([string]$msg) {

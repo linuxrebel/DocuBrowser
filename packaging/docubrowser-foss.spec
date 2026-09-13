@@ -77,6 +77,10 @@ install -m 644 du-docs.db.example   %{buildroot}/opt/docubrowser/
 
 # Documentation
 install -m 644 README.md            %{buildroot}/opt/docubrowser/
+install -m 644 README-ja.md         %{buildroot}/opt/docubrowser/
+install -m 644 README-ko.md         %{buildroot}/opt/docubrowser/
+install -m 644 README-zh.md         %{buildroot}/opt/docubrowser/
+install -m 644 README-zh-hant.md    %{buildroot}/opt/docubrowser/
 install -m 644 LICENSE              %{buildroot}/opt/docubrowser/
 install -m 644 INSTALL.md           %{buildroot}/opt/docubrowser/
 for f in EndUser_docs/*; do
@@ -173,6 +177,10 @@ fi
 %files
 %license /opt/docubrowser/LICENSE
 %doc /opt/docubrowser/README.md
+%doc /opt/docubrowser/README-ja.md
+%doc /opt/docubrowser/README-ko.md
+%doc /opt/docubrowser/README-zh.md
+%doc /opt/docubrowser/README-zh-hant.md
 %doc /opt/docubrowser/INSTALL.md
 
 # Application

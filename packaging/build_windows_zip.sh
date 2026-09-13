@@ -87,6 +87,10 @@ APP_FILES=(
     settings.html
     requirements.txt
     README.md
+    README-ja.md
+    README-ko.md
+    README-zh.md
+    README-zh-hant.md
     LICENSE
     INSTALL.md
 )

@@ -1,6 +1,6 @@
-<!-- Translations: keep README-ja.md, README-ko.md (and any future README-<lang>.md) in sync with this file. -->
+<!-- Translations: keep README-ja.md, README-ko.md, README-zh.md, README-zh-hant.md (and any future README-<lang>.md) in sync with this file. -->
 
-**Language:** **English** | [日本語](README-ja.md) | [한국어](README-ko.md)
+**Language:** **English** | [日本語](README-ja.md) | [한국어](README-ko.md) | [简体中文](README-zh.md) | [繁體中文](README-zh-hant.md)
 
 # DocuBrowse v1.5.1
 
@@ -486,19 +486,25 @@ DocuBrowse assumes the configured document directory is overwhelmingly one
 language, and does not support mixed-language corpora or per-document
 language detection.
 
-**Currently supported:** English (`en`, default), Japanese (`ja`), and
-Korean (`ko`). Japanese and Korean both use the `bge-m3` multilingual
-embedding model (English uses `nomic-embed-text`); Korean's synopsis model is
-`exaone3.5`. For keyword (FTS5) search, CJK text (Japanese and Korean) is
-indexed with the standard `unicode61` tokenizer plus app-side character-bigram
-segmentation (see `cjk.py`) rather than FTS5's built-in `trigram` tokenizer —
-Japanese has no spaces between words and Korean is agglutinative, so both
-index-time and query-time text are pre-split into overlapping 2-character
-bigrams before FTS5 ever sees them. This is not a morphological segmenter (no
-MeCab/jieba/konlpy dependency); it's a zero-dependency stand-in that trades
-linguistic correctness for indexing every 2+ character CJK substring reliably.
-A single CJK character will not exact-match in Keyword mode (by design —
-1-character matches are too noisy), but still surfaces via Both/semantic search.
+**Currently supported:** English (`en`, default), Japanese (`ja`),
+Korean (`ko`), Simplified Chinese (`zh`), and Traditional Chinese
+(`zh-hant`). Japanese, Korean, and both Chinese variants use the `bge-m3`
+multilingual embedding model (English uses `nomic-embed-text`); Korean's
+synopsis model is `exaone3.5`, and both Chinese variants use `ornith-1.5:9b`
+(Traditional is driven by a prompt that forces 繁體/正體字 output). For keyword
+(FTS5) search, CJK text (Japanese, Korean, and Chinese) is indexed with the
+standard `unicode61` tokenizer plus app-side character-bigram segmentation (see
+`cjk.py`) rather than FTS5's built-in `trigram` tokenizer — Japanese has no
+spaces between words, Korean is agglutinative, and Chinese has no word
+boundaries at all, so both index-time and query-time text are pre-split into
+overlapping 2-character bigrams before FTS5 ever sees them. The same segmenter
+covers Simplified and Traditional characters (both live in the CJK Unified
+range), so no separate handling is needed. This is not a morphological
+segmenter (no MeCab/jieba/konlpy dependency); it's a zero-dependency stand-in
+that trades linguistic correctness for indexing every 2+ character CJK
+substring reliably. A single CJK character will not exact-match in Keyword mode
+(by design — 1-character matches are too noisy), but still surfaces via
+Both/semantic search.
 
 **Korean alphabet index bar:** Korean is a true alphabet (unlike Japanese,
 whose kana and kanji have no first-letter ordering), so the document-list
@@ -506,13 +512,15 @@ index bar is enabled for Korean and shows the 14 basic leading consonants
 (choseong): ㄱ ㄴ ㄷ ㄹ ㅁ ㅂ ㅅ ㅇ ㅈ ㅊ ㅋ ㅌ ㅍ ㅎ. Each button filters
 documents whose title begins with a syllable led by that consonant (tense
 consonants fold into their base, e.g. ㄲ→ㄱ). English uses the A–Z/0–9 bar;
-the bar is hidden for Japanese.
+the bar is hidden for Japanese and for Chinese (both Simplified and
+Traditional) — Chinese is not alphabetic and has no first-letter ordering, the
+same reason it is hidden for Japanese.
 
 **Choosing a language:**
 
 - **At install time** — `install.sh` asks for the language on a fresh
-  install. Answer non-interactively with `DOCUBROWSE_LANG=en`, `=ja`, or
-  `=ko`. **Upgrades never re-prompt** — an existing `lang` value in
+  install. Answer non-interactively with `DOCUBROWSE_LANG=en`, `=ja`,
+  `=ko`, `=zh`, or `=zh-hant`. **Upgrades never re-prompt** — an existing `lang` value in
   `docubrowse.config` is always preserved. (The platform installers —
   Windows/macOS/RPM/DEB — default new installs to `lang = en`; change it
   afterward via Settings.)
@@ -531,13 +539,12 @@ the bar is hidden for Japanese.
   tokenizer, so no rebuild is required between those two.)
 
 **Not yet supported:** mixed-language or per-document language corpora,
-languages beyond English/Japanese/Korean (the `LANG_MODELS` table in
+languages beyond English/Japanese/Korean/Chinese (the `LANG_MODELS` table in
 `lang_models.py` plus a `locales/<code>.json` file is the whole mechanism, so
 adding one is a data change, not a code change), a kana/reading-based (or
-pinyin) index bar for Japanese/Chinese document lists (Japanese has no
-first-letter ordering; Korean uses the choseong bar described above), and
-Japanese "My Number" PII detection (only US PII patterns are implemented
-today).
+pinyin) index bar for Japanese/Chinese document lists (neither has first-letter
+ordering; Korean uses the choseong bar described above), and Japanese "My
+Number" PII detection (only US PII patterns are implemented today).
 
 ---
 
@@ -943,7 +950,7 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Hidden files/dotfiles not indexed | By design — any file with a dot-prefixed path component (`.env`, `.bashrc`, and the contents of hidden dirs like `.git/`/`.venv/`) is skipped at scan time. Dotfiles indexed by an **older** version are **not** auto-removed by a rescan (the files still exist on disk); run the standalone `purge_dotfiles.py` tool (or rebuild the index) to purge them |
 | No authentication | Local use only; hardened against cross-origin/CSRF/DNS-rebinding (see [Security](#security)) but not meant for network exposure |
 | Semantic *ranking* is document-level | Whole-document embeddings rank *which* documents match; **Deep Links** then pinpoints *where* inside any result on demand. Corpus-wide chunk-level ranking remains future work |
-| No mixed-language corpora | One install serves one language (English, Japanese, or Korean, chosen at install time or via Settings); per-document language detection or mixed-language corpora are not supported. See [Languages](#languages) |
+| No mixed-language corpora | One install serves one language (English, Japanese, Korean, Simplified Chinese, or Traditional Chinese, chosen at install time or via Settings); per-document language detection or mixed-language corpora are not supported. See [Languages](#languages) |
 | PII detection is US-pattern only | `purge_pii.py` detects US formats (SSN, phone, etc.); Japanese "My Number" and other non-US PII patterns are not yet implemented |
 | ETA display drifts high | Uses simple average; sliding window deferred |
 

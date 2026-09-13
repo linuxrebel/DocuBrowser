@@ -36,6 +36,24 @@ _KO_SYNOPSIS_PROMPT = (
     "제목: {title}\n\n"
     "문서 발췌:\n{context}"
 )
+_ZH_SYNOPSIS_PROMPT = (
+    "请用简体中文将下面的文档摘录简洁地概括为一个段落。只描述文档实际包含的内容"
+    "(主题、目的、主要话题)。摘要必须完全基于摘录文字,不要仅凭标题推测内容,"
+    "也不要编造不存在的内容。不要使用 Markdown、标题或项目符号。只输出段落本身,"
+    "不要前言。\n\n"
+    "标题: {title}\n\n"
+    "文档摘录:\n{context}"
+)
+# Traditional forces 繁體/正體字 output — empirically verified (2026-09-13) that
+# ornith-1.5:9b emits clean Traditional characters, not Simplified, on this prompt.
+_ZH_HANT_SYNOPSIS_PROMPT = (
+    "請用繁體中文將下面的文件摘錄簡潔地概括為一個段落。只描述文件實際包含的內容"
+    "(主題、目的、主要議題)。摘要必須完全基於摘錄文字,不要僅憑標題推測內容,"
+    "也不要編造不存在的內容。不要使用 Markdown、標題或項目符號。只輸出段落本身,"
+    "不要前言。必須使用繁體中文(正體字),不得使用簡體字。\n\n"
+    "標題: {title}\n\n"
+    "文件摘錄:\n{context}"
+)
 
 # English articles + FANBOYS (matches the current strip_stopwords set).
 _EN_STOPWORDS = frozenset({
@@ -46,6 +64,9 @@ _JA_STOPWORDS = frozenset()
 # Korean: agglutinative particles attach to nouns; v1 relies on bigram
 # segmentation (cjk.py) rather than a particle list. Empty set, like Japanese.
 _KO_STOPWORDS = frozenset()
+# Chinese: no word boundaries; v1 relies on bigram segmentation (cjk.py), not a
+# stopword list. Empty set, like Japanese/Korean. Shared by zh and zh-Hant.
+_ZH_STOPWORDS = frozenset()
 
 LANG_MODELS = {
     "en": {
@@ -79,9 +100,30 @@ LANG_MODELS = {
         "index_letters": KO_INDEX_LETTERS,  # leading consonants (choseong)
         "cjk_ngram": True,
     },
+    "zh": {
+        "label": "简体中文 (Simplified Chinese)",
+        "embed": "bge-m3",
+        "synopsis": "ornith-1.5:9b",
+        "synopsis_prompt": _ZH_SYNOPSIS_PROMPT,
+        "tokenizer": "unicode61",
+        "stopwords": _ZH_STOPWORDS,
+        # Chinese is not alphabetic — no first-letter index bar (same as Japanese).
+        "has_letter_index": False,
+        "cjk_ngram": True,
+    },
+    "zh-hant": {
+        "label": "繁體中文 (Traditional Chinese)",
+        "embed": "bge-m3",
+        "synopsis": "ornith-1.5:9b",
+        "synopsis_prompt": _ZH_HANT_SYNOPSIS_PROMPT,
+        "tokenizer": "unicode61",
+        "stopwords": _ZH_STOPWORDS,
+        "has_letter_index": False,
+        "cjk_ngram": True,
+    },
 }
 
-SUPPORTED_LANGS = ("en", "ja", "ko")
+SUPPORTED_LANGS = ("en", "ja", "ko", "zh", "zh-hant")
 
 
 def resolve(lang):

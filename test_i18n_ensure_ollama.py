@@ -24,6 +24,18 @@ def test_ko_required():
     assert "exaone3.5:latest" in names     # Korean-tuned synopsis model
 
 
+def test_zh_required():
+    names = _names(required_models("zh"))
+    assert "bge-m3:latest" in names       # reuses the multilingual embedder
+    assert "ornith-1.5:9b" in names        # Chinese synopsis model
+
+
+def test_zh_hant_required():
+    names = _names(required_models("zh-hant"))
+    assert "bge-m3:latest" in names
+    assert "ornith-1.5:9b" in names        # same model as zh (Traditional prompt)
+
+
 def test_unknown_lang_falls_back_to_en():
     assert _names(required_models("xx")) == {"nomic-embed-text:latest", "dolphin3:latest"}
 
