@@ -1,0 +1,137 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBROWSE.CONFIG 5 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docubrowse.config \- DocuBrowse の設定ファイル
+.SH SYNOPSIS
+.I /etc/docubrowse.config
+.br
+.I ./docubrowse.config
+.SH DESCRIPTION
+.B docubrowse.config
+は DocuBrowse サーバーとコマンドラインツールを設定します。
+DocuBrowse は最初に見つかった設定ファイルを読み込みます。まずシステム全体の
+.I /etc/docubrowse.config
+を確認し、次にアプリケーションと同じ場所(またはパッケージインストールでは
+ユーザーごとのデータディレクトリ)にある
+.I docubrowse.config
+を確認します。
+.P
+ファイルが見つからない場合は組み込みの既定値が適用されますが、
+.I doc_dir
+だけは既定値がありません。文書ディレクトリが設定されるまで、Web
+インターフェースは設定を促す表示を行い、文書ディレクトリを必要とするコマンドは
+エラーで終了します。
+.P
+各行は
+.I "key = value"
+の形式です。
+前後の空白は無視されます。
+空行と
+.RB \[aq] # \[aq]
+で始まる行は無視されます。
+対応する
+.B DOCUBROWSE_*
+環境変数はファイルを上書きし、コマンドラインオプションは両者を上書きします。
+.SH KEYS
+.TP
+.B doc_dir
+スキャンおよびインデックス化される主ディレクトリ。
+既定値はなく、インデックス化の前に設定する必要があります。
+追加のスキャンディレクトリは別に管理され、
+.I scan_dirs.txt
+に保存されます。
+.TP
+.B db_path
+SQLite データベースへのパス。
+既定ではアプリケーションと同じ場所の
+.I du\-docs.db
+です。
+.TP
+.B port
+HTTP サーバーの TCP ポート。
+既定は
+.BR 8643
+です。
+.TP
+.B work_dir
+DocuBrowse がデータベースと補助ファイルを保管する作業ディレクトリ。
+既定はアプリケーションディレクトリです。
+.TP
+.B lang
+有効なインターフェース言語と文書言語。
+.BR en (既定)、
+.BR ja 、
+.BR ko 、
+.BR zh 、または
+.BR zh\-hant
+のいずれか。
+1 つのインストールは一度に 1 言語を提供します。英語と任意の CJK 言語の間で
+言語を切り替えると、新しい言語向けにインデックスを再構築するための再スキャンが
+必要です。
+.SH ENVIRONMENT
+以下の変数は対応する設定キーを上書きします。
+.TP
+.B DOCUBROWSE_DOC_DIR
+.I doc_dir
+を上書きします。
+.TP
+.BR DOCUBROWSE_DB ", " DOCUBROWSE_DB_PATH
+.I db_path
+を上書きします。
+.TP
+.B DOCUBROWSE_PORT
+.I port
+を上書きします。
+.TP
+.B DOCUBROWSE_WORK_DIR
+.I work_dir
+を上書きします。
+.TP
+.B DOCUBROWSE_LANG
+.I lang
+を上書きします。
+.TP
+.B OLLAMA_HOST
+埋め込みと要約に使用する Ollama API のベース URL。
+.I host:port
+の形式も受け付けます(スキームは既定で
+.I http://
+になります)。
+.B DOCUBROWSE_OLLAMA_HOST
+としても受け付けます。
+.TP
+.B DOCUBROWSE_TRUSTED_CIDRS
+ループバックに加えてサーバーへの接続を許可する、カンマ区切りの CIDR または
+アドレス。
+空の場合はループバックのみです。
+.I /24
+(IPv4)または
+.I /120
+(IPv6)より広い範囲は拒否されます。
+これは認証ではありません。プライベートネットワークのリバースプロキシに対して
+のみ使用してください。
+.TP
+.B DOCUBROWSE_ALLOWED_HOSTS
+ループバックに加えて受け入れる、カンマ区切りの Host ヘッダー名。
+.SH FILES
+.TP
+.I /etc/docubrowse.config
+システム全体の設定ファイル。
+.TP
+.I ./docubrowse.config
+ディレクトリごとの設定ファイル。
+.SH EXAMPLES
+最小限の設定:
+.P
+.in +4n
+.EX
+# docubrowse.config
+doc_dir  = ~/Documents
+port     = 8643
+lang     = en
+.EE
+.in
+.SH SEE ALSO
+.BR docubrowser (1),
+.BR docuback (1)

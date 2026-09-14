@@ -1,0 +1,221 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBROWSER 1 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docubrowser \- 로컬 AI 문서 검색 서버 및 인덱서
+.SH SYNOPSIS
+.B docubrowser
+.RI [ lang ]
+.I command
+.RI [ options ]
+.SH DESCRIPTION
+.B docubrowser
+는 로컬에서 동작하는 단일 사용자 문서 검색 도구 DocuBrowse 의 명령줄
+프런트엔드입니다.
+구성된 문서 디렉터리를 스캔하고, 텍스트를 추출하여 SQLite FTS5 데이터베이스에
+인덱싱하며, 로컬 Ollama 를 통해 의미 임베딩과 AI 요약을 생성하고,
+.I localhost
+에서 브라우저 기반 검색 인터페이스를 제공합니다.
+.P
+모든 것이 로컬 기기에서 동작합니다. 네트워크 연결, 계정, API 키가 전혀 필요하지
+않습니다.
+서버는 기본적으로 포트 8643 을 수신하며 루프백 인터페이스에만 바인딩합니다.
+.P
+단일 언어 코드를 임의의 인수 위치에 둘 수 있습니다(예:
+.B docubrowser ko start
+또는
+.BR "docubrowser start ja" ).
+이는 활성 인터페이스 언어와 문서 언어를 설정하고,
+.I docubrowse.config
+에 기록되며, 이후 실행에서도 유지됩니다.
+지원되는 코드는
+.BR en ,
+.BR ja ,
+.BR ko ,
+.BR zh ", 및"
+.BR zh\-hant
+입니다.
+.BR docubrowse.config (5)
+를 참조하십시오.
+.SH COMMANDS
+.TP
+.B start
+Ollama 가 설치되어 있고 실행 중이며 활성 언어에 필요한 모델을 갖추고 있는지
+확인한 뒤(필요하면 내려받아) 검색 서버를 시작합니다.
+.TP
+.B stop
+실행 중인 서버를 중지합니다.
+.TP
+.B restart
+서버를 중지한 뒤 다시 시작합니다.
+.TP
+.B status
+서버 상태를 문서 수, 임베딩 수, 태그 수와 함께 표시합니다.
+.TP
+.B scan\fR [\fITYPE\fR ...]
+구성된 문서 디렉터리를 스캔하고 문서를 인덱싱하며 임베딩을 생성합니다.
+선택적 형식 키워드(예:
+.BR "pdf txt" )
+를 지정하면 스캔을 해당 형식으로 제한합니다.
+.TP
+.B rescan\fR [\fITYPE\fR ...]
+.B scan
+의 별칭이며 하위 호환성을 위해 유지됩니다.
+.TP
+.B scan\-file \-\-file \fIPATH\fR ...
+단일 파일을 추출, 인덱싱, 임베딩합니다.
+이전에 실패하여 블랙리스트에 오른 파일을 다시 시도할 때 유용합니다.
+경로에 공백이 있어도 따옴표가 필요 없습니다.
+.TP
+.B embed
+아직 임베딩이 없는 문서에 대해 임베딩을 생성하거나 새로 고칩니다.
+.TP
+.B open
+기본 웹 브라우저에서 DocuBrowse 인터페이스를 엽니다.
+.TP
+.B purge
+개인 식별 정보(PII)가 있는지 인덱스를 검사하고 일치하는 문서를 제거합니다.
+.B \-\-dry\-run
+을 사용하면 아무것도 변경하지 않고 일치 항목을 미리 봅니다.
+.TP
+.B ignore\fR {add|remove|list} [\fIDIR\fR]
+스캔에서 제외할 디렉터리를 관리합니다.
+디렉터리를 추가하면 그 아래에 이미 인덱싱된 문서도 함께 제거됩니다.
+.TP
+.B report
+문서 디렉터리를 순회하며 파일 형식별 내역을 출력합니다.
+데이터베이스는 변경하지 않습니다.
+.TP
+.B duplist
+정확 일치(SHA-256)로 중복 문서를 나열합니다.
+.B \-\-near\-dups
+를 추가하면 임베딩 유사도에 의한 준중복도 보고합니다.
+.TP
+.B dupclean
+대화형 터미널 인터페이스로 중복 문서를 검토하고 제거합니다.
+.TP
+.B scan\-missing
+인덱싱된 각 경로를 존재, 누락, 마운트 해제됨으로 분류하고, 실제로 누락된
+파일의 행을 삭제합니다.
+마운트 해제된 파일 시스템의 행은 그대로 둡니다.
+.B \-\-dry\-run
+을 사용하면 개수만 보고합니다.
+.TP
+.B stopall
+실행 중인 모든 스캔, 임베딩 작업, 서버를 중지합니다.
+.SH OPTIONS
+다음 전역 옵션은 명령 앞에 지정할 수 있습니다.
+개별 명령은 해당하는 일부를 받아들입니다. 명령별 옵션은 그 명령을 인수 없이
+실행하면 확인할 수 있습니다.
+.TP
+.BI \-\-db " PATH"
+구성된
+.I db_path
+를 무시하고
+.I PATH
+의 SQLite 데이터베이스를 사용합니다.
+.TP
+.BI \-\-port " PORT"
+구성된
+.I port
+를 무시하고 HTTP 서버에
+.I PORT
+를 사용합니다.
+.TP
+.BI \-\-config " FILE"
+.I FILE
+에서 구성을 읽습니다.
+.TP
+.B \-\-dry\-run
+.B purge
+및
+.B scan\-missing
+에서 데이터베이스를 변경하지 않고 무엇이 바뀔지 보고합니다.
+.TP
+.BI \-\-doc\-dir " DIR"
+스캔 명령에서 구성된 문서 디렉터리 대신
+.I DIR
+을 인덱싱합니다.
+.TP
+.BI \-\-workers " N"
+스캔 시 사용할 병렬 추출 워커 수.
+.TP
+.B \-\-no\-embed
+스캔 중 임베딩 단계를 건너뜁니다.
+.SH EXIT STATUS
+.B docubrowser
+는 성공 시 0 을, 오류 시(예를 들어 Ollama 를 사용할 수 없거나 문서 디렉터리가
+구성되지 않은 경우) 0 이 아닌 값을 반환하며 종료합니다.
+.SH ENVIRONMENT
+.TP
+.B DOCUBROWSE_LANG
+구성된
+.I lang
+을 무시하는 활성 언어 코드.
+.TP
+.B DOCUBROWSE_DOC_DIR
+인덱싱할 주 문서 디렉터리.
+.TP
+.BR DOCUBROWSE_DB ", " DOCUBROWSE_DB_PATH
+SQLite 데이터베이스 경로.
+.TP
+.B DOCUBROWSE_PORT
+HTTP 서버 포트.
+.TP
+.B DOCUBROWSE_WORK_DIR
+런타임 데이터 작업 디렉터리.
+.TP
+.B OLLAMA_HOST
+임베딩과 요약에 사용하는 Ollama API 의 기본 URL.
+.I host:port
+형식도 받아들입니다(스킴은 기본적으로
+.I http://
+입니다).
+.B DOCUBROWSE_OLLAMA_HOST
+로도 받아들입니다.
+.PP
+신뢰 네트워크 관련 변수를 포함한 전체 목록은
+.BR docubrowse.config (5)
+를 참조하십시오.
+.SH FILES
+.TP
+.I /etc/docubrowse.config
+시스템 전체 구성 파일.
+.TP
+.I ./docubrowse.config
+디렉터리별 구성 파일. 시스템 전체 파일이 없을 때 읽습니다.
+.TP
+.I ~/.docubrowser/
+패키지 설치에서 사용하는 사용자별 런타임 데이터 디렉터리.
+.SH EXAMPLES
+구성된 문서를 스캔·인덱싱한 뒤 서버를 시작합니다:
+.P
+.in +4n
+.EX
+docubrowser rescan
+docubrowser start
+.EE
+.in
+.P
+기본이 아닌 포트에서 한국어로 서버를 시작합니다:
+.P
+.in +4n
+.EX
+docubrowser ko start \-\-port 9000
+.EE
+.in
+.P
+PII 제거가 어떤 문서를 제거할지 미리 봅니다:
+.P
+.in +4n
+.EX
+docubrowser purge \-\-dry\-run
+.EE
+.in
+.SH SEE ALSO
+.BR docuback (1),
+.BR docubrowse.config (5)
+.P
+전체 문서는
+.I /opt/docubrowser/EndUser_docs/
+아래에 설치되며 프로젝트 저장소에서도 이용할 수 있습니다.

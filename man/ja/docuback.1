@@ -1,0 +1,71 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBACK 1 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docuback \- DocuBrowse のランタイムデータをバックアップおよび復元する
+.SH SYNOPSIS
+.B docuback \-\-backup
+.RI [ "\-\-db PATH" ]
+.RI [ "\-\-backup\-dir PATH" ]
+.br
+.B docuback \-\-restore
+.RI [ "\-\-db PATH" ]
+.RI [ "\-\-backup\-dir PATH" ]
+.SH DESCRIPTION
+.B docuback
+は、DocuBrowse インストールのランタイムデータ \(em SQLite データベースと
+その関連ファイル \(em をバックアップおよび復元します。
+これにより、再インストールをまたいでインデックスを保持したり、マシン間で
+移動したりできます。
+.P
+.B \-\-backup
+または
+.B \-\-restore
+のいずれか一方を必ず指定する必要があります。
+.SH OPTIONS
+.TP
+.B \-\-backup
+現在のランタイムデータのバックアップを作成します。
+.TP
+.B \-\-restore
+以前のバックアップからランタイムデータを復元します。
+.TP
+.BI \-\-db " PATH"
+設定された
+.I db_path
+を上書きして、
+.I PATH
+の SQLite データベースを対象に操作します。
+.TP
+.BI \-\-backup\-dir " PATH"
+既定のバックアップディレクトリの代わりに、
+.I PATH
+でバックアップを読み書きします。
+.SH EXIT STATUS
+.B docuback
+は成功時に 0 を、エラー時(例えばバックアップファイルが見つからない、または
+書き込み先が書き込み不可の場合)に非ゼロを返して終了します。
+.SH FILES
+.TP
+.I ~/.docubrowser/
+このツールがバックアップおよび復元する、ユーザーごとのランタイムデータ
+ディレクトリ。
+.SH EXAMPLES
+現在のインデックスをバックアップします:
+.P
+.in +4n
+.EX
+docuback \-\-backup
+.EE
+.in
+.P
+特定のバックアップディレクトリから復元します:
+.P
+.in +4n
+.EX
+docuback \-\-restore \-\-backup\-dir /media/usb/docubrowse\-backups
+.EE
+.in
+.SH SEE ALSO
+.BR docubrowser (1),
+.BR docubrowse.config (5)

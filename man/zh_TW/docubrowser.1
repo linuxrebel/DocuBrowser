@@ -1,0 +1,219 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBROWSER 1 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docubrowser \- 本地 AI 文件搜尋伺服器與索引器
+.SH SYNOPSIS
+.B docubrowser
+.RI [ lang ]
+.I command
+.RI [ options ]
+.SH DESCRIPTION
+.B docubrowser
+是 DocuBrowse 的命令列前端,DocuBrowse 是一款在本地執行的單使用者文件搜尋工具。
+它掃描已配置的文件目錄,提取文字並索引到 SQLite FTS5 資料庫,透過本地 Ollama
+生成語義嵌入和 AI 摘要,並在
+.I localhost
+上提供基於瀏覽器的搜尋介面。
+.P
+一切都在本地機器上執行。無需網路連線、賬戶或 API 金鑰。
+伺服器預設監聽埠 8643,並且僅繫結到迴環介面。
+.P
+可以在任意引數位置放置一個單獨的語言程式碼(例如
+.B docubrowser ko start
+或
+.BR "docubrowser start ja" )。
+它設定有效的介面語言和文件語言,寫入
+.I docubrowse.config
+,並在之後的執行中保持。
+支援的程式碼有
+.BR en 、
+.BR ja 、
+.BR ko 、
+.BR zh
+和
+.BR zh\-hant 。
+參見
+.BR docubrowse.config (5)。
+.SH COMMANDS
+.TP
+.B start
+在確認 Ollama 已安裝、正在執行並具備當前語言所需的模型(必要時拉取)之後,
+啟動搜尋伺服器。
+.TP
+.B stop
+停止正在執行的伺服器。
+.TP
+.B restart
+停止伺服器,然後再次啟動。
+.TP
+.B status
+顯示伺服器狀態以及文件數、嵌入數和標籤數。
+.TP
+.B scan\fR [\fITYPE\fR ...]
+掃描已配置的文件目錄,索引文件並生成嵌入。
+可選的型別關鍵詞(例如
+.BR "pdf txt" )
+可將掃描限定為這些格式。
+.TP
+.B rescan\fR [\fITYPE\fR ...]
+.B scan
+的別名,為向後相容而保留。
+.TP
+.B scan\-file \-\-file \fIPATH\fR ...
+提取、索引並嵌入單個檔案。
+適用於重試此前失敗並被列入黑名單的檔案。
+路徑包含空格時無需引號。
+.TP
+.B embed
+為尚無嵌入的文件生成或重新整理嵌入。
+.TP
+.B open
+在預設 Web 瀏覽器中開啟 DocuBrowse 介面。
+.TP
+.B purge
+掃描索引以查詢個人身份資訊(PII)並移除匹配的文件。
+使用
+.B \-\-dry\-run
+可在不做任何更改的情況下預覽匹配項。
+.TP
+.B ignore\fR {add|remove|list} [\fIDIR\fR]
+管理從掃描中排除的目錄。
+新增目錄時也會清除其下已索引的文件。
+.TP
+.B report
+遍歷文件目錄並列印檔案型別分佈。
+這不會更改資料庫。
+.TP
+.B duplist
+按精確 SHA-256 雜湊列出重複文件。
+新增
+.B \-\-near\-dups
+還會按嵌入相似度報告近似重複。
+.TP
+.B dupclean
+透過互動式終端介面檢視並移除重複文件。
+.TP
+.B scan\-missing
+將每個已索引路徑分類為存在、缺失或未掛載,並刪除真正缺失檔案的行。
+未掛載檔案系統上的行保持不變。
+使用
+.B \-\-dry\-run
+只報告數量。
+.TP
+.B stopall
+停止所有正在執行的掃描、嵌入作業和伺服器。
+.SH OPTIONS
+以下全域性選項可以放在命令之前。
+各個命令接受其中相應的一部分;將某命令不帶引數執行即可檢視其特定選項。
+.TP
+.BI \-\-db " PATH"
+使用
+.I PATH
+處的 SQLite 資料庫,覆蓋已配置的
+.IR db_path 。
+.TP
+.BI \-\-port " PORT"
+為 HTTP 伺服器使用
+.I PORT
+,覆蓋已配置的
+.IR port 。
+.TP
+.BI \-\-config " FILE"
+從
+.I FILE
+讀取配置。
+.TP
+.B \-\-dry\-run
+對於
+.B purge
+和
+.B scan\-missing
+,報告將會發生什麼變化而不修改資料庫。
+.TP
+.BI \-\-doc\-dir " DIR"
+對於掃描命令,索引
+.I DIR
+而非已配置的文件目錄。
+.TP
+.BI \-\-workers " N"
+掃描時使用的並行提取工作程序數。
+.TP
+.B \-\-no\-embed
+在掃描期間跳過嵌入步驟。
+.SH EXIT STATUS
+.B docubrowser
+成功時以 0 退出,出錯時(例如 Ollama 不可用或未配置文件目錄)以非零值退出。
+.SH ENVIRONMENT
+.TP
+.B DOCUBROWSE_LANG
+覆蓋已配置
+.I lang
+的有效語言程式碼。
+.TP
+.B DOCUBROWSE_DOC_DIR
+要索引的主文件目錄。
+.TP
+.BR DOCUBROWSE_DB ", " DOCUBROWSE_DB_PATH
+SQLite 資料庫的路徑。
+.TP
+.B DOCUBROWSE_PORT
+HTTP 伺服器埠。
+.TP
+.B DOCUBROWSE_WORK_DIR
+執行時資料的工作目錄。
+.TP
+.B OLLAMA_HOST
+用於嵌入和摘要的 Ollama API 基礎 URL。
+接受裸
+.I host:port
+(scheme 預設為
+.I http://
+)。
+也接受
+.B DOCUBROWSE_OLLAMA_HOST 。
+.PP
+包含受信任網路變數在內的完整列表,參見
+.BR docubrowse.config (5)。
+.SH FILES
+.TP
+.I /etc/docubrowse.config
+系統級配置檔案。
+.TP
+.I ./docubrowse.config
+按目錄的配置檔案,在沒有系統級檔案時讀取。
+.TP
+.I ~/.docubrowser/
+打包安裝所使用的按使用者執行時資料目錄。
+.SH EXAMPLES
+掃描並索引已配置的文件,然後啟動伺服器:
+.P
+.in +4n
+.EX
+docubrowser rescan
+docubrowser start
+.EE
+.in
+.P
+以韓語在非預設埠上啟動伺服器:
+.P
+.in +4n
+.EX
+docubrowser ko start \-\-port 9000
+.EE
+.in
+.P
+預覽 PII 清除將會移除哪些文件:
+.P
+.in +4n
+.EX
+docubrowser purge \-\-dry\-run
+.EE
+.in
+.SH SEE ALSO
+.BR docuback (1),
+.BR docubrowse.config (5)
+.P
+完整文件安裝在
+.I /opt/docubrowser/EndUser_docs/
+下,也可在專案倉庫中獲取。

@@ -1,0 +1,132 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBROWSE.CONFIG 5 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docubrowse.config \- DocuBrowse 配置檔案
+.SH SYNOPSIS
+.I /etc/docubrowse.config
+.br
+.I ./docubrowse.config
+.SH DESCRIPTION
+.B docubrowse.config
+配置 DocuBrowse 伺服器和命令列工具。
+DocuBrowse 讀取它找到的第一個配置檔案:先檢查系統級的
+.I /etc/docubrowse.config
+,再檢查位於應用程式旁邊(或打包安裝時位於按使用者資料目錄中)的
+.I docubrowse.config 。
+.P
+若找不到檔案,則應用內建預設值,但
+.I doc_dir
+除外,它沒有預設值:在配置文件目錄之前,Web 介面會顯示提示,而需要文件目錄的
+命令會以錯誤退出。
+.P
+每行的形式為
+.IR "key = value" 。
+兩側空白會被忽略。
+空行和以
+.RB \[aq] # \[aq]
+開頭的行會被忽略。
+對應的
+.B DOCUBROWSE_*
+環境變數會覆蓋檔案,而命令列選項會覆蓋二者。
+.SH KEYS
+.TP
+.B doc_dir
+被掃描和索引的主目錄。
+沒有預設值;必須在索引之前設定。
+額外的掃描目錄單獨管理,儲存在
+.I scan_dirs.txt
+中。
+.TP
+.B db_path
+SQLite 資料庫的路徑。
+預設為應用程式旁邊的
+.I du\-docs.db 。
+.TP
+.B port
+HTTP 伺服器的 TCP 埠。
+預設為
+.BR 8643 。
+.TP
+.B work_dir
+DocuBrowse 存放其資料庫和支援檔案的工作目錄。
+預設為應用程式目錄。
+.TP
+.B lang
+有效的介面語言和文件語言。
+為
+.BR en (預設)、
+.BR ja 、
+.BR ko 、
+.BR zh
+或
+.BR zh\-hant
+之一。
+單個安裝一次只提供一種語言;在英語與任意 CJK 語言之間切換語言時,需要重新掃描
+以便為新語言重建索引。
+.SH ENVIRONMENT
+以下變數會覆蓋相應的配置鍵。
+.TP
+.B DOCUBROWSE_DOC_DIR
+覆蓋
+.IR doc_dir 。
+.TP
+.BR DOCUBROWSE_DB ", " DOCUBROWSE_DB_PATH
+覆蓋
+.IR db_path 。
+.TP
+.B DOCUBROWSE_PORT
+覆蓋
+.IR port 。
+.TP
+.B DOCUBROWSE_WORK_DIR
+覆蓋
+.IR work_dir 。
+.TP
+.B DOCUBROWSE_LANG
+覆蓋
+.IR lang 。
+.TP
+.B OLLAMA_HOST
+用於嵌入和摘要的 Ollama API 基礎 URL。
+接受裸
+.I host:port
+(scheme 預設為
+.I http://
+)。
+也接受
+.B DOCUBROWSE_OLLAMA_HOST 。
+.TP
+.B DOCUBROWSE_TRUSTED_CIDRS
+除迴環外允許連線到伺服器的、以逗號分隔的 CIDR 或地址。
+為空表示僅迴環。
+比
+.I /24
+(IPv4)或
+.I /120
+(IPv6)更寬的範圍會被拒絕。
+這不是身份驗證;請僅用於私有網路的反向代理。
+.TP
+.B DOCUBROWSE_ALLOWED_HOSTS
+除迴環外接受的、以逗號分隔的 Host 頭名稱。
+.SH FILES
+.TP
+.I /etc/docubrowse.config
+系統級配置檔案。
+.TP
+.I ./docubrowse.config
+按目錄的配置檔案。
+.SH EXAMPLES
+一個最小配置:
+.P
+.in +4n
+.EX
+# docubrowse.config
+doc_dir  = ~/Documents
+port     = 8643
+lang     = en
+.EE
+.in
+.SH SEE ALSO
+.BR docubrowser (1),
+.BR docuback (1)

@@ -58,6 +58,11 @@ rm -f /usr/bin/docubrowser /usr/bin/docuback
 rm -f /usr/share/applications/docubrowser.desktop
 rm -f /usr/share/man/man1/docubrowser.1.gz /usr/share/man/man1/docuback.1.gz \
       /usr/share/man/man5/docubrowse.config.5.gz
+for loc in ja ko zh_CN zh_TW; do
+    rm -f "/usr/share/man/$loc/man1/docubrowser.1.gz" \
+          "/usr/share/man/$loc/man1/docuback.1.gz" \
+          "/usr/share/man/$loc/man5/docubrowse.config.5.gz"
+done
 
 # ── Remove install directory ───────────────────────────────────────────────
 if [[ -d "$INSTALL_DIR" ]]; then

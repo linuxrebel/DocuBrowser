@@ -92,6 +92,13 @@ install -d -m 755 %{buildroot}%{_mandir}/man1 %{buildroot}%{_mandir}/man5
 install -m 644 man/docubrowser.1       %{buildroot}%{_mandir}/man1/
 install -m 644 man/docuback.1          %{buildroot}%{_mandir}/man1/
 install -m 644 man/docubrowse.config.5 %{buildroot}%{_mandir}/man5/
+# Localized man pages (served by locale, English is the fallback)
+for loc in ja ko zh_CN zh_TW; do
+    install -d -m 755 %{buildroot}%{_mandir}/$loc/man1 %{buildroot}%{_mandir}/$loc/man5
+    install -m 644 man/$loc/docubrowser.1       %{buildroot}%{_mandir}/$loc/man1/
+    install -m 644 man/$loc/docuback.1          %{buildroot}%{_mandir}/$loc/man1/
+    install -m 644 man/$loc/docubrowse.config.5 %{buildroot}%{_mandir}/$loc/man5/
+done
 
 # ── Wrapper scripts in /usr/bin ──────────────────────────────────────────────
 install -d -m 755 %{buildroot}/usr/bin
@@ -210,6 +217,19 @@ fi
 %{_mandir}/man1/docubrowser.1*
 %{_mandir}/man1/docuback.1*
 %{_mandir}/man5/docubrowse.config.5*
+# Localized man pages
+%lang(ja) %{_mandir}/ja/man1/docubrowser.1*
+%lang(ja) %{_mandir}/ja/man1/docuback.1*
+%lang(ja) %{_mandir}/ja/man5/docubrowse.config.5*
+%lang(ko) %{_mandir}/ko/man1/docubrowser.1*
+%lang(ko) %{_mandir}/ko/man1/docuback.1*
+%lang(ko) %{_mandir}/ko/man5/docubrowse.config.5*
+%lang(zh_CN) %{_mandir}/zh_CN/man1/docubrowser.1*
+%lang(zh_CN) %{_mandir}/zh_CN/man1/docuback.1*
+%lang(zh_CN) %{_mandir}/zh_CN/man5/docubrowse.config.5*
+%lang(zh_TW) %{_mandir}/zh_TW/man1/docubrowser.1*
+%lang(zh_TW) %{_mandir}/zh_TW/man1/docuback.1*
+%lang(zh_TW) %{_mandir}/zh_TW/man5/docubrowse.config.5*
 
 
 %changelog

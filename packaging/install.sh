@@ -156,6 +156,17 @@ if [[ -d "$SRC_DIR/man" ]]; then
     gzip -9nf /usr/share/man/man1/docubrowser.1 \
               /usr/share/man/man1/docuback.1 \
               /usr/share/man/man5/docubrowse.config.5
+    # Localized man pages (man serves these by locale, falling back to English)
+    for loc in ja ko zh_CN zh_TW; do
+        [[ -d "$SRC_DIR/man/$loc" ]] || continue
+        install -d -m 755 "/usr/share/man/$loc/man1" "/usr/share/man/$loc/man5"
+        install -m 644 "$SRC_DIR/man/$loc/docubrowser.1"       "/usr/share/man/$loc/man1/"
+        install -m 644 "$SRC_DIR/man/$loc/docuback.1"          "/usr/share/man/$loc/man1/"
+        install -m 644 "$SRC_DIR/man/$loc/docubrowse.config.5" "/usr/share/man/$loc/man5/"
+        gzip -9nf "/usr/share/man/$loc/man1/docubrowser.1" \
+                  "/usr/share/man/$loc/man1/docuback.1" \
+                  "/usr/share/man/$loc/man5/docubrowse.config.5"
+    done
 fi
 
 # ── Create backup directory ────────────────────────────────────────────────

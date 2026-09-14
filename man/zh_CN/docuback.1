@@ -1,0 +1,67 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBACK 1 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docuback \- 备份和恢复 DocuBrowse 运行时数据
+.SH SYNOPSIS
+.B docuback \-\-backup
+.RI [ "\-\-db PATH" ]
+.RI [ "\-\-backup\-dir PATH" ]
+.br
+.B docuback \-\-restore
+.RI [ "\-\-db PATH" ]
+.RI [ "\-\-backup\-dir PATH" ]
+.SH DESCRIPTION
+.B docuback
+备份和恢复 DocuBrowse 安装的运行时数据 \(em SQLite 数据库及其关联文件 \(em
+以便在重装之间保留索引,或在机器之间迁移。
+.P
+必须恰好指定
+.B \-\-backup
+或
+.B \-\-restore
+之一。
+.SH OPTIONS
+.TP
+.B \-\-backup
+创建当前运行时数据的备份。
+.TP
+.B \-\-restore
+从先前的备份恢复运行时数据。
+.TP
+.BI \-\-db " PATH"
+对
+.I PATH
+处的 SQLite 数据库进行操作,覆盖已配置的
+.IR db_path 。
+.TP
+.BI \-\-backup\-dir " PATH"
+在
+.I PATH
+中读取或写入备份,而非默认备份目录。
+.SH EXIT STATUS
+.B docuback
+成功时以 0 退出,出错时(例如备份文件缺失或目标不可写)以非零值退出。
+.SH FILES
+.TP
+.I ~/.docubrowser/
+本工具备份和恢复的按用户运行时数据目录。
+.SH EXAMPLES
+备份当前索引:
+.P
+.in +4n
+.EX
+docuback \-\-backup
+.EE
+.in
+.P
+从指定的备份目录恢复:
+.P
+.in +4n
+.EX
+docuback \-\-restore \-\-backup\-dir /media/usb/docubrowse\-backups
+.EE
+.in
+.SH SEE ALSO
+.BR docubrowser (1),
+.BR docubrowse.config (5)

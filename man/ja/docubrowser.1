@@ -1,0 +1,226 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBROWSER 1 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docubrowser \- ローカルの AI 文書検索サーバーおよびインデクサー
+.SH SYNOPSIS
+.B docubrowser
+.RI [ lang ]
+.I command
+.RI [ options ]
+.SH DESCRIPTION
+.B docubrowser
+は、ローカルで動作する単一ユーザー向け文書検索ツール DocuBrowse の
+コマンドラインフロントエンドです。
+設定された文書ディレクトリをスキャンし、テキストを抽出して SQLite FTS5
+データベースにインデックス化し、ローカルの Ollama を通じて意味埋め込みと AI 要約を
+生成し、
+.I localhost
+上でブラウザベースの検索インターフェースを提供します。
+.P
+すべてローカルマシン上で動作します。ネットワーク接続、アカウント、API キーは
+一切必要ありません。
+サーバーは既定でポート 8643 を待ち受け、ループバックインターフェースにのみ
+バインドします。
+.P
+任意の言語コードを、どの引数位置にでも単独で置くことができます(例:
+.B docubrowser ko start
+や
+.BR "docubrowser start ja" )。
+これは有効なインターフェース言語と文書言語を設定し、
+.I docubrowse.config
+に書き込まれ、以降の実行でも保持されます。
+対応するコードは
+.BR en 、
+.BR ja 、
+.BR ko 、
+.BR zh 、および
+.BR zh\-hant
+です。
+.BR docubrowse.config (5)
+を参照してください。
+.SH COMMANDS
+.TP
+.B start
+Ollama がインストールされ、動作しており、有効な言語に必要なモデルを備えている
+ことを確認したうえで(必要であればプルして)、検索サーバーを起動します。
+.TP
+.B stop
+動作中のサーバーを停止します。
+.TP
+.B restart
+サーバーを停止してから再び起動します。
+.TP
+.B status
+サーバーの状態を、文書数・埋め込み数・タグ数とともに表示します。
+.TP
+.B scan\fR [\fITYPE\fR ...]
+設定された文書ディレクトリをスキャンし、文書をインデックス化し、埋め込みを
+生成します。
+任意の型キーワード(例:
+.BR "pdf txt" )
+を指定すると、それらの形式にスキャンを限定できます。
+.TP
+.B rescan\fR [\fITYPE\fR ...]
+.B scan
+の別名で、後方互換性のために残されています。
+.TP
+.B scan\-file \-\-file \fIPATH\fR ...
+単一のファイルを抽出・インデックス化・埋め込みします。
+以前に失敗してブラックリスト化されたファイルを再試行するのに便利です。
+パスに空白が含まれていても引用符は不要です。
+.TP
+.B embed
+まだ埋め込みのない文書について、埋め込みを生成または更新します。
+.TP
+.B open
+既定の Web ブラウザで DocuBrowse のインターフェースを開きます。
+.TP
+.B purge
+個人を特定できる情報(PII)がないかインデックスを走査し、該当する文書を
+削除します。
+.B \-\-dry\-run
+を使うと、何も変更せずに該当箇所を確認できます。
+.TP
+.B ignore\fR {add|remove|list} [\fIDIR\fR]
+スキャンから除外するディレクトリを管理します。
+ディレクトリを追加すると、その配下で既にインデックス化されている文書も
+消去されます。
+.TP
+.B report
+文書ディレクトリを走査し、ファイル種別ごとの内訳を表示します。
+データベースは変更しません。
+.TP
+.B duplist
+完全一致(SHA-256)により重複文書を一覧します。
+.B \-\-near\-dups
+を付けると、埋め込みの類似度による準重複も報告します。
+.TP
+.B dupclean
+対話的な端末インターフェースで、重複文書を確認して削除します。
+.TP
+.B scan\-missing
+インデックス化された各パスを、存在・欠落・未マウントに分類し、本当に欠落した
+ファイルの行を削除します。
+未マウントのファイルシステム上の行はそのまま残します。
+.B \-\-dry\-run
+を使うと件数のみを報告します。
+.TP
+.B stopall
+実行中のすべてのスキャン・埋め込みジョブ・サーバーを停止します。
+.SH OPTIONS
+以下のグローバルオプションはコマンドの前に指定できます。
+個々のコマンドは対応する一部を受け付けます。コマンド固有のオプションは、
+そのコマンドを引数なしで実行すると確認できます。
+.TP
+.BI \-\-db " PATH"
+設定された
+.I db_path
+を上書きして、
+.I PATH
+の SQLite データベースを使用します。
+.TP
+.BI \-\-port " PORT"
+設定された
+.I port
+を上書きして、HTTP サーバーに
+.I PORT
+を使用します。
+.TP
+.BI \-\-config " FILE"
+.I FILE
+から設定を読み込みます。
+.TP
+.B \-\-dry\-run
+.B purge
+および
+.B scan\-missing
+において、データベースを変更せずに何が変わるかを報告します。
+.TP
+.BI \-\-doc\-dir " DIR"
+スキャンコマンドにおいて、設定された文書ディレクトリの代わりに
+.I DIR
+をインデックス化します。
+.TP
+.BI \-\-workers " N"
+スキャン時に使用する並列抽出ワーカーの数。
+.TP
+.B \-\-no\-embed
+スキャン中の埋め込みステップを省略します。
+.SH EXIT STATUS
+.B docubrowser
+は成功時に 0 を、エラー時(例えば Ollama が利用できない、または文書ディレクトリが
+設定されていない場合)に非ゼロを返して終了します。
+.SH ENVIRONMENT
+.TP
+.B DOCUBROWSE_LANG
+設定された
+.I lang
+を上書きする、有効な言語コード。
+.TP
+.B DOCUBROWSE_DOC_DIR
+インデックス化する主文書ディレクトリ。
+.TP
+.BR DOCUBROWSE_DB ", " DOCUBROWSE_DB_PATH
+SQLite データベースへのパス。
+.TP
+.B DOCUBROWSE_PORT
+HTTP サーバーのポート。
+.TP
+.B DOCUBROWSE_WORK_DIR
+ランタイムデータの作業ディレクトリ。
+.TP
+.B OLLAMA_HOST
+埋め込みと要約に使用する Ollama API のベース URL。
+.I host:port
+の形式も受け付けます(スキームは既定で
+.I http://
+になります)。
+.B DOCUBROWSE_OLLAMA_HOST
+としても受け付けます。
+.PP
+信頼ネットワーク関連の変数を含む一覧全体は
+.BR docubrowse.config (5)
+を参照してください。
+.SH FILES
+.TP
+.I /etc/docubrowse.config
+システム全体の設定ファイル。
+.TP
+.I ./docubrowse.config
+ディレクトリごとの設定ファイル。システム全体のファイルがない場合に読み込まれます。
+.TP
+.I ~/.docubrowser/
+パッケージインストールで使用される、ユーザーごとのランタイムデータディレクトリ。
+.SH EXAMPLES
+設定された文書をスキャン・インデックス化してから、サーバーを起動します:
+.P
+.in +4n
+.EX
+docubrowser rescan
+docubrowser start
+.EE
+.in
+.P
+既定以外のポートで、韓国語でサーバーを起動します:
+.P
+.in +4n
+.EX
+docubrowser ko start \-\-port 9000
+.EE
+.in
+.P
+PII の削除で何が削除されるかを事前に確認します:
+.P
+.in +4n
+.EX
+docubrowser purge \-\-dry\-run
+.EE
+.in
+.SH SEE ALSO
+.BR docuback (1),
+.BR docubrowse.config (5)
+.P
+完全なドキュメントは
+.I /opt/docubrowser/EndUser_docs/
+配下にインストールされ、プロジェクトリポジトリでも入手できます。

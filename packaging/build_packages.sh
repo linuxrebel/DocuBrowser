@@ -142,6 +142,18 @@ if command -v dpkg-deb >/dev/null 2>&1; then
               "$DEB_PKG/usr/share/man/man1/docuback.1" \
               "$DEB_PKG/usr/share/man/man5/docubrowse.config.5"
 
+    # Localized man pages (man serves these by locale, falling back to English).
+    for loc in ja ko zh_CN zh_TW; do
+        [ -d "man/$loc" ] || continue
+        mkdir -p "$DEB_PKG/usr/share/man/$loc/man1" "$DEB_PKG/usr/share/man/$loc/man5"
+        install -m 644 "man/$loc/docubrowser.1"       "$DEB_PKG/usr/share/man/$loc/man1/"
+        install -m 644 "man/$loc/docuback.1"          "$DEB_PKG/usr/share/man/$loc/man1/"
+        install -m 644 "man/$loc/docubrowse.config.5" "$DEB_PKG/usr/share/man/$loc/man5/"
+        gzip -9nf "$DEB_PKG/usr/share/man/$loc/man1/docubrowser.1" \
+                  "$DEB_PKG/usr/share/man/$loc/man1/docuback.1" \
+                  "$DEB_PKG/usr/share/man/$loc/man5/docubrowse.config.5"
+    done
+
     # Wrapper scripts
     mkdir -p "$DEB_PKG/usr/bin"
     cat > "$DEB_PKG/usr/bin/docubrowser" <<'WRAPPER'

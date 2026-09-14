@@ -1,0 +1,69 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBACK 1 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docuback \- DocuBrowse 런타임 데이터를 백업하고 복원한다
+.SH SYNOPSIS
+.B docuback \-\-backup
+.RI [ "\-\-db PATH" ]
+.RI [ "\-\-backup\-dir PATH" ]
+.br
+.B docuback \-\-restore
+.RI [ "\-\-db PATH" ]
+.RI [ "\-\-backup\-dir PATH" ]
+.SH DESCRIPTION
+.B docuback
+는 DocuBrowse 설치의 런타임 데이터 \(em SQLite 데이터베이스와 관련 파일 \(em
+을 백업하고 복원하여, 재설치를 거쳐도 인덱스를 보존하거나 기기 간에 옮길 수
+있게 합니다.
+.P
+.B \-\-backup
+또는
+.B \-\-restore
+중 정확히 하나를 지정해야 합니다.
+.SH OPTIONS
+.TP
+.B \-\-backup
+현재 런타임 데이터의 백업을 만듭니다.
+.TP
+.B \-\-restore
+이전 백업에서 런타임 데이터를 복원합니다.
+.TP
+.BI \-\-db " PATH"
+구성된
+.I db_path
+를 무시하고
+.I PATH
+의 SQLite 데이터베이스를 대상으로 작업합니다.
+.TP
+.BI \-\-backup\-dir " PATH"
+기본 백업 디렉터리 대신
+.I PATH
+에서 백업을 읽거나 씁니다.
+.SH EXIT STATUS
+.B docuback
+는 성공 시 0 을, 오류 시(예를 들어 백업 파일이 없거나 대상에 쓸 수 없는 경우)
+0 이 아닌 값을 반환하며 종료합니다.
+.SH FILES
+.TP
+.I ~/.docubrowser/
+이 도구가 백업하고 복원하는 사용자별 런타임 데이터 디렉터리.
+.SH EXAMPLES
+현재 인덱스를 백업합니다:
+.P
+.in +4n
+.EX
+docuback \-\-backup
+.EE
+.in
+.P
+특정 백업 디렉터리에서 복원합니다:
+.P
+.in +4n
+.EX
+docuback \-\-restore \-\-backup\-dir /media/usb/docubrowse\-backups
+.EE
+.in
+.SH SEE ALSO
+.BR docubrowser (1),
+.BR docubrowse.config (5)
