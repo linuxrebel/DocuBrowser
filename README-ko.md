@@ -6,6 +6,8 @@
 
 <a name="top"></a>
 
+<a href="https://www.producthunt.com/products/docubrowser?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-docubrowser" target="_blank" rel="noopener noreferrer"><img alt="DocuBrowser - Finally search your files by meaning. 100% local, 100% yours | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1250608&amp;theme=light&amp;t=1789413804133"></a>
+
 Linux(RPM·DEB·tarball), Windows(zip), macOS(dmg)용으로 패키징되어 있습니다.
 인터페이스는 안정적이며, 가능한 한 파괴적 변경을 피합니다.
 
