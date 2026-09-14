@@ -1,0 +1,227 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBROWSER 1 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docubrowser \- local AI document search server and indexer
+.SH SYNOPSIS
+.B docubrowser
+.RI [ lang ]
+.I command
+.RI [ options ]
+.SH DESCRIPTION
+.B docubrowser
+is the command-line front end for DocuBrowse, a local, single-user
+document search tool.
+It scans a configured document directory, extracts and indexes text into a
+SQLite FTS5 database, generates semantic embeddings and AI synopses through a
+local Ollama instance, and serves a browser-based search interface on
+.IR localhost .
+.P
+Everything runs on the local machine; no network connection, account, or API
+key is required.
+The server listens on port 8643 by default and binds to the loopback
+interface only.
+.P
+An optional bare language code may appear in any argument position (for
+example
+.B docubrowser ko start
+or
+.BR "docubrowser start ja" ).
+It sets the active interface and document language, is written to
+.IR docubrowse.config ,
+and persists for later runs.
+Supported codes are
+.BR en ,
+.BR ja ,
+.BR ko ,
+.BR zh ", and"
+.BR zh\-hant .
+See
+.BR docubrowse.config (5).
+.SH COMMANDS
+.TP
+.B start
+Start the search server, after verifying that Ollama is installed, running,
+and has the models required by the active language (pulling them if needed).
+.TP
+.B stop
+Stop the running server.
+.TP
+.B restart
+Stop the server and start it again.
+.TP
+.B status
+Show server status together with the document, embedding, and tag counts.
+.TP
+.B scan\fR [\fITYPE\fR ...]
+Scan the configured document directories, index the documents, and generate
+embeddings.
+An optional list of type keywords (for example
+.BR "pdf txt" )
+restricts the scan to those formats.
+.TP
+.B rescan\fR [\fITYPE\fR ...]
+Alias for
+.BR scan ,
+kept for backward compatibility.
+.TP
+.B scan\-file \-\-file \fIPATH\fR ...
+Extract, index, and embed a single file.
+Useful for retrying a file that previously failed and was blacklisted.
+The path may contain spaces without quoting.
+.TP
+.B embed
+Generate or refresh embeddings for documents that do not yet have them.
+.TP
+.B open
+Open the DocuBrowse user interface in the default web browser.
+.TP
+.B purge
+Scan the index for personally identifiable information (PII) and remove
+matching documents.
+Use
+.B \-\-dry\-run
+to preview matches without changing anything.
+.TP
+.B ignore\fR {add|remove|list} [\fIDIR\fR]
+Manage the directories excluded from scanning.
+Adding a directory also purges any already-indexed documents beneath it.
+.TP
+.B report
+Walk the document directory and print a file-type breakdown.
+This makes no changes to the database.
+.TP
+.B duplist
+List duplicate documents by exact SHA-256 hash.
+Add
+.B \-\-near\-dups
+to also report near-duplicates by embedding similarity.
+.TP
+.B dupclean
+Review and remove duplicate documents through an interactive terminal
+interface.
+.TP
+.B scan\-missing
+Classify every indexed path as present, missing, or unmounted, and delete the
+rows for genuinely missing files.
+Rows on unmounted filesystems are left untouched.
+Use
+.B \-\-dry\-run
+to report counts only.
+.TP
+.B stopall
+Stop all running scans, embedding jobs, and the server.
+.SH OPTIONS
+These global options may be given before the command.
+Individual commands accept a matching subset; run a command with no arguments
+for its specific options.
+.TP
+.BI \-\-db " PATH"
+Use the SQLite database at
+.IR PATH ,
+overriding the configured
+.IR db_path .
+.TP
+.BI \-\-port " PORT"
+Use
+.I PORT
+for the HTTP server, overriding the configured
+.IR port .
+.TP
+.BI \-\-config " FILE"
+Read configuration from
+.IR FILE .
+.TP
+.B \-\-dry\-run
+For
+.B purge
+and
+.BR scan\-missing ,
+report what would change without modifying the database.
+.TP
+.BI \-\-doc\-dir " DIR"
+For scanning commands, index
+.I DIR
+instead of the configured document directories.
+.TP
+.BI \-\-workers " N"
+Number of parallel extraction workers to use while scanning.
+.TP
+.B \-\-no\-embed
+Skip the embedding step during a scan.
+.SH EXIT STATUS
+.B docubrowser
+exits 0 on success and non-zero on error, for example when Ollama is
+unavailable or no document directory has been configured.
+.SH ENVIRONMENT
+.TP
+.B DOCUBROWSE_LANG
+Active language code, overriding the configured
+.IR lang .
+.TP
+.B DOCUBROWSE_DOC_DIR
+Primary document directory to index.
+.TP
+.BR DOCUBROWSE_DB ", " DOCUBROWSE_DB_PATH
+Path to the SQLite database.
+.TP
+.B DOCUBROWSE_PORT
+HTTP server port.
+.TP
+.B DOCUBROWSE_WORK_DIR
+Working directory for runtime data.
+.TP
+.B OLLAMA_HOST
+Base URL of the Ollama API used for embeddings and synopses.
+A bare
+.I host:port
+is accepted; the scheme defaults to
+.IR http:// .
+Also accepted as
+.BR DOCUBROWSE_OLLAMA_HOST .
+.PP
+See
+.BR docubrowse.config (5)
+for the full list, including the trusted-network variables.
+.SH FILES
+.TP
+.I /etc/docubrowse.config
+System-wide configuration file.
+.TP
+.I ./docubrowse.config
+Per-directory configuration file, read when no system-wide file is present.
+.TP
+.I ~/.docubrowser/
+Per-user runtime data directory used by a packaged installation.
+.SH EXAMPLES
+Scan and index the configured documents, then start the server:
+.P
+.in +4n
+.EX
+docubrowser rescan
+docubrowser start
+.EE
+.in
+.P
+Start the server in Korean, listening on a non-default port:
+.P
+.in +4n
+.EX
+docubrowser ko start \-\-port 9000
+.EE
+.in
+.P
+Preview which documents a PII purge would remove:
+.P
+.in +4n
+.EX
+docubrowser purge \-\-dry\-run
+.EE
+.in
+.SH SEE ALSO
+.BR docuback (1),
+.BR docubrowse.config (5)
+.P
+Full documentation is installed under
+.I /opt/docubrowser/EndUser_docs/
+and is available in the project repository.

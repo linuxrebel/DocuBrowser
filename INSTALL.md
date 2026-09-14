@@ -1,4 +1,4 @@
-# DocuBrowse v1.5.1 — Installation Guide
+# DocuBrowse v1.5.2 — Installation Guide
 
 This guide covers a fresh install on Linux (Fedora/RHEL/Debian/Ubuntu/Mint),
 Windows 10/11, or macOS. DocuBrowse runs entirely locally — no cloud
@@ -305,8 +305,10 @@ CLI commands that need a document directory (`rescan`, `report`, `scan`) exit
 with an error explaining how to set it.
 
 **Language:** the repo-root `./install.sh` asks for the language (English,
-Japanese, or Korean) on a fresh install (non-interactively via
-`DOCUBROWSE_LANG=en`/`=ja`/`=ko`) and writes the answer to `lang` above. The
+Japanese, Korean, Simplified Chinese, or Traditional Chinese) on a fresh
+install (non-interactively via
+`DOCUBROWSE_LANG=en`/`=ja`/`=ko`/`=zh`/`=zh-hant`) and writes the answer to
+`lang` above. The
 packaged installers (RPM/DEB/tarball/Windows/macOS) default new installs to
 `lang = en` — change it afterward from the Settings gear icon in the web UI,
 or start the server in a given language with `docubrowser ko start` (the code

@@ -100,11 +100,10 @@ if [[ -d "$SRC_DIR/icons" ]]; then
     install -m 644 "$SRC_DIR"/icons/* "$INSTALL_DIR/icons/"
 fi
 
-# Documentation
+# Documentation — recurse so the per-language subfolders
+# (English/Japanese/Korean/Chinese) are installed, not just top-level files.
 if [[ -d "$SRC_DIR/EndUser_docs" ]]; then
-    for f in "$SRC_DIR"/EndUser_docs/*; do
-        [[ -f "$f" ]] && install -m 644 "$f" "$INSTALL_DIR/EndUser_docs/"
-    done
+    cp -a "$SRC_DIR"/EndUser_docs/. "$INSTALL_DIR/EndUser_docs/"
 fi
 
 # Locales
@@ -145,6 +144,18 @@ if [[ -f "$SRC_DIR/docubrowser.desktop" ]]; then
     echo "==> Installing desktop menu entry"
     install -d -m 755 /usr/share/applications
     install -m 644 "$SRC_DIR/docubrowser.desktop" /usr/share/applications/
+fi
+
+# ── Man pages ──────────────────────────────────────────────────────────────
+if [[ -d "$SRC_DIR/man" ]]; then
+    echo "==> Installing man pages"
+    install -d -m 755 /usr/share/man/man1 /usr/share/man/man5
+    install -m 644 "$SRC_DIR/man/docubrowser.1"       /usr/share/man/man1/
+    install -m 644 "$SRC_DIR/man/docuback.1"          /usr/share/man/man1/
+    install -m 644 "$SRC_DIR/man/docubrowse.config.5" /usr/share/man/man5/
+    gzip -9nf /usr/share/man/man1/docubrowser.1 \
+              /usr/share/man/man1/docuback.1 \
+              /usr/share/man/man5/docubrowse.config.5
 fi
 
 # ── Create backup directory ────────────────────────────────────────────────

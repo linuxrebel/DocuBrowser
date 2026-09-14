@@ -76,6 +76,9 @@ done
 cp -a icons "$STAGE_DIR/" 2>/dev/null || echo "WARNING: icons/ not found."
 cp -a EndUser_docs "$STAGE_DIR/" 2>/dev/null || echo "WARNING: EndUser_docs/ not found."
 cp -a locales "$STAGE_DIR/" 2>/dev/null || echo "WARNING: locales/ not found."
+# man/ rides in the tarball (for rpmbuild %setup and the tarball install.sh);
+# it is relocated to /usr/share/man by the RPM spec, DEB build, and install.sh.
+cp -a man "$STAGE_DIR/" 2>/dev/null || echo "WARNING: man/ not found."
 
 # Desktop entry
 cp packaging/docubrowser.desktop "$STAGE_DIR/" 2>/dev/null || echo "WARNING: docubrowser.desktop not found."
@@ -128,6 +131,16 @@ if command -v dpkg-deb >/dev/null 2>&1; then
     # Application files
     mkdir -p "$DEB_PKG/opt/docubrowser"
     cp -a "$STAGE_DIR"/* "$DEB_PKG/opt/docubrowser/"
+
+    # Man pages belong under /usr/share/man, not /opt.
+    rm -rf "$DEB_PKG/opt/docubrowser/man"
+    mkdir -p "$DEB_PKG/usr/share/man/man1" "$DEB_PKG/usr/share/man/man5"
+    install -m 644 man/docubrowser.1       "$DEB_PKG/usr/share/man/man1/"
+    install -m 644 man/docuback.1          "$DEB_PKG/usr/share/man/man1/"
+    install -m 644 man/docubrowse.config.5 "$DEB_PKG/usr/share/man/man5/"
+    gzip -9nf "$DEB_PKG/usr/share/man/man1/docubrowser.1" \
+              "$DEB_PKG/usr/share/man/man1/docuback.1" \
+              "$DEB_PKG/usr/share/man/man5/docubrowse.config.5"
 
     # Wrapper scripts
     mkdir -p "$DEB_PKG/usr/bin"

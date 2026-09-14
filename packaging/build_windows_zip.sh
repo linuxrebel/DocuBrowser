@@ -116,6 +116,12 @@ if [[ -d "locales" ]]; then
     cp -r locales "$DIST_DIR/app/"
 fi
 
+# End-user docs (per-language subfolders ship recursively; EntEndUser_docs is
+# Enterprise-only and intentionally NOT staged into the FOSS zip).
+if [[ -d "EndUser_docs" ]]; then
+    cp -r EndUser_docs "$DIST_DIR/app/"
+fi
+
 # ── Installer files ───────────────────────────────────────────────────────────
 cp packaging/windows/Install.bat   "$DIST_DIR/"
 cp packaging/windows/install.ps1   "$DIST_DIR/"

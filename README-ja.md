@@ -2,7 +2,7 @@
 
 **言語 / Language:** [English](README.md) | **日本語** | [한국어](README-ko.md) | [简体中文](README-zh.md) | [繁體中文](README-zh-hant.md)
 
-# DocuBrowse v1.5.1
+# DocuBrowse v1.5.2
 
 <a name="top"></a>
 
@@ -927,6 +927,24 @@ ollama pull dolphin3:latest                      # 要約生成、無ければ
 
 [↑ トップ](#top)
 
+## v1.5.2 (2026-09-13) — 中国語対応(簡体字 + 繁体字)
+
+DocuBrowse は **中国語** — **簡体字**(`zh`)と**繁体字**(`zh-hant`)の両方 —
+で完全に動作するようになりました。[言語](#languages)を参照。
+
+- **簡体字(`zh`)と繁体字(`zh-hant`)。** どちらも `bge-m3` 多言語埋め込みと
+  `ornith-1.5:9b` 要約モデルを使用します。2 つは同じモデルを共有し、プロンプト
+  のみが異なります(繁体字は 繁體/正體字 での出力を強制、実測で検証済み)。完全な
+  UI 翻訳(`locales/zh.json`、`locales/zh-hant.json`)と README 翻訳
+  (`README-zh.md`、`README-zh-hant.md`)。
+- **CJK キーワード検索が中国語をカバー。** 既存の文字バイグラム分割はすでに CJK
+  統合漢字の範囲を網羅しているため、簡体字も繁体字も `cjk.py` の変更なしでインデックス
+  ・一致します。2 文字以上の語は確実に一致し、1 文字は Both/意味検索で提示されます。
+- **中国語には索引バーなし。** 中国語はアルファベットではなく頭文字順が無いため、
+  文書一覧の索引バーは非表示です(日本語と同じ)。
+- **パッケージング。** すべての README 翻訳(en/ja/ko/zh/zh-hant)がすべての
+  パッケージ形式(RPM、DEB、tarball、Windows、macOS)に同梱されるようになりました。
+
 ## v1.5.1 (2026-09-11) — 韓国語・日本語検索のバグ修正
 
 v1.5.0 リリース後に見つかった CJK 検索と言語設定の問題を修正するバグ修正リリース。
@@ -1243,4 +1261,4 @@ Copyright (C) 2026 James Sparenberg
 
 ---
 
-**DocuBrowse v1.5.1** — 高速・ローカル・AI 駆動の文書検索。
+**DocuBrowse v1.5.2** — 高速・ローカル・AI 駆動の文書検索。

@@ -1,0 +1,135 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBROWSE.CONFIG 5 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docubrowse.config \- configuration file for DocuBrowse
+.SH SYNOPSIS
+.I /etc/docubrowse.config
+.br
+.I ./docubrowse.config
+.SH DESCRIPTION
+.B docubrowse.config
+configures the DocuBrowse server and command-line tools.
+DocuBrowse reads the first configuration file it finds, checking the
+system-wide
+.I /etc/docubrowse.config
+before a
+.I docubrowse.config
+located beside the application (or in the per-user data directory of a
+packaged installation).
+.P
+If no file is found, built-in defaults apply, except for
+.IR doc_dir ,
+which has no default: until a document directory is configured, the web
+interface shows a prompt and commands that need one exit with an error.
+.P
+Each line has the form
+.IR "key = value" .
+Surrounding whitespace is ignored.
+Blank lines and lines beginning with
+.RB \[aq] # \[aq]
+are ignored.
+Matching
+.B DOCUBROWSE_*
+environment variables override the file, and command-line options override
+both.
+.SH KEYS
+.TP
+.B doc_dir
+Primary directory whose documents are scanned and indexed.
+No default; must be set before indexing.
+Additional scan directories are managed separately and stored in
+.IR scan_dirs.txt .
+.TP
+.B db_path
+Path to the SQLite database.
+Defaults to
+.I du\-docs.db
+beside the application.
+.TP
+.B port
+TCP port for the HTTP server.
+Defaults to
+.BR 8643 .
+.TP
+.B work_dir
+Working directory where DocuBrowse keeps its database and supporting files.
+Defaults to the application directory.
+.TP
+.B lang
+Active interface and document language.
+One of
+.BR en " (default),"
+.BR ja ,
+.BR ko ,
+.BR zh ", or"
+.BR zh\-hant .
+A single install serves one language at a time; switching languages between
+English and any CJK language requires a rescan to rebuild the index for the
+new language.
+.SH ENVIRONMENT
+The following variables override the corresponding configuration keys.
+.TP
+.B DOCUBROWSE_DOC_DIR
+Overrides
+.IR doc_dir .
+.TP
+.BR DOCUBROWSE_DB ", " DOCUBROWSE_DB_PATH
+Override
+.IR db_path .
+.TP
+.B DOCUBROWSE_PORT
+Overrides
+.IR port .
+.TP
+.B DOCUBROWSE_WORK_DIR
+Overrides
+.IR work_dir .
+.TP
+.B DOCUBROWSE_LANG
+Overrides
+.IR lang .
+.TP
+.B OLLAMA_HOST
+Base URL of the Ollama API used for embeddings and synopses.
+A bare
+.I host:port
+is accepted; the scheme defaults to
+.IR http:// .
+Also accepted as
+.BR DOCUBROWSE_OLLAMA_HOST .
+.TP
+.B DOCUBROWSE_TRUSTED_CIDRS
+Comma-separated CIDRs or addresses, in addition to loopback, permitted to
+reach the server.
+Empty means loopback only.
+Ranges wider than
+.I /24
+(IPv4) or
+.I /120
+(IPv6) are refused.
+This is not authentication; use it only for a private-network reverse proxy.
+.TP
+.B DOCUBROWSE_ALLOWED_HOSTS
+Comma-separated Host header names accepted in addition to loopback.
+.SH FILES
+.TP
+.I /etc/docubrowse.config
+System-wide configuration file.
+.TP
+.I ./docubrowse.config
+Per-directory configuration file.
+.SH EXAMPLES
+A minimal configuration:
+.P
+.in +4n
+.EX
+# docubrowse.config
+doc_dir  = ~/Documents
+port     = 8643
+lang     = en
+.EE
+.in
+.SH SEE ALSO
+.BR docubrowser (1),
+.BR docuback (1)

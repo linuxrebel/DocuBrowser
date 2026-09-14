@@ -1,9 +1,35 @@
 # DocuBrowse Project Status
 
-**Version**: v1.4.0  
-**Status**: 🟢 **v1.4.0 — Multi-language support (Japanese first); feature-complete, packaged for all platforms**  
-**Last Updated**: 2026-09-09  
+**Version**: v1.5.2  
+**Status**: 🟢 **v1.5.2 — Chinese support (Simplified + Traditional); feature-complete, packaged for all platforms**  
+**Last Updated**: 2026-09-13  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
+
+---
+
+## Chinese language support (2026-09-13, v1.5.2)
+
+Chinese added as an additive language stack following the ja/ko pattern — one
+`LANG_MODELS` row per variant plus locale + README files, no framework change.
+Both **Simplified** (`zh`) and **Traditional** (`zh-hant`) ship. Both use the
+`bge-m3` embedder and the `ornith-1.5:9b` synopsis model (empirically chosen and
+verified; Traditional is driven by a prompt that forces 繁體/正體字 output — the
+two variants share one model and differ only by prompt). CJK keyword search
+needed no `cjk.py` change (the bigram range already covers the CJK Unified block,
+Simplified and Traditional alike). No first-letter index bar for Chinese (not
+alphabetic, same as Japanese). Full UI translations (`locales/zh.json`,
+`locales/zh-hant.json`, 97-key parity) and README translations (`README-zh.md`,
+`README-zh-hant.md`, the latter produced via OpenCC s2twp). All five README
+translations now ship in every package type (this also closed a pre-existing gap
+where ja/ko READMEs shipped only via `build_packages.sh`). Real-corpus QA (85
+docs, all formats) passed: keyword bigram, semantic (bge-m3), and synopsis
+(ornith) all verified. 80 unit tests green, `lang_models.py` pylint 10/10. See
+[[DECISIONS]] and the memory notes.
+
+> **Note:** this status file jumped from v1.4.0 to v1.5.2; the intervening
+> **v1.5.0** (Korean support + full UI localization) and **v1.5.1** (CJK
+> search/language-config bug fixes) releases are recorded in the README
+> "Recent Changes" section and the RPM `%changelog`, not backfilled here.
 
 ---
 

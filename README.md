@@ -2,7 +2,7 @@
 
 **Language:** **English** | [日本語](README-ja.md) | [한국어](README-ko.md) | [简体中文](README-zh.md) | [繁體中文](README-zh-hant.md)
 
-# DocuBrowse v1.5.1
+# DocuBrowse v1.5.2
 
 <a name="top"></a>
 
@@ -960,6 +960,27 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 
 [↑ Top](#top)
 
+## v1.5.2 (2026-09-13) — Chinese support (Simplified + Traditional)
+
+DocuBrowse now runs entirely in **Chinese** — both **Simplified** (`zh`) and
+**Traditional** (`zh-hant`). See [Languages](#languages).
+
+- **Simplified (`zh`) and Traditional (`zh-hant`).** Both use the `bge-m3`
+  multilingual embedder and the `ornith-1.5:9b` synopsis model; the two share
+  one model and differ only by prompt (Traditional forces 繁體/正體字 output,
+  empirically verified). Full UI translations (`locales/zh.json`,
+  `locales/zh-hant.json`) and README translations (`README-zh.md`,
+  `README-zh-hant.md`).
+- **CJK keyword search covers Chinese.** The existing character-bigram
+  segmentation already spans the CJK Unified range, so Simplified and
+  Traditional both index and match with no `cjk.py` change; 2+ character terms
+  match reliably, single characters surface via Both/semantic.
+- **No index bar for Chinese.** Chinese is not alphabetic and has no
+  first-letter ordering, so the document-list index bar is hidden (same as
+  Japanese).
+- **Packaging.** All README translations (en/ja/ko/zh/zh-hant) now ship in
+  every package type (RPM, DEB, tarball, Windows, macOS).
+
 ## v1.5.1 (2026-09-11) — Korean/Japanese search bug fixes
 
 Bug-fix release addressing CJK search and language-configuration issues found
@@ -1505,4 +1526,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v1.5.1** — Fast, local, AI-powered document search.
+**DocuBrowse v1.5.2** — Fast, local, AI-powered document search.

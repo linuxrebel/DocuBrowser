@@ -20,7 +20,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Version    = "1.5.1"
+$Version    = "1.5.2"
 $InstallDir = Join-Path $env:USERPROFILE "DocuBrowse"
 $AppDir     = Join-Path $InstallDir "app"
 $VenvDir    = Join-Path $InstallDir "venv"
@@ -147,6 +147,10 @@ if ($DevMode) {
     }
     $localesSrc = Join-Path $SrcAppDir "locales"
     if (Test-Path $localesSrc) { Copy-Item $localesSrc $AppDir -Recurse -Force }
+    # End-user docs (per-language subfolders). EntEndUser_docs is Enterprise-only
+    # and deliberately not copied into the FOSS install.
+    $docsSrc = Join-Path $SrcAppDir "EndUser_docs"
+    if (Test-Path $docsSrc) { Copy-Item $docsSrc $AppDir -Recurse -Force }
 } else {
     Copy-Item -Path (Join-Path $SrcAppDir "*") -Destination $AppDir -Recurse -Force
 }

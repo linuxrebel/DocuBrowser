@@ -1,4 +1,4 @@
-# DocuBrowse v1.5.1 — API Reference (FOSS subset)
+# DocuBrowse v1.5.2 — API Reference (FOSS subset)
 
 > **FOSS subset.** This covers the localhost HTTP API shipped in the FOSS build.
 > Enterprise-only API features (remote access, `enterprise_mode` status fields,
@@ -541,10 +541,10 @@ The `DOCUBROWSE_DOC_DIR`, `DOCUBROWSE_WORK_DIR`, and `DOCUBROWSE_PORT` environme
 | port | integer | The configured port number. |
 | installed | boolean | true if the active config was loaded from `/etc/docubrowse.config`. |
 | configSource | string or null | Absolute path of the config file that was loaded, or null if none found. |
-| lang | string | Active interface/document language code (`en`, `ja`, or `ko`). |
+| lang | string | Active interface/document language code (`en`, `ja`, `ko`, `zh`, or `zh-hant`). |
 | locale | object | Map of UI string keys to their translations for the active language (the client's `t()` lookup table). |
 | langs | array | Available languages, each `{ "code": string, "label": string }`, used to build the Settings language dropdown. |
-| hasLetterIndex | boolean | Whether the document-list alphabet index bar is shown for the active language (false for Japanese). |
+| hasLetterIndex | boolean | Whether the document-list alphabet index bar is shown for the active language (false for Japanese and Chinese). |
 | indexLetters | array or null | For non-Latin index alphabets (e.g. Korean leading consonants), the ordered letter list the index bar should display; null means use the default A–Z. |
 
 **Example request:**
@@ -566,7 +566,9 @@ curl http://127.0.0.1:8643/api/config
   "langs": [
     { "code": "en", "label": "English" },
     { "code": "ja", "label": "日本語 (Japanese)" },
-    { "code": "ko", "label": "한국어 (Korean)" }
+    { "code": "ko", "label": "한국어 (Korean)" },
+    { "code": "zh", "label": "简体中文 (Simplified Chinese)" },
+    { "code": "zh-hant", "label": "繁體中文 (Traditional Chinese)" }
   ],
   "hasLetterIndex": true,
   "indexLetters": ["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"],
@@ -1202,7 +1204,7 @@ the background (not awaited), so the response returns immediately.
 |---|---|---|
 | ok | boolean | true on success. |
 | lang | string | The newly active language code. |
-| rebuild_required | boolean | true if the embedding model or FTS tokenizer changed, meaning existing documents should be re-scanned/re-embedded for full search quality. English ↔ Japanese/Korean is true; Japanese ↔ Korean is false (shared model and tokenizer). |
+| rebuild_required | boolean | true if the embedding model or FTS tokenizer changed, meaning existing documents should be re-scanned/re-embedded for full search quality. English ↔ any CJK language is true; switching among Japanese, Korean, and Chinese (Simplified/Traditional) is false (they share the `bge-m3` model and `unicode61` tokenizer). |
 
 An unsupported code returns HTTP 400 with an error message.
 

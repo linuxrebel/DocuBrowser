@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        1.5.1
+Version:        1.5.2
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
@@ -83,9 +83,15 @@ install -m 644 README-zh.md         %{buildroot}/opt/docubrowser/
 install -m 644 README-zh-hant.md    %{buildroot}/opt/docubrowser/
 install -m 644 LICENSE              %{buildroot}/opt/docubrowser/
 install -m 644 INSTALL.md           %{buildroot}/opt/docubrowser/
-for f in EndUser_docs/*; do
-    [ -f "$f" ] && install -m 644 "$f" %{buildroot}/opt/docubrowser/EndUser_docs/
-done
+# Recurse so the per-language subfolders (English/Japanese/Korean/Chinese)
+# ship too — install -D recreates each subdir under the buildroot.
+(cd EndUser_docs && find . -type f -exec install -Dm644 {} %{buildroot}/opt/docubrowser/EndUser_docs/{} \;)
+
+# ── Man pages ────────────────────────────────────────────────────────────────
+install -d -m 755 %{buildroot}%{_mandir}/man1 %{buildroot}%{_mandir}/man5
+install -m 644 man/docubrowser.1       %{buildroot}%{_mandir}/man1/
+install -m 644 man/docuback.1          %{buildroot}%{_mandir}/man1/
+install -m 644 man/docubrowse.config.5 %{buildroot}%{_mandir}/man5/
 
 # ── Wrapper scripts in /usr/bin ──────────────────────────────────────────────
 install -d -m 755 %{buildroot}/usr/bin
@@ -200,8 +206,25 @@ fi
 # Desktop menu entry
 /usr/share/applications/docubrowser.desktop
 
+# Man pages (rpmbuild compresses them automatically)
+%{_mandir}/man1/docubrowser.1*
+%{_mandir}/man1/docuback.1*
+%{_mandir}/man5/docubrowse.config.5*
+
 
 %changelog
+* Sun Sep 13 2026 James Sparenberg <james@sparenbergs.us> - 1.5.2-1
+- Chinese language support: Simplified (zh) and Traditional (zh-hant),
+  both using bge-m3 embeddings and the ornith-1.5:9b synopsis model
+  (Traditional driven by a prompt that forces 繁體/正體字 output)
+- CJK character-bigram keyword search covers Chinese (Simplified and
+  Traditional share the CJK Unified range; no cjk.py change needed)
+- Full Simplified and Traditional UI translations (locales/zh.json,
+  locales/zh-hant.json) and README translations (README-zh.md,
+  README-zh-hant.md)
+- No first-letter index bar for Chinese (not alphabetic, same as Japanese)
+- All README translations now ship in every package type
+
 * Fri Sep 11 2026 James Sparenberg <james@sparenbergs.us> - 1.5.1-1
 - Fix HTTP 500 on semantic search after a language switch: compare only
   vectors built by the active embedder (stale index degrades to keyword)

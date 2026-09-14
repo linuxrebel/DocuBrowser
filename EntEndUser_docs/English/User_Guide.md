@@ -1,4 +1,4 @@
-# DocuBrowse v1.5.1 — User Guide
+# DocuBrowse v1.5.2 — User Guide
 
 ---
 
@@ -201,9 +201,10 @@ syllable led by that consonant (tense consonants such as ㄲ are grouped under
 their base consonant ㄱ). Everything else works the same: **Home** and **0-9**
 remain, and buttons with no matching documents are dimmed.
 
-**Note:** the index bar is hidden when DocuBrowse is set to Japanese — Japanese
-titles are not reliably sortable by first character, and a reading-based (kana)
-index is not yet available in this version.
+**Note:** the index bar is hidden when DocuBrowse is set to Japanese or Chinese
+(Simplified or Traditional) — those titles are not reliably sortable by first
+character, and a reading-based (kana / pinyin) index is not yet available in
+this version.
 
 ---
 
@@ -252,7 +253,7 @@ Currently excluded directories are shown in the **Currently excluded directories
 
 The **General** panel has a **Language** dropdown. DocuBrowse serves one
 language at a time for its interface and search — currently **English**,
-**Japanese**, and **Korean**.
+**Japanese**, **Korean**, **Simplified Chinese**, and **Traditional Chinese**.
 
 To switch languages, pick the new language from the dropdown and click
 **Save**. The interface text switches immediately, and DocuBrowse reminds you
@@ -262,13 +263,14 @@ the new language uses a different search engine under the hood than the old one
 warning that existing documents need to be re-indexed for full search quality —
 until your administrator runs a rescan, documents indexed under the old
 language may not show up correctly in keyword or semantic search results under
-the new one. (Japanese and Korean share the same search engine, so switching
-between just those two needs no re-index.) Newly scanned documents are always
-indexed correctly for whichever language is currently selected.
+the new one. (Japanese, Korean, and both Chinese variants share the same search
+engine, so switching among those needs no re-index.) Newly scanned documents are
+always indexed correctly for whichever language is currently selected.
 
 Your administrator can also start DocuBrowse directly in a language from the
-command line — for example `docubrowser ko start` (Korean) or
-`docubrowser start ja` (Japanese).
+command line — for example `docubrowser ko start` (Korean),
+`docubrowser start ja` (Japanese), or `docubrowser zh start` /
+`docubrowser zh-hant start` (Simplified / Traditional Chinese).
 
 ### Other Settings
 

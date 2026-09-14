@@ -2,7 +2,7 @@
 
 **언어 / Language:** [English](README.md) | [日本語](README-ja.md) | **한국어** | [简体中文](README-zh.md) | [繁體中文](README-zh-hant.md)
 
-# DocuBrowse v1.5.1
+# DocuBrowse v1.5.2
 
 <a name="top"></a>
 
@@ -956,6 +956,24 @@ ollama pull dolphin3:latest                      # 요약 생성, 없으면
 
 [↑ 맨 위](#top)
 
+## v1.5.2 (2026-09-13) — 중국어 지원(간체 + 번체)
+
+DocuBrowse 는 이제 **중국어** — **간체**(`zh`)와 **번체**(`zh-hant`) 모두 —
+로 완전히 동작합니다. [언어](#languages)를 참조하세요.
+
+- **간체(`zh`)와 번체(`zh-hant`).** 둘 다 `bge-m3` 다국어 임베더와
+  `ornith-1.5:9b` 요약 모델을 사용합니다. 두 언어는 하나의 모델을 공유하며
+  프롬프트만 다릅니다(번체는 繁體/正體字 출력을 강제하며, 실측으로 검증됨). 전체
+  UI 번역(`locales/zh.json`, `locales/zh-hant.json`)과 README 번역
+  (`README-zh.md`, `README-zh-hant.md`) 포함.
+- **CJK 키워드 검색이 중국어를 지원.** 기존 문자 바이그램 분절이 이미 CJK 통합
+  한자 범위를 포괄하므로, 간체와 번체 모두 `cjk.py` 변경 없이 인덱싱·매치됩니다.
+  2 문자 이상은 확실히 매치되고, 단일 문자는 모두/의미 검색으로 드러납니다.
+- **중국어에는 인덱스 바 없음.** 중국어는 알파벳이 아니고 첫 글자 순서가 없어
+  문서 목록 인덱스 바가 숨겨집니다(일본어와 동일).
+- **패키징.** 모든 README 번역(en/ja/ko/zh/zh-hant)이 이제 모든 패키지 형식
+  (RPM, DEB, tarball, Windows, macOS)에 포함됩니다.
+
 ## v1.5.1 (2026-09-11) — 한국어/일본어 검색 버그 수정
 
 v1.5.0 출시 후 발견된 CJK 검색 및 언어 설정 문제를 해결하는 버그 수정 릴리스입니다.
@@ -1449,4 +1467,4 @@ Copyright (C) 2026 James Sparenberg
 
 ---
 
-**DocuBrowse v1.5.1** — 빠르고, 로컬이며, AI 기반인 문서 검색.
+**DocuBrowse v1.5.2** — 빠르고, 로컬이며, AI 기반인 문서 검색.

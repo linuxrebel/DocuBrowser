@@ -1,0 +1,69 @@
+.\" Copyright (C) 2026 James Sparenberg
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH DOCUBACK 1 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.SH NAME
+docuback \- back up and restore DocuBrowse runtime data
+.SH SYNOPSIS
+.B docuback \-\-backup
+.RI [ "\-\-db PATH" ]
+.RI [ "\-\-backup\-dir PATH" ]
+.br
+.B docuback \-\-restore
+.RI [ "\-\-db PATH" ]
+.RI [ "\-\-backup\-dir PATH" ]
+.SH DESCRIPTION
+.B docuback
+backs up and restores the runtime data of a DocuBrowse installation \(em the
+SQLite database and its associated files \(em so an index can be preserved
+across reinstalls or moved between machines.
+.P
+Exactly one of
+.B \-\-backup
+or
+.B \-\-restore
+must be given.
+.SH OPTIONS
+.TP
+.B \-\-backup
+Create a backup of the current runtime data.
+.TP
+.B \-\-restore
+Restore runtime data from a previous backup.
+.TP
+.BI \-\-db " PATH"
+Operate on the SQLite database at
+.IR PATH ,
+overriding the configured
+.IR db_path .
+.TP
+.BI \-\-backup\-dir " PATH"
+Read or write backups in
+.IR PATH
+instead of the default backup directory.
+.SH EXIT STATUS
+.B docuback
+exits 0 on success and non-zero on error, for example when a backup file is
+missing or the destination is not writable.
+.SH FILES
+.TP
+.I ~/.docubrowser/
+Per-user runtime data directory backed up and restored by this tool.
+.SH EXAMPLES
+Back up the current index:
+.P
+.in +4n
+.EX
+docuback \-\-backup
+.EE
+.in
+.P
+Restore from a specific backup directory:
+.P
+.in +4n
+.EX
+docuback \-\-restore \-\-backup\-dir /media/usb/docubrowse\-backups
+.EE
+.in
+.SH SEE ALSO
+.BR docubrowser (1),
+.BR docubrowse.config (5)
