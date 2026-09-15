@@ -168,11 +168,11 @@ DocuBrowse には 3 つの検索モードがあります（右上で切り替え
 
 | ダークモード | ライトモード |
 |---|---|
-| [![Dark mode](screenshots/screenshot-dark-mode.png)](screenshots/screenshot-dark-mode.png) | [![Light mode](screenshots/screenshot-light-mode.png)](screenshots/screenshot-light-mode.png) |
+| [![Dark mode](screenshots/ja/screenshot-dark-mode.png)](screenshots/ja/screenshot-dark-mode.png) | [![Light mode](screenshots/ja/screenshot-light-mode.png)](screenshots/ja/screenshot-light-mode.png) |
 
 | 設定 | AI 要約 |
 |---|---|
-| [![Settings page](screenshots/screenshot-settings-page.png)](screenshots/screenshot-settings-page.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
+| [![Settings page](screenshots/ja/screenshot-settings-page.png)](screenshots/ja/screenshot-settings-page.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
 
 ### Deep Links — 文書内パッセージ検索
 
@@ -182,11 +182,11 @@ DocuBrowse には 3 つの検索モードがあります（右上で切り替え
 
 | 意味検索の結果 | 一致パッセージ | ハイライトされたパッセージ |
 |---|---|---|
-| [![Semantic search results with Deep Links](screenshots/deep-links-semantic-results.png)](screenshots/deep-links-semantic-results.png) | [![Semantic Deep Links passage list](screenshots/deep-links-semantic-list.png)](screenshots/deep-links-semantic-list.png) | [![Semantic Deep Links passage](screenshots/deep-links-semantic-passage.png)](screenshots/deep-links-semantic-passage.png) |
+| [![Semantic search results with Deep Links](screenshots/ja/deep-links-semantic-results.png)](screenshots/ja/deep-links-semantic-results.png) | [![Semantic Deep Links passage list](screenshots/ja/deep-links-semantic-list.png)](screenshots/ja/deep-links-semantic-list.png) | [![Semantic Deep Links passage](screenshots/ja/deep-links-semantic-passage.png)](screenshots/ja/deep-links-semantic-passage.png) |
 
 | キーワード検索の結果 | 一致パッセージ | ハイライトされたパッセージ |
 |---|---|---|
-| [![Keyword search results with Deep Links](screenshots/deep-links-keyword-results.png)](screenshots/deep-links-keyword-results.png) | [![Keyword Deep Links passage list](screenshots/deep-links-keyword-list.png)](screenshots/deep-links-keyword-list.png) | [![Keyword Deep Links passage](screenshots/deep-links-keyword-passage.png)](screenshots/deep-links-keyword-passage.png) |
+| [![Keyword search results with Deep Links](screenshots/ja/deep-links-keyword-results.png)](screenshots/ja/deep-links-keyword-results.png) | [![Keyword Deep Links passage list](screenshots/ja/deep-links-keyword-list.png)](screenshots/ja/deep-links-keyword-list.png) | [![Keyword Deep Links passage](screenshots/ja/deep-links-keyword-passage.png)](screenshots/ja/deep-links-keyword-passage.png) |
 
 > Deep Links は文書から抽出したテキストを描画し、一致した抜粋を黄色で示し、その位置（ページ / 行 / セクション）でラベル付けします。モードは検索に追随し、意味検索は意味パッセージを、キーワードはキーワードパッセージを開きます。
 
