@@ -171,11 +171,11 @@ DocuBrowse 에는 세 가지 검색 모드가 있습니다(우측 상단 토글)
 
 | 다크 모드 | 라이트 모드 |
 |---|---|
-| [![Dark mode](screenshots/screenshot-dark-mode.png)](screenshots/screenshot-dark-mode.png) | [![Light mode](screenshots/screenshot-light-mode.png)](screenshots/screenshot-light-mode.png) |
+| [![Dark mode](screenshots/ko/screenshot-dark-mode.png)](screenshots/ko/screenshot-dark-mode.png) | [![Light mode](screenshots/ko/screenshot-light-mode.png)](screenshots/ko/screenshot-light-mode.png) |
 
 | 설정 | AI 요약 |
 |---|---|
-| [![Settings page](screenshots/screenshot-settings-page.png)](screenshots/screenshot-settings-page.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
+| [![Settings page](screenshots/ko/screenshot-settings-page.png)](screenshots/ko/screenshot-settings-page.png) | [![Synopsis modal](screenshots/ko/screenshot-synopsis-modal.png)](screenshots/ko/screenshot-synopsis-modal.png) |
 
 ### 딥 링크 — 문서 내 구절 검색
 
@@ -185,11 +185,11 @@ DocuBrowse 에는 세 가지 검색 모드가 있습니다(우측 상단 토글)
 
 | 의미 검색 결과 | 매치 구절 | 강조된 구절 |
 |---|---|---|
-| [![Semantic search results with Deep Links](screenshots/deep-links-semantic-results.png)](screenshots/deep-links-semantic-results.png) | [![Semantic Deep Links passage list](screenshots/deep-links-semantic-list.png)](screenshots/deep-links-semantic-list.png) | [![Semantic Deep Links passage](screenshots/deep-links-semantic-passage.png)](screenshots/deep-links-semantic-passage.png) |
+| [![Semantic search results with Deep Links](screenshots/ko/deep-links-semantic-results.png)](screenshots/ko/deep-links-semantic-results.png) | [![Semantic Deep Links passage list](screenshots/ko/deep-links-semantic-list.png)](screenshots/ko/deep-links-semantic-list.png) | [![Semantic Deep Links passage](screenshots/ko/deep-links-semantic-passage.png)](screenshots/ko/deep-links-semantic-passage.png) |
 
 | 키워드 검색 결과 | 매치 구절 | 강조된 구절 |
 |---|---|---|
-| [![Keyword search results with Deep Links](screenshots/deep-links-keyword-results.png)](screenshots/deep-links-keyword-results.png) | [![Keyword Deep Links passage list](screenshots/deep-links-keyword-list.png)](screenshots/deep-links-keyword-list.png) | [![Keyword Deep Links passage](screenshots/deep-links-keyword-passage.png)](screenshots/deep-links-keyword-passage.png) |
+| [![Keyword search results with Deep Links](screenshots/ko/deep-links-keyword-results.png)](screenshots/ko/deep-links-keyword-results.png) | [![Keyword Deep Links passage list](screenshots/ko/deep-links-keyword-list.png)](screenshots/ko/deep-links-keyword-list.png) | [![Keyword Deep Links passage](screenshots/ko/deep-links-keyword-passage.png)](screenshots/ko/deep-links-keyword-passage.png) |
 
 > 딥 링크는 문서의 추출된 텍스트를 렌더링하고 매치된 스니펫을 노란색으로, 위치(페이지 / 줄 / 섹션)로 라벨링합니다. 모드는 검색을 따릅니다: 의미 검색은 의미 구절을, 키워드는 키워드 구절을 엽니다.
 
