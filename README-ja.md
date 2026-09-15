@@ -172,7 +172,7 @@ DocuBrowse には 3 つの検索モードがあります（右上で切り替え
 
 | 設定 | AI 要約 |
 |---|---|
-| [![Settings page](screenshots/ja/screenshot-settings-page.png)](screenshots/ja/screenshot-settings-page.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
+| [![Settings page](screenshots/ja/screenshot-settings-page.png)](screenshots/ja/screenshot-settings-page.png) | [![Synopsis modal](screenshots/ja/screenshot-synopsis-modal.png)](screenshots/ja/screenshot-synopsis-modal.png) |
 
 ### Deep Links — 文書内パッセージ検索
 
