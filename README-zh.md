@@ -169,11 +169,11 @@ DocuBrowse 有三种搜索模式(在右上角切换):**关键词**、**语义**�
 
 | 深色模式 | 浅色模式 |
 |---|---|
-| [![Dark mode](screenshots/screenshot-dark-mode.png)](screenshots/screenshot-dark-mode.png) | [![Light mode](screenshots/screenshot-light-mode.png)](screenshots/screenshot-light-mode.png) |
+| [![Dark mode](screenshots/zh/screenshot-dark-mode.png)](screenshots/zh/screenshot-dark-mode.png) | [![Light mode](screenshots/zh/screenshot-light-mode.png)](screenshots/zh/screenshot-light-mode.png) |
 
 | 设置 | AI 摘要 |
 |---|---|
-| [![Settings page](screenshots/screenshot-settings-page.png)](screenshots/screenshot-settings-page.png) | [![Synopsis modal](screenshots/screenshot-synopsis-modal.png)](screenshots/screenshot-synopsis-modal.png) |
+| [![Settings page](screenshots/zh/screenshot-settings-page.png)](screenshots/zh/screenshot-settings-page.png) | [![Synopsis modal](screenshots/zh/screenshot-synopsis-modal.png)](screenshots/zh/screenshot-synopsis-modal.png) |
 
 ### 深度链接 —— 文档内段落搜索
 
@@ -183,11 +183,11 @@ DocuBrowse 有三种搜索模式(在右上角切换):**关键词**、**语义**�
 
 | 语义搜索结果 | 匹配段落 | 高亮段落 |
 |---|---|---|
-| [![Semantic search results with Deep Links](screenshots/deep-links-semantic-results.png)](screenshots/deep-links-semantic-results.png) | [![Semantic Deep Links passage list](screenshots/deep-links-semantic-list.png)](screenshots/deep-links-semantic-list.png) | [![Semantic Deep Links passage](screenshots/deep-links-semantic-passage.png)](screenshots/deep-links-semantic-passage.png) |
+| [![Semantic search results with Deep Links](screenshots/zh/deep-links-semantic-results.png)](screenshots/zh/deep-links-semantic-results.png) | [![Semantic Deep Links passage list](screenshots/zh/deep-links-semantic-list.png)](screenshots/zh/deep-links-semantic-list.png) | [![Semantic Deep Links passage](screenshots/zh/deep-links-semantic-passage.png)](screenshots/zh/deep-links-semantic-passage.png) |
 
 | 关键词搜索结果 | 匹配段落 | 高亮段落 |
 |---|---|---|
-| [![Keyword search results with Deep Links](screenshots/deep-links-keyword-results.png)](screenshots/deep-links-keyword-results.png) | [![Keyword Deep Links passage list](screenshots/deep-links-keyword-list.png)](screenshots/deep-links-keyword-list.png) | [![Keyword Deep Links passage](screenshots/deep-links-keyword-passage.png)](screenshots/deep-links-keyword-passage.png) |
+| [![Keyword search results with Deep Links](screenshots/zh/deep-links-keyword-results.png)](screenshots/zh/deep-links-keyword-results.png) | [![Keyword Deep Links passage list](screenshots/zh/deep-links-keyword-list.png)](screenshots/zh/deep-links-keyword-list.png) | [![Keyword Deep Links passage](screenshots/zh/deep-links-keyword-passage.png)](screenshots/zh/deep-links-keyword-passage.png) |
 
 > 深度链接以黄色渲染文档提取文本中的匹配片段,并按其位置(页/行/节)标注。模式跟随搜索:语义搜索打开语义段落,关键词打开关键词段落。
 
