@@ -233,7 +233,7 @@ def _extract_vsd_legacy(file_path: str) -> dict:
 
     try:
         proc = subprocess.run(
-            ["vsd2xml", file_path],
+            ["vsd2xml", str(Path(file_path).resolve())],
             capture_output=True,
             timeout=90,
             check=False,

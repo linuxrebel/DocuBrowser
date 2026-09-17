@@ -118,7 +118,7 @@ def _calibre_metadata(file_path: str) -> dict:
     meta = {'title': None, 'author': None, 'subject': None, 'description': ''}
     try:
         proc = subprocess.run(
-            ['ebook-meta', file_path],
+            ['ebook-meta', str(Path(file_path).resolve())],
             capture_output=True, text=True, timeout=15, check=False,
         )
         for line in proc.stdout.splitlines():
@@ -154,7 +154,7 @@ def _calibre_convert_to_text(file_path: str) -> str:
         fd, tmp_path = tempfile.mkstemp(suffix='.txt')
         os.close(fd)
         proc = subprocess.run(
-            ['ebook-convert', file_path, tmp_path],
+            ['ebook-convert', str(Path(file_path).resolve()), tmp_path],
             capture_output=True, text=True, timeout=_CALIBRE_TIMEOUT, check=False,
         )
         if proc.returncode == 0 and os.path.exists(tmp_path):

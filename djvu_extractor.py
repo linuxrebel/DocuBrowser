@@ -53,7 +53,7 @@ def _djvused_meta(file_path: str) -> dict:
     meta = {"title": None, "author": None, "subject": None}
     try:
         out = subprocess.run(
-            ["djvused", file_path, "-e", "select 1; print-meta"],
+            ["djvused", str(Path(file_path).resolve()), "-e", "select 1; print-meta"],
             capture_output=True, text=True, errors="replace",
             timeout=_TIMEOUT_SECS, check=False,
         ).stdout
@@ -91,7 +91,7 @@ def extract_djvu(file_path: str) -> dict:
 
     try:
         proc = subprocess.run(
-            ["djvutxt", file_path],
+            ["djvutxt", str(Path(file_path).resolve())],
             capture_output=True, text=True, errors="replace",
             timeout=_TIMEOUT_SECS, check=False,
         )

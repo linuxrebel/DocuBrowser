@@ -37,8 +37,15 @@ this release:
 2. **Opener/extractor argument injection (theoretical).** A filename beginning
    with `-` passed as a subprocess arg to openers (`xdg-open`/`gio`) or extractors
    (`vsd2xml`/`djvutxt`/`ebook-convert`) could be misparsed as a flag. Requires an
-   attacker-named file to already be indexed. Follow-up: `--` / `./`-prefix the
-   path where the tool supports it.
+   attacker-named file to already be indexed. ~~Follow-up: `--` / `./`-prefix the
+   path where the tool supports it.~~ **Extractors resolved 2026-09-17** — the
+   file arg to `ebook-meta`/`ebook-convert` (`ebook_extractor.py`), `djvused`/
+   `djvutxt` (`djvu_extractor.py`), and `vsd2xml` (`visio_extractor.py`) is now
+   passed as `str(Path(file_path).resolve())`, forcing a leading `/` (or drive
+   letter) so it can never be parsed as an option. Tool-agnostic (no dependence on
+   `--` support), verified by a `-`-prefixed-filename extraction test. **Openers
+   still open** — `handle_open` passes `str(p)` to `gio`/`xdg-open`; low risk
+   (path is index-validated) but the same `.resolve()` treatment is a follow-up.
 3. **vsd2xml unbounded stdout.** The legacy-Visio converter's stdout is read via
    `subprocess.run(..., capture_output=True)` with no size cap; a hostile/corrupt
    `.vsd` emitting multi-GB output is bounded only by the 90 s timeout +
