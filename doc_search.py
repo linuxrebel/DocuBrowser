@@ -1213,7 +1213,11 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.json_response({"ok": False, "error": "Path not in document index"})
             return
 
-        p = Path(path)
+        # Resolve to an absolute path so a filename beginning with "-" can't be
+        # misparsed as a flag by the openers below (gio/xdg-open) — same
+        # argument-injection guard the extractors use. (path is already
+        # index-validated; this only normalizes its form.)
+        p = Path(path).resolve()
         if not p.exists():
             status = check_missing_path(path)
             if status == "unmounted":

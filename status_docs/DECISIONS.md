@@ -44,8 +44,10 @@ this release:
    passed as `str(Path(file_path).resolve())`, forcing a leading `/` (or drive
    letter) so it can never be parsed as an option. Tool-agnostic (no dependence on
    `--` support), verified by a `-`-prefixed-filename extraction test. **Openers
-   still open** — `handle_open` passes `str(p)` to `gio`/`xdg-open`; low risk
-   (path is index-validated) but the same `.resolve()` treatment is a follow-up.
+   resolved 2026-09-17** — `handle_open` (`doc_search.py`) now resolves the path
+   once (`p = Path(path).resolve()`) before it reaches `gio`/`kde-open5`/
+   `kde-open`/`xdg-open`/`xdg-mime`/`os.startfile`, so every subprocess document
+   surface handles the file arg identically. Item fully resolved.
 3. **vsd2xml unbounded stdout.** The legacy-Visio converter's stdout is read via
    `subprocess.run(..., capture_output=True)` with no size cap; a hostile/corrupt
    `.vsd` emitting multi-GB output is bounded only by the 90 s timeout +
