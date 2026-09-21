@@ -99,6 +99,40 @@ is accepted; the scheme defaults to
 Also accepted as
 .BR DOCUBROWSE_OLLAMA_HOST .
 .TP
+.B DOCUBROWSE_LLM_BACKEND
+Text-generation backend for document synopses:
+.I ollama
+(default) or
+.IR litellm .
+The
+.I litellm
+backend routes through LiteLLM, reaching many providers through one
+interface. Embeddings always use Ollama.
+.TP
+.B DOCUBROWSE_LLM_MODEL
+Model for the
+.I litellm
+backend, for example
+.IR anthropic/claude-opus-4-7 .
+Required with that backend: the per-language defaults are Ollama tags that
+LiteLLM cannot route.
+.TP
+.B DOCUBROWSE_LLM_API_BASE
+Optional self-hosted LiteLLM gateway URL.
+Empty means LiteLLM calls the provider directly.
+.TP
+.B DOCUBROWSE_LLM_API_KEY
+Key for the
+.I litellm
+backend: the gateway key when
+.B DOCUBROWSE_LLM_API_BASE
+is set, otherwise left unset so LiteLLM reads the provider's own variable.
+.TP
+.B DOCUBROWSE_LLM_MAX_TOKENS
+Optional output cap for the
+.I litellm
+backend, useful for hybrid reasoning models.
+.TP
 .B DOCUBROWSE_TRUSTED_CIDRS
 Comma-separated CIDRs or addresses, in addition to loopback, permitted to
 reach the server.

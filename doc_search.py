@@ -62,6 +62,7 @@ from scan_docs import (                                                  # noqa:
 from deep_links import locate_passages, strip_stopwords                  # noqa: E402
 from lang_models import resolve, config_lang, lang_from_config, SUPPORTED_LANGS  # noqa: E402
 from cjk import cjk_segment, ko_letter_of, ko_letter_range, KO_INDEX_LETTERS  # noqa: E402
+import llm_client                                                        # noqa: E402
 # pylint: enable=wrong-import-position
 
 try:
@@ -257,20 +258,16 @@ def _warmup_synopsis_model():
     """Send a trivial prompt to dolphin3 so Ollama loads it into RAM."""
     global SYNOPSIS_WARM   # pylint: disable=global-statement
     try:
-        url = f"{OLLAMA_HOST}/api/generate"
-        payload = json.dumps({
-            "model": SYNOPSIS_MODEL,
-            "prompt": "hi",
-            "stream": False,
-            "options": {"num_predict": 1},
-        }).encode("utf-8")
-        request = Request(url, data=payload, method="POST")
-        request.add_header("Content-Type", "application/json")
-        with urlopen(request, timeout=120) as resp:
-            resp.read()
+        llm_client.generate(
+            "hi",
+            model=SYNOPSIS_MODEL,
+            host=OLLAMA_HOST,
+            timeout=120,
+            options={"num_predict": 1},
+        )
         SYNOPSIS_WARM = True
-        print("  Synopsis model: OK (dolphin3 loaded)")
-    except (URLError, socket.timeout, OSError) as exc:
+        print(f"  Synopsis model: OK ({llm_client.describe(SYNOPSIS_MODEL)} loaded)")
+    except llm_client.LLMError as exc:
         print(f"  Synopsis model: ⚠ warmup failed ({exc})")
 
 
@@ -387,32 +384,21 @@ def generate_synopsis(title: str, description: str, snippet: str) -> tuple:
     prompt = _ACTIVE["synopsis_prompt"].format(title=title or "(untitled)", context=context[:4000])
 
     try:
-        url = f"{OLLAMA_HOST}/api/generate"
-        payload = json.dumps({
-            "model": SYNOPSIS_MODEL,
-            "prompt": prompt,
-            "stream": False,
+        text = llm_client.generate(
+            prompt,
+            model=SYNOPSIS_MODEL,
+            host=OLLAMA_HOST,
+            timeout=SYNOPSIS_TIMEOUT_SECS,
             # Disable reasoning: some synopsis models (e.g. the Japanese
             # nemotron-nano-9b-v2) are hybrid reasoning models that otherwise
             # spend the whole token budget "thinking" and return an empty
             # response. Ignored by non-reasoning models (dolphin3).
-            "think": False,
-        }).encode('utf-8')
-
-        request = Request(url, data=payload, method='POST')
-        request.add_header('Content-Type', 'application/json')
-
-        with urlopen(request, timeout=SYNOPSIS_TIMEOUT_SECS) as response:
-            data = json.loads(response.read().decode('utf-8'))
-            text = (data.get('response') or '').strip()
-            return (text, None) if text else (None, "error")
-    except socket.timeout:
+            think=False,
+        )
+        return (text, None) if text else (None, "error")
+    except llm_client.LLMTimeout:
         return None, "timeout"
-    except URLError as e:
-        if isinstance(e.reason, socket.timeout):
-            return None, "timeout"
-        return None, "error"
-    except (OSError, json.JSONDecodeError):
+    except llm_client.LLMError:
         return None, "error"
 
 
