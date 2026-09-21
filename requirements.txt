@@ -15,3 +15,8 @@ striprtf            # .rtf text extraction (pure Python)
 numpy               # cached embedding matrix for semantic search + dup detection
 psutil              # hardware-aware worker counts, process tree kill, port scanning
 colorama            # ANSI color codes on Windows (no-op on Linux/macOS)
+
+# Optional: only needed for DOCUBROWSE_LLM_BACKEND=litellm (synopsis generation
+# through LiteLLM instead of Ollama). The default Ollama backend needs nothing
+# beyond the stdlib, so this is deliberately not installed by default.
+# litellm>=1.92.0,<1.101.0

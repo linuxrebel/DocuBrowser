@@ -464,6 +464,11 @@ containers). CLI flags still win when provided.
 | `DOCUBROWSE_PORT` | `8643` | HTTP server port |
 | `DOCUBROWSE_WORK_DIR` | config `work_dir` | Working directory for runtime data |
 | `OLLAMA_HOST` | `http://localhost:11434` | Base URL for the Ollama HTTP API (embeddings + synopsis). A bare `host:port` is accepted (scheme defaults to `http://`). Also accepted as `DOCUBROWSE_OLLAMA_HOST`. |
+| `DOCUBROWSE_LLM_BACKEND` | `ollama` | Text-generation backend for document synopses: `ollama` (default, unchanged) or `litellm`. The `litellm` backend routes through [LiteLLM](https://docs.litellm.ai/), which reaches 100+ providers through one interface. Embeddings always use Ollama. |
+| `DOCUBROWSE_LLM_MODEL` | _(empty)_ | Model for the `litellm` backend, e.g. `anthropic/claude-opus-4-7`, or any name your gateway serves. Required when that backend is selected: the per-language defaults are bare Ollama tags that LiteLLM cannot route. |
+| `DOCUBROWSE_LLM_API_BASE` | _(empty)_ | Optional self-hosted LiteLLM gateway URL (e.g. `http://localhost:4000`). Empty means LiteLLM calls the provider directly using that provider's own key. A gateway adds centralized cost tracking, budgets, rate limiting and fallbacks. |
+| `DOCUBROWSE_LLM_API_KEY` | _(empty)_ | Key for the `litellm` backend: the gateway's key when `DOCUBROWSE_LLM_API_BASE` is set, otherwise unset so LiteLLM reads the provider's own variable (`ANTHROPIC_API_KEY` and friends). |
+| `DOCUBROWSE_LLM_MAX_TOKENS` | _(empty)_ | Optional output cap for the `litellm` backend. Worth setting for hybrid reasoning models, which otherwise spend the whole budget thinking and return nothing. |
 | `DOCUBROWSE_TRUSTED_CIDRS` | _(empty)_ | Comma-separated CIDRs/IPs allowed to reach the server in addition to loopback (e.g. `172.17.0.2/32` for a single Docker proxy, or the exact Compose subnet). Empty = loopback-only. Ranges wider than `/24` (IPv4) or `/120` (IPv6) are refused — trust a host, not a whole network; `/32` is preferred. **Not authentication** — only list private networks behind a reverse proxy / BFF. |
 | `DOCUBROWSE_ALLOWED_HOSTS` | _(empty)_ | Comma-separated Host header names accepted in addition to loopback (e.g. `docubrowse`). Needed when a container service name appears in `Host`. |
 
@@ -472,6 +477,24 @@ omitted, so a container entrypoint can start the server with env alone.
 `OLLAMA_HOST` is read by `doc_search.py`, `embed_docs.py`, and
 `ensure_ollama.py` — set it when Ollama runs on another host or container
 (for example `http://ollama:11434` in Docker Compose).
+
+Synopsis generation can optionally go through LiteLLM instead of Ollama, which
+is useful when you want a model Ollama does not serve, or want every call
+metered through one self-hosted gateway. It is opt-in and Ollama remains the
+default; embeddings are unaffected either way.
+
+```bash
+pip install 'litellm>=1.92.0,<1.101.0'
+
+# Direct: LiteLLM calls the provider itself, no extra service to run.
+export DOCUBROWSE_LLM_BACKEND=litellm
+export DOCUBROWSE_LLM_MODEL=anthropic/claude-opus-4-7
+export ANTHROPIC_API_KEY=...
+
+# Or through your own gateway, keeping provider keys server-side.
+export DOCUBROWSE_LLM_API_BASE=http://localhost:4000
+export DOCUBROWSE_LLM_API_KEY=sk-your-gateway-key
+```
 
 There is still no user login. Trusted peers can call the full API; put auth in your reverse proxy or BFF and never publish DocuBrowse's port.
 
