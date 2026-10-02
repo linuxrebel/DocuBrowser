@@ -1496,7 +1496,14 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             self.json_response({"ok": False, "error": "Path not in document index"})
             return
         if not Path(path).exists():
-            self.json_response({"ok": False, "error": f"File not found on disk: {path}"})
+            status = check_missing_path(path)
+            if status == "unmounted":
+                self.json_response({"ok": False, "error": "unmounted",
+                                     "message": (f"Cannot verify — the device for this path"
+                                                 f" does not appear to be mounted: {path}")})
+            else:
+                self.json_response({"ok": False, "error": "missing",
+                                     "message": f"File not found on disk: {path}"})
             return
 
         try:
