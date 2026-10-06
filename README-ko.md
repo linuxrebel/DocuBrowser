@@ -467,16 +467,14 @@ lang         = en
 | `DOCUBROWSE_PORT` | `8643` | HTTP 서버 포트 |
 | `DOCUBROWSE_WORK_DIR` | config `work_dir` | 런타임 데이터용 작업 디렉터리 |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama HTTP API(임베딩 + 요약)의 기본 URL. 맨 `host:port` 도 허용(스킴 기본값 `http://`). `DOCUBROWSE_OLLAMA_HOST` 로도 허용. |
-| `DOCUBROWSE_TRUSTED_CIDRS` | _(비어 있음)_ | 루프백에 더해 서버에 접근을 허용하는 쉼표 구분 CIDR/IP(예: 단일 Docker 프록시에 `172.17.0.2/32`, 또는 정확한 Compose 서브넷). 비어 있으면 루프백 전용. `/24`(IPv4) 또는 `/120`(IPv6)보다 넓은 범위는 거부 — 네트워크 전체가 아니라 호스트를 신뢰; `/32` 를 선호. **인증이 아님** — 리버스 프록시/BFF 뒤의 사설 네트워크만 나열. |
-| `DOCUBROWSE_ALLOWED_HOSTS` | _(비어 있음)_ | 루프백에 더해 허용되는 쉼표 구분 Host 헤더 이름(예: `docubrowse`). 컨테이너 서비스 이름이 `Host` 에 나타날 때 필요. |
 
-`doc_search.py` 는 argv 가 생략되면 `DOCUBROWSE_DB` / `DOCUBROWSE_PORT` 도 받으므로,
-컨테이너 진입점이 환경만으로 서버를 시작할 수 있습니다. `OLLAMA_HOST` 는
-`doc_search.py`, `embed_docs.py`, `ensure_ollama.py` 가 읽습니다 — Ollama 가 다른
-호스트나 컨테이너에서 실행될 때 설정하세요(예: Docker Compose 의 `http://ollama:11434`).
+`doc_search.py` 는 argv 가 생략되면 `DOCUBROWSE_DB` / `DOCUBROWSE_PORT` 도 받습니다.
+`OLLAMA_HOST` 는 `doc_search.py`, `embed_docs.py`, `ensure_ollama.py` 가 읽습니다 —
+Ollama 가 다른 호스트에서 실행될 때 설정하세요.
 
-여전히 사용자 로그인은 없습니다. 신뢰된 피어는 전체 API 를 호출할 수 있습니다; 리버스
-프록시나 BFF 에 인증을 두고 DocuBrowse 의 포트를 절대 공개하지 마세요.
+DocuBrowse FOSS 는 **루프백 전용**입니다: 서버는 `127.0.0.1` 에 바인딩하며 로컬 머신의
+연결만 받습니다. 원격 접속 모드도 사용자 로그인도 없습니다 — 단일 사용자 로컬
+애플리케이션입니다. (원격 / 다중 사용자 배포는 Enterprise 기능이며 FOSS 에 포함되지 않습니다.)
 
 ---
 
@@ -610,6 +608,11 @@ FTS5 내장 `trigram` 토크나이저 대신 표준 `unicode61` 토크나이저�
 ## API 엔드포인트
 
 [↑ 맨 위](#top)
+
+> **HTTP API 는 내장 로컬 UI 의 내부 구현 세부사항이며 공개 API 도 원격 API 도 아닙니다.**
+> `127.0.0.1` 에서만 도달 가능하고, 인증이 없으며, 안정성 보장도 없습니다. 외부·원격·서드파티
+> 클라이언트를 여기에 대고 만들지 마세요; 아래 엔드포인트는 투명성과 로컬 디버깅을 위해서만
+> 문서화되어 있습니다. 원격 / 다중 사용자 접근은 Enterprise 기능이며 FOSS 에 포함되지 않습니다.
 
 기본 URL: `http://localhost:8643`
 
@@ -770,22 +773,14 @@ DocuBrowse 는 localhost 에 바인딩되며 단일 사용자 로컬 사용을 �
   발급사 접두어 + Luhn, 은행 라우팅 번호는 ABA 체크섬 + 연방준비 접두어로 — 그래서 실제
   PII 를 더 많이 잡으면서 우연한 숫자 묶음으로 문서를 삭제하지 않습니다.
 
-서버는 기본적으로 localhost 전용입니다 — `127.0.0.1` 에만 바인딩하며(그래서 포트가 외부
-인터페이스에 노출되지 않음), 옵트인 `DOCUBROWSE_TRUSTED_CIDRS` 모드에서는 루프백 + 신뢰
-목록 밖의 모든 연결을 소켓 수준에서 거부합니다. 로컬 사용자만 서버에 도달할 수 있으므로
-인증이 필요 없으며, 접근 제어는 호스트 방화벽에 의존하지 않습니다.
+서버는 **루프백 전용**입니다: `127.0.0.1` 에만 바인딩하므로 포트가 어떤 외부 인터페이스에도
+노출되지 않으며, `verify_request()` 는 소스 IP 가 `127.0.0.0/8`(또는 `::1`) 밖인 연결을
+TCP accept 단계에서 — HTTP 를 한 바이트도 읽기 전에 — 버립니다. 로컬 사용자만 서버에
+도달할 수 있으므로 인증이 필요 없으며, 접근 제어는 호스트 방화벽에 의존하지 않습니다.
 
-선택: `DOCUBROWSE_TRUSTED_CIDRS`(그리고 보통 `DOCUBROWSE_ALLOWED_HOSTS`)를 설정하여
-사설 네트워크 리버스 프록시나 BFF(예: Docker Compose)가 API 에 도달하도록 허용할 수
-있습니다. 이는 공개 노출이 **아니며** 인증도 **아닙니다** — CIDR 목록을 비공개로 유지하고
-DocuBrowse 앞에 로그인을 두세요.
-
-신뢰된 피어는 완전히 신뢰됩니다: `DOCUBROWSE_TRUSTED_CIDRS` 의 비루프백 피어는 CSRF 검사를
-건너뛰므로, 서버 측 프록시가 HTML 토큰을 긁지 않고도 변경 엔드포인트를 호출할 수
-있습니다(루프백 브라우저는 여전히 요구). 이는 전체 API 에 미인증 접근을 부여하므로, 파서는
-`/24`(IPv4) 또는 `/120`(IPv6)보다 넓은 범위를 거부합니다 — 단일 호스트(`/32`)나 작은
-서브넷을 신뢰하고, 손상된 한 호스트가 DocuBrowse 에 도달할 수 있는 `/8` 이나 `/16` 기업
-네트워크는 절대 신뢰하지 마세요.
+FOSS 에는 원격 접속 모드가 없습니다. HTTP API 는 내장 로컬 UI 의 내부 구현 세부사항이며
+공개 API 도 원격 API 도 아닙니다 — 외부나 원격 클라이언트를 여기에 대고 만들지 마세요.
+원격 / 다중 사용자 배포는 Enterprise 기능입니다.
 
 ---
 

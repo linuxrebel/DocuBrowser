@@ -457,16 +457,13 @@ lang         = en
 | `DOCUBROWSE_PORT` | `8643` | HTTP 服务器端口 |
 | `DOCUBROWSE_WORK_DIR` | 配置 `work_dir` | 运行时数据的工作目录 |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama HTTP API 的基础 URL(嵌入 + 摘要)。接受裸 `host:port`(scheme 默认为 `http://`)。也接受为 `DOCUBROWSE_OLLAMA_HOST`。 |
-| `DOCUBROWSE_TRUSTED_CIDRS` | _(空)_ | 除回环外允许访问服务器的、以逗号分隔的 CIDR/IP(例如单个 Docker 代理的 `172.17.0.2/32`,或确切的 Compose 子网)。空 = 仅回环。宽于 `/24`(IPv4)或 `/120`(IPv6)的范围会被拒绝 —— 信任一台主机,而非整个网络;首选 `/32`。**这不是身份验证** —— 只列出反向代理/BFF 之后的私有网络。 |
-| `DOCUBROWSE_ALLOWED_HOSTS` | _(空)_ | 除回环外接受的、以逗号分隔的 Host 头名称(例如 `docubrowse`)。当 `Host` 中出现容器服务名时需要。 |
 
-当省略 argv 时,`doc_search.py` 也接受 `DOCUBROWSE_DB` / `DOCUBROWSE_PORT`,
-因此容器入口点仅凭环境变量即可启动服务器。
+当省略 argv 时,`doc_search.py` 也接受 `DOCUBROWSE_DB` / `DOCUBROWSE_PORT`。
 `OLLAMA_HOST` 由 `doc_search.py`、`embed_docs.py` 和 `ensure_ollama.py` 读取 ——
-当 Ollama 运行在另一台主机或容器上时设置它(例如 Docker Compose 中的
-`http://ollama:11434`)。
+当 Ollama 运行在另一台主机上时设置它。
 
-仍然没有用户登录。受信任的对等方可以调用完整的 API;把身份验证放在你的反向代理或 BFF 中,永远不要公开 DocuBrowse 的端口。
+DocuBrowse FOSS 是**仅回环**的:服务器绑定 `127.0.0.1`,只接受来自本机的连接。没有远程访问模式,
+也没有用户登录 —— 它是一个单用户本地应用程序。(远程 / 多用户部署是 Enterprise 功能,不属于 FOSS。)
 
 ---
 
@@ -598,6 +595,10 @@ PII 检测(目前仅实现了美国 PII 模式)。
 ## API 端点
 
 [↑ 顶部](#top)
+
+> **HTTP API 是内置本地 UI 的私有实现细节 —— 不是公开或远程 API。** 它只能从 `127.0.0.1` 访问,
+> 没有身份验证,也不提供稳定性保证。不要据此构建外部、远程或第三方客户端;以下端点仅为透明度和
+> 本地调试而记录。远程 / 多用户访问是 Enterprise 功能,不属于 FOSS。
 
 基础 URL:`http://localhost:8643`
 
@@ -752,19 +753,12 @@ DocuBrowse 绑定到 localhost,面向单用户本地使用,但它经过加固,�
   前缀 + Luhn,银行路由号按 ABA 校验和 + 美联储前缀 —— 因此它既能捕获更多真实 PII,
   又能避免因偶然的数字组而删除文档。
 
-服务器默认仅限 localhost —— 它只绑定 `127.0.0.1`(因此端口不暴露在任何外部接口上),
-并且在可选的 `DOCUBROWSE_TRUSTED_CIDRS` 模式下,在套接字层拒绝回环 + 受信任列表之外的
-所有连接。无需身份验证,因为只有本地用户能触及服务器,且访问控制不依赖主机防火墙。
+服务器是**仅回环**的:它绑定 `127.0.0.1`,因此端口不暴露在任何外部接口上;`verify_request()`
+会在 TCP accept 阶段 —— 在读取任何一个 HTTP 字节之前 —— 丢弃源 IP 在 `127.0.0.0/8`(或
+`::1`)之外的连接。无需身份验证,因为只有本地用户能触及服务器,且访问控制不依赖主机防火墙。
 
-可选:设置 `DOCUBROWSE_TRUSTED_CIDRS`(通常还有 `DOCUBROWSE_ALLOWED_HOSTS`)以允许
-私有网络的反向代理或 BFF(例如 Docker Compose)触及 API。这**不是**公开暴露,也**不是**
-身份验证 —— 请保持 CIDR 列表私有,并在 DocuBrowse 前面放置登录。
-
-受信任的对等方是完全受信任的:`DOCUBROWSE_TRUSTED_CIDRS` 中的非回环对等方跳过 CSRF
-检查,以便服务端代理可以调用变更端点而无需抓取 HTML 令牌(回环浏览器仍需要它)。由于
-这授予对整个 API 的未认证访问,解析器拒绝任何宽于 `/24`(IPv4)或 `/120`(IPv6)的范围
-—— 信任单台主机(`/32`)或小型子网,绝不信任 `/8` 或 `/16` 的企业网络,因为其中一台被
-攻陷的主机就能触及 DocuBrowse。
+FOSS 中没有远程访问模式。HTTP API 是内置本地 UI 的私有实现细节,不是公开或远程 API ——
+不要据此构建外部或远程客户端。远程 / 多用户部署是 Enterprise 功能。
 
 ---
 

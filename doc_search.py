@@ -120,89 +120,13 @@ def _is_loopback(hostname: str) -> bool:
         return False
 
 
-# Widest trusted range accepted, per IP version. A /8 or /16 would trust an
-# entire corporate network rather than a single BFF/proxy, so anything broader
-# than /24 (IPv4, 256 hosts) or /120 (IPv6, 256 hosts) is refused. A single
-# host — /32 (IPv4) or /128 (IPv6) — is the preferred, tightest entry.
-_MIN_TRUSTED_PREFIX = {4: 24, 6: 120}
+def _client_loopback(addr) -> bool:
+    """True if *addr* (ip_address) is loopback (127.0.0.0/8 or ::1).
 
-
-def _parse_trusted_cidrs() -> list:
-    """Parse DOCUBROWSE_TRUSTED_CIDRS (comma-separated CIDRs / single IPs).
-
-    Empty / unset → no extra peers (loopback-only, the historical default).
-    Invalid entries are skipped with a warning so a typo cannot open the
-    whole internet by accident. Ranges broader than /24 (IPv4) or /120
-    (IPv6) are also skipped — trust a host or a small subnet, never a
-    whole network.
+    FOSS is loopback-only: there is no trusted-peer / remote-access path.
+    Remote deployment lives in the Enterprise edition.
     """
-    raw = os.environ.get("DOCUBROWSE_TRUSTED_CIDRS", "").strip()
-    if not raw:
-        return []
-    nets = []
-    for part in raw.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        try:
-            net = ipaddress.ip_network(part, strict=False)
-        except ValueError:
-            print(f"WARNING: ignoring invalid DOCUBROWSE_TRUSTED_CIDRS entry: {part!r}")
-            continue
-        min_prefix = _MIN_TRUSTED_PREFIX[net.version]
-        if net.prefixlen < min_prefix:
-            print(
-                f"WARNING: ignoring DOCUBROWSE_TRUSTED_CIDRS entry {part!r} — "
-                f"range wider than /{min_prefix} is not allowed; trust a host "
-                f"(/32) or a small subnet, not a whole network."
-            )
-            continue
-        nets.append(net)
-    return nets
-
-
-def _parse_allowed_hosts() -> set:
-    """Parse DOCUBROWSE_ALLOWED_HOSTS (comma-separated hostnames, lowercased)."""
-    raw = os.environ.get("DOCUBROWSE_ALLOWED_HOSTS", "").strip()
-    if not raw:
-        return set()
-    return {h.strip().lower() for h in raw.split(",") if h.strip()}
-
-
-# Loaded once at import — restart the process after changing these env vars.
-_TRUSTED_CIDRS = _parse_trusted_cidrs()
-_ALLOWED_HOSTS = _parse_allowed_hosts()
-
-
-def _client_trusted(addr) -> bool:
-    """True if *addr* (ip_address) is loopback or in DOCUBROWSE_TRUSTED_CIDRS."""
-    if addr == _IPV6_LOOPBACK or addr in _LOOPBACK_NET:
-        return True
-    return any(addr in net for net in _TRUSTED_CIDRS)
-
-
-def _is_private_trusted_peer(addr) -> bool:
-    """True if *addr* is in DOCUBROWSE_TRUSTED_CIDRS but not loopback.
-
-    Used to relax CSRF for server-side BFFs on a Docker/private network.
-    Loopback browsers still require the CSRF token (DNS-rebinding / XSS
-    defense) — only non-loopback trusted peers skip it.
-    """
-    if addr is None:
-        return False
-    if addr == _IPV6_LOOPBACK or addr in _LOOPBACK_NET:
-        return False
-    return any(addr in net for net in _TRUSTED_CIDRS)
-
-
-def _hostname_allowed(hostname: str) -> bool:
-    """True if *hostname* is loopback or listed in DOCUBROWSE_ALLOWED_HOSTS."""
-    hostname = (hostname or "").strip("[]").lower()
-    if not hostname:
-        return False
-    if _is_loopback(hostname):
-        return True
-    return hostname in _ALLOWED_HOSTS
+    return addr == _IPV6_LOOPBACK or addr in _LOOPBACK_NET
 
 
 def _ollama_host() -> str:
@@ -571,20 +495,19 @@ def _valid_doc_ids(conn) -> set:
 
 
 class DocuBrowseServer(ThreadingHTTPServer):
-    """ThreadingHTTPServer that enforces loopback-only access by default.
+    """ThreadingHTTPServer that enforces loopback-only access.
 
-    Always binds to 0.0.0.0 so all 127.x.x.x addresses are reachable
-    (the entire 127.0.0.0/8 subnet is loopback per RFC 5735).
+    Binds 127.0.0.1 so the port is not reachable from any other interface.
     verify_request() drops any connection whose source IP is outside
     127.0.0.0/8 (and ::1) at the TCP accept level — before a single byte
-    of HTTP is read — unless DOCUBROWSE_TRUSTED_CIDRS lists additional
-    private networks (e.g. a Docker bridge) that may reach the server.
+    of HTTP is read. FOSS has no remote-access path; remote deployment is
+    an Enterprise feature.
     """
 
     def verify_request(self, request, client_address):
         try:
             addr = ipaddress.ip_address(client_address[0])
-            return _client_trusted(addr)
+            return _client_loopback(addr)
         except (ValueError, TypeError):
             return False
 
@@ -623,15 +546,14 @@ class DocSearchHandler(BaseHTTPRequestHandler):
     def _host_allowed(self) -> bool:
         """Reject requests whose Host header isn't a permitted name.
 
-        The server is loopback-only by default, but a browser tricked by DNS
-        rebinding (attacker.com re-resolved to 127.0.0.1) would still send
-        requests here with a foreign Host header. Allow only loopback hosts
-        (plus DOCUBROWSE_ALLOWED_HOSTS when set for container service names),
-        and if a port is present it must match the port we're serving on.
+        The server is loopback-only, but a browser tricked by DNS rebinding
+        (attacker.com re-resolved to 127.0.0.1) would still send requests here
+        with a foreign Host header. Allow only loopback hosts, and if a port is
+        present it must match the port we're serving on.
         """
         host = self.headers.get('Host', '')
         if not host:
-            # HTTP/1.0 clients may omit Host; only a local/trusted client can
+            # HTTP/1.0 clients may omit Host; only a loopback client can
             # reach us without one when verify_request is enforced.
             return True
         hostname, _, port = host.rpartition(':')
@@ -640,7 +562,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         hostname = hostname.strip('[]').lower()   # [::1] → ::1
         if port and port != str(self.server_port):
             return False
-        return _hostname_allowed(hostname)
+        return _is_loopback(hostname)
 
     def _guard_mutation(self) -> bool:
         """Gate state-changing / sensitive endpoints against CSRF.
@@ -650,31 +572,14 @@ class DocSearchHandler(BaseHTTPRequestHandler):
         that token (the HTML is same-origin protected, and the JSON API no
         longer returns Access-Control-Allow-Origin), so it cannot forge the
         X-CSRF-Token header this requires. As defense in depth, any Origin/
-        Referer that isn't same-origin with the addressed Host (or loopback /
-        DOCUBROWSE_ALLOWED_HOSTS) is rejected.
+        Referer that isn't same-origin with the addressed Host (or loopback)
+        is rejected.
 
-        Clients whose TCP peer is in DOCUBROWSE_TRUSTED_CIDRS (and is not
-        loopback) are treated as a private-network BFF/proxy: CSRF is
-        skipped so they can call mutating endpoints without scraping the
-        HTML meta tag. Those peers are fully trusted — do not list public
-        internet ranges. Loopback browsers still require the CSRF token.
+        FOSS is loopback-only: every client is a local browser, so there is
+        no trusted-peer CSRF bypass. The token is always required.
 
         Sends a 403 and returns False on failure; returns True if allowed.
         """
-        addr = self._client_addr()
-        if _is_private_trusted_peer(addr):
-            host_hdr = self.headers.get('Host', '')
-            host_host = host_hdr.rsplit(':', 1)[0].strip('[]').lower() if host_hdr else ''
-            for hdr in ('Origin', 'Referer'):
-                val = self.headers.get(hdr)
-                if val:
-                    o = urlparse(val).hostname
-                    o = o.lower() if o else o
-                    if o != host_host and not _hostname_allowed(o or ''):
-                        self.error_response(403, "Forbidden: cross-origin request rejected")
-                        return False
-            return True
-
         host_hdr = self.headers.get('Host', '')
         host_host = host_hdr.rsplit(':', 1)[0].strip('[]').lower() if host_hdr else ''
         for hdr in ('Origin', 'Referer'):
@@ -682,7 +587,7 @@ class DocSearchHandler(BaseHTTPRequestHandler):
             if val:
                 o = urlparse(val).hostname
                 o = o.lower() if o else o
-                if o != host_host and not _hostname_allowed(o or ''):
+                if o != host_host and not _is_loopback(o or ''):
                     self.error_response(403, "Forbidden: cross-origin request rejected")
                     return False
         token = self.headers.get('X-CSRF-Token', '')
@@ -2042,15 +1947,12 @@ def main():   # pylint: disable=too-many-statements
     DocSearchHandler.server_port  = port
     DocSearchHandler.csrf_token   = secrets.token_urlsafe(32)
 
-    # Bind loopback-only by default (127.0.0.1) so the port is not reachable
-    # from any other interface at the kernel level — a LAN/port scan sees
-    # nothing. Only when DOCUBROWSE_TRUSTED_CIDRS lists extra private networks
-    # (e.g. a Docker bridge) do we bind 0.0.0.0 so those peers can connect;
-    # DocuBrowseServer.verify_request then still drops anything that is neither
-    # loopback nor in the trusted list. (Binding 127.0.0.1 does not serve other
-    # 127.x aliases such as 127.0.1.1 — use localhost / 127.0.0.1.)
-    bind_host = '0.0.0.0' if _TRUSTED_CIDRS else '127.0.0.1'
-    server_address = (bind_host, port)
+    # Bind loopback-only (127.0.0.1) so the port is not reachable from any
+    # other interface at the kernel level — a LAN/port scan sees nothing.
+    # FOSS has no remote-access path; remote deployment is Enterprise-only.
+    # (Binding 127.0.0.1 does not serve other 127.x aliases such as 127.0.1.1
+    # — use localhost / 127.0.0.1.)
+    server_address = ('127.0.0.1', port)
     try:
         httpd = DocuBrowseServer(server_address, DocSearchHandler)
     except OSError as e:
@@ -2067,15 +1969,8 @@ def main():   # pylint: disable=too-many-statements
     print(f"  Database: {db_path}")
     print(f"  Ollama: {OLLAMA_HOST}")
     print(f"  Model: {EMBEDDING_MODEL}")
-    if _TRUSTED_CIDRS:
-        cidrs = ", ".join(str(n) for n in _TRUSTED_CIDRS)
-        print(f"  Listening on 0.0.0.0:{port}  (loopback + trusted: {cidrs})")
-        if _ALLOWED_HOSTS:
-            print(f"  Allowed Hosts: {', '.join(sorted(_ALLOWED_HOSTS))}")
-        print("  WARNING: trusted peers can reach the API with no auth — keep CIDRs private.")
-    else:
-        print(f"  Listening on http://127.0.0.1:{port}  (loopback only)")
-        print("  Not reachable from other machines — no external interface is bound.")
+    print(f"  Listening on http://127.0.0.1:{port}  (loopback only)")
+    print("  Not reachable from other machines — no external interface is bound.")
 
     # Self-test: confirm semantic search will actually work. A silent
     # embed failure (e.g. wrong response key, Ollama down) degrades

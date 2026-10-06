@@ -457,16 +457,13 @@ lang         = en
 | `DOCUBROWSE_PORT` | `8643` | HTTP 伺服器埠 |
 | `DOCUBROWSE_WORK_DIR` | 配置 `work_dir` | 執行時資料的工作目錄 |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama HTTP API 的基礎 URL(嵌入 + 摘要)。接受裸 `host:port`(scheme 預設為 `http://`)。也接受為 `DOCUBROWSE_OLLAMA_HOST`。 |
-| `DOCUBROWSE_TRUSTED_CIDRS` | _(空)_ | 除迴環外允許訪問伺服器的、以逗號分隔的 CIDR/IP(例如單個 Docker 代理的 `172.17.0.2/32`,或確切的 Compose 子網)。空 = 僅迴環。寬於 `/24`(IPv4)或 `/120`(IPv6)的範圍會被拒絕 —— 信任一臺主機,而非整個網路;首選 `/32`。**這不是身份驗證** —— 只列出反向代理/BFF 之後的私有網路。 |
-| `DOCUBROWSE_ALLOWED_HOSTS` | _(空)_ | 除迴環外接受的、以逗號分隔的 Host 頭名稱(例如 `docubrowse`)。當 `Host` 中出現容器服務名時需要。 |
 
-當省略 argv 時,`doc_search.py` 也接受 `DOCUBROWSE_DB` / `DOCUBROWSE_PORT`,
-因此容器入口點僅憑環境變數即可啟動伺服器。
+當省略 argv 時,`doc_search.py` 也接受 `DOCUBROWSE_DB` / `DOCUBROWSE_PORT`。
 `OLLAMA_HOST` 由 `doc_search.py`、`embed_docs.py` 和 `ensure_ollama.py` 讀取 ——
-當 Ollama 執行在另一臺主機或容器上時設定它(例如 Docker Compose 中的
-`http://ollama:11434`)。
+當 Ollama 執行在另一臺主機上時設定它。
 
-仍然沒有使用者登入。受信任的對等方可以呼叫完整的 API;把身份驗證放在你的反向代理或 BFF 中,永遠不要公開 DocuBrowse 的埠。
+DocuBrowse FOSS 是**僅迴環**的:伺服器繫結 `127.0.0.1`,只接受來自本機的連線。沒有遠端存取模式,
+也沒有使用者登入 —— 它是一個單使用者本機應用程式。(遠端 / 多使用者部署是 Enterprise 功能,不屬於 FOSS。)
 
 ---
 
@@ -598,6 +595,10 @@ PII 檢測(目前僅實現了美國 PII 模式)。
 ## API 端點
 
 [↑ 頂部](#top)
+
+> **HTTP API 是內建本機 UI 的私有實作細節 —— 不是公開或遠端 API。** 它只能從 `127.0.0.1` 存取,
+> 沒有身份驗證,也不提供穩定性保證。不要據此建構外部、遠端或第三方用戶端;以下端點僅為透明度和
+> 本機偵錯而記錄。遠端 / 多使用者存取是 Enterprise 功能,不屬於 FOSS。
 
 基礎 URL:`http://localhost:8643`
 
@@ -752,19 +753,12 @@ DocuBrowse 繫結到 localhost,面向單使用者本地使用,但它經過加固
   字首 + Luhn,銀行路由號按 ABA 校驗和 + 美聯儲字首 —— 因此它既能捕獲更多真實 PII,
   又能避免因偶然的數字組而刪除文件。
 
-伺服器預設僅限 localhost —— 它只繫結 `127.0.0.1`(因此埠不暴露在任何外部介面上),
-並且在可選的 `DOCUBROWSE_TRUSTED_CIDRS` 模式下,在套接字層拒絕迴環 + 受信任列表之外的
-所有連線。無需身份驗證,因為只有本地使用者能觸及伺服器,且訪問控制不依賴主機防火牆。
+伺服器是**僅迴環**的:它繫結 `127.0.0.1`,因此埠不暴露在任何外部介面上;`verify_request()`
+會在 TCP accept 階段 —— 在讀取任何一個 HTTP 位元組之前 —— 丟棄源 IP 在 `127.0.0.0/8`(或
+`::1`)之外的連線。無需身份驗證,因為只有本地使用者能觸及伺服器,且訪問控制不依賴主機防火牆。
 
-可選:設定 `DOCUBROWSE_TRUSTED_CIDRS`(通常還有 `DOCUBROWSE_ALLOWED_HOSTS`)以允許
-私有網路的反向代理或 BFF(例如 Docker Compose)觸及 API。這**不是**公開暴露,也**不是**
-身份驗證 —— 請保持 CIDR 列表私有,並在 DocuBrowse 前面放置登入。
-
-受信任的對等方是完全受信任的:`DOCUBROWSE_TRUSTED_CIDRS` 中的非迴環對等方跳過 CSRF
-檢查,以便服務端代理可以呼叫變更端點而無需抓取 HTML 令牌(迴環瀏覽器仍需要它)。由於
-這授予對整個 API 的未認證訪問,解析器拒絕任何寬於 `/24`(IPv4)或 `/120`(IPv6)的範圍
-—— 信任單臺主機(`/32`)或小型子網,絕不信任 `/8` 或 `/16` 的企業網路,因為其中一臺被
-攻陷的主機就能觸及 DocuBrowse。
+FOSS 中沒有遠端存取模式。HTTP API 是內建本機 UI 的私有實作細節,不是公開或遠端 API ——
+不要據此建構外部或遠端用戶端。遠端 / 多使用者部署是 Enterprise 功能。
 
 ---
 

@@ -340,6 +340,56 @@ packs any float32 length; cosine compares within one corpus). CJK keyword
 search follows D-24 (`tokenizer: "unicode61"` + `cjk_ngram: True`).
 `ensure_ollama.py` will provision `bge-m3` + `ornith-1.5:9b` when `lang=zh`.
 
+### D-28: Remove remote-access path from FOSS — loopback-only, no exceptions
+**Status:** Done — 2026-10-05
+**Priority:** High (security / product-scope)
+**Added:** 2026-10-05
+
+FOSS is now **loopback-only with no escape hatch**. The opt-in
+`DOCUBROWSE_TRUSTED_CIDRS` / `DOCUBROWSE_ALLOWED_HOSTS` path (shipped v1.0.3,
+PR #7) let a non-loopback peer reach the full API *and skip CSRF* — a latent
+remote-access surface. It was believed already removed; it was not. Worse, the
+README documented it prominently enough that an LLM reading the README to build
+a site took it as a sanctioned way to build a **remote UI**. Remote / multi-user
+is an Enterprise feature; the Docker/browser-only deployment that motivated the
+trusted-peer knob proved untenable and moved to Enterprise. This is one of the
+reasons the two codebases are being split.
+
+**Removed (FOSS only — Enterprise untouched):**
+- `doc_search.py`: deleted `_parse_trusted_cidrs`, `_parse_allowed_hosts`,
+  `_TRUSTED_CIDRS`, `_ALLOWED_HOSTS`, `_client_trusted`,
+  `_is_private_trusted_peer`, and the `_hostname_allowed` ALLOWED_HOSTS branch.
+  Replaced with one `_client_loopback()` helper. Bind is hardcoded `127.0.0.1`
+  (was `0.0.0.0 if _TRUSTED_CIDRS`). The CSRF-skip-for-trusted-peer branch in
+  `_guard_mutation` is gone — the token is always required. Host allowlist is
+  loopback-only (`_is_loopback`). The two env vars are now completely inert.
+- Loopback allowance is unchanged: `_LOOPBACK_NET = 127.0.0.0/8` + `::1` remains
+  the sole accepted range (James's intent: "only thing in the config is
+  loopback 127.0.0.0/8").
+- Docs: README Configuration env table (both vars dropped), Security section
+  (trusted-peer model removed), and a new disclaimer atop API Endpoints — *the
+  HTTP API is a private implementation detail of the local UI, not a public or
+  remote API; do not build remote clients against it.* Same removal in
+  INSTALL.md.
+- Test: `test_loopback_only.py` guards it — loopback accepted, non-loopback
+  refused, env vars inert, removed symbols absent. 4/4 green.
+
+**Reverses the FOSS half of:** D-17-era PR #7 trusted-peer feature (the v1.0.3
+"opt-in private-network access" changelog entry is left as dated history).
+
+**Docs:** English (`README.md`, `INSTALL.md`) **and all four translations**
+(`README-ja/ko/zh/zh-hant.md`) updated together — env vars dropped from the
+Configuration table, Security section reworded to loopback-only, and the
+"API is a private implementation detail, not a public/remote API" disclaimer
+added atop API Endpoints in every language. (The dated v1.0.3 "Recent Changes"
+changelog line that names the env vars is left as history in all five.) A new
+`.claude/CLAUDE.md` rule now requires all language docs to be synced in the same
+commit as any doc change, not deferred to release.
+
+**Follow-ups still owed:** a v1.5.3 "Recent Changes" entry + version bump when
+this is released. Enterprise `status_docs/DECISIONS.md` sync and the Enterprise
+copy of the same hook removal are separate, Enterprise-side tasks (not done here).
+
 ### D-26: End-user docs — FOSS vs Enterprise split
 **Status:** Done — 2026-09-10
 The Administrator Guide and the **full** API Reference are Enterprise-only and

@@ -464,16 +464,15 @@ containers). CLI flags still win when provided.
 | `DOCUBROWSE_PORT` | `8643` | HTTP server port |
 | `DOCUBROWSE_WORK_DIR` | config `work_dir` | Working directory for runtime data |
 | `OLLAMA_HOST` | `http://localhost:11434` | Base URL for the Ollama HTTP API (embeddings + synopsis). A bare `host:port` is accepted (scheme defaults to `http://`). Also accepted as `DOCUBROWSE_OLLAMA_HOST`. |
-| `DOCUBROWSE_TRUSTED_CIDRS` | _(empty)_ | Comma-separated CIDRs/IPs allowed to reach the server in addition to loopback (e.g. `172.17.0.2/32` for a single Docker proxy, or the exact Compose subnet). Empty = loopback-only. Ranges wider than `/24` (IPv4) or `/120` (IPv6) are refused — trust a host, not a whole network; `/32` is preferred. **Not authentication** — only list private networks behind a reverse proxy / BFF. |
-| `DOCUBROWSE_ALLOWED_HOSTS` | _(empty)_ | Comma-separated Host header names accepted in addition to loopback (e.g. `docubrowse`). Needed when a container service name appears in `Host`. |
 
 `doc_search.py` also accepts `DOCUBROWSE_DB` / `DOCUBROWSE_PORT` when argv is
-omitted, so a container entrypoint can start the server with env alone.
-`OLLAMA_HOST` is read by `doc_search.py`, `embed_docs.py`, and
-`ensure_ollama.py` — set it when Ollama runs on another host or container
-(for example `http://ollama:11434` in Docker Compose).
+omitted. `OLLAMA_HOST` is read by `doc_search.py`, `embed_docs.py`, and
+`ensure_ollama.py` — set it when Ollama runs on another host.
 
-There is still no user login. Trusted peers can call the full API; put auth in your reverse proxy or BFF and never publish DocuBrowse's port.
+DocuBrowse FOSS is **loopback-only**: the server binds `127.0.0.1` and accepts
+connections only from the local machine. There is no remote-access mode and no
+user login — it is a single-user local application. (Remote / multi-user
+deployment is an Enterprise feature and is not part of FOSS.)
 
 ---
 
@@ -620,6 +619,13 @@ Number" PII detection (only US PII patterns are implemented today).
 ## API Endpoints
 
 [↑ Top](#top)
+
+> **The HTTP API is a private implementation detail of the bundled local UI —
+> not a public or remote API.** It is reachable only from `127.0.0.1`, has no
+> authentication, and offers no stability guarantee. Do not build external,
+> remote, or third-party clients against it; the endpoints below are documented
+> for transparency and local debugging only. Remote / multi-user access is an
+> Enterprise feature, not part of FOSS.
 
 Base URL: `http://localhost:8643`
 
@@ -778,25 +784,17 @@ is hardened so a malicious web page you happen to visit can't reach it:
   numbers by ABA checksum + Federal Reserve prefix — so it both catches more
   real PII and avoids deleting docs over incidental number groups.
 
-The server is localhost-only by default — it binds `127.0.0.1` only (so the
-port is not exposed on any external interface) and, in the opt-in
-`DOCUBROWSE_TRUSTED_CIDRS` mode, rejects all connections outside loopback + the
-trusted list at the socket level. No authentication is needed because only the
+The server is **loopback-only**: it binds `127.0.0.1` so the port is not
+exposed on any external interface, and `verify_request()` drops any connection
+whose source IP is outside `127.0.0.0/8` (or `::1`) at the TCP-accept level —
+before a byte of HTTP is read. No authentication is needed because only the
 local user can reach the server, and access control does not rely on the host
 firewall.
 
-Optional: set `DOCUBROWSE_TRUSTED_CIDRS` (and usually `DOCUBROWSE_ALLOWED_HOSTS`)
-to allow a private-network reverse proxy or BFF (e.g. Docker Compose) to reach
-the API. That is **not** public exposure and **not** authentication — keep the
-CIDR list private and put login in front of DocuBrowse.
-
-Trusted peers are fully trusted: a non-loopback peer in `DOCUBROWSE_TRUSTED_CIDRS`
-skips the CSRF check so a server-side proxy can call mutating endpoints without
-scraping the HTML token (loopback browsers still require it). Because that grants
-unauthenticated access to the whole API, the parser refuses any range broader
-than `/24` (IPv4) or `/120` (IPv6) — trust a single host (`/32`) or a small
-subnet, never a `/8` or `/16` corporate network where one compromised host could
-reach DocuBrowse.
+There is no remote-access mode in FOSS. The HTTP API is a private
+implementation detail of the bundled local UI, not a public or remote API — do
+not build external or remote clients against it. Remote / multi-user
+deployment is an Enterprise feature.
 
 ---
 
