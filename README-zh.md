@@ -5,6 +5,7 @@
 # DocuBrowse v1.5.2
 
 <a name="top"></a>
+## <a href="https://docubrowser.neocities.org/zh/">产品网站 </a>
 
 <a href="https://www.producthunt.com/products/docubrowser?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-docubrowser" target="_blank" rel="noopener noreferrer"><img alt="DocuBrowser - Finally search your files by meaning. 100% local, 100% yours | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1250608&amp;theme=light&amp;t=1789413804133"></a>
 
