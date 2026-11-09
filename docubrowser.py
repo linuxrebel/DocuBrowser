@@ -85,7 +85,7 @@ from scan_docs import (
     purge_path_prefix,
     scan_single_file,
 )
-VERSION = "1.5.2"
+VERSION = "1.5.3"
 
 # ─── Paths ───────────────────────────────────────────────────────────────────
 # APP_DIR  = where the code lives (scripts, HTML, icons).  Always the

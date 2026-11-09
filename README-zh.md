@@ -2,7 +2,7 @@
 
 **语言 / Language:** [English](README.md) | [日本語](README-ja.md) | [한국어](README-ko.md) | **简体中文** | [繁體中文](README-zh-hant.md)
 
-# DocuBrowse v1.5.2
+# DocuBrowse v1.5.3
 
 <a name="top"></a>
 ## <a href="https://docubrowser.neocities.org/zh/">产品网站 </a>
@@ -922,7 +922,6 @@ ollama pull dolphin3:latest                      # 摘要生成,若缺失
 | 语义*排名*是文档级的 | 整篇文档的嵌入对*哪些*文档匹配进行排名;随后**深度链接**按需精确定位任意结果*内部*的位置。全语料库块级排名仍是未来工作 |
 | 无混合语言语料库 | 一个安装服务一种语言(英语、日语、韩语、简体中文或繁体中文,在安装时或通过设置选择);不支持逐文档语言检测或混合语言语料库。参见[语言](#languages) |
 | PII 检测仅限美国模式 | `purge_pii.py` 检测美国格式(SSN、电话等);日语“My Number”和其他非美国 PII 模式尚未实现 |
-| ETA 显示偏高 | 使用简单平均;滑动窗口推迟 |
 
 ---
 
@@ -931,6 +930,27 @@ ollama pull dolphin3:latest                      # 摘要生成,若缺失
 ## 近期变更
 
 [↑ 顶部](#top)
+
+## v1.5.3 (2026-11-08) —— 安全加固 + 更稳定的扫描 ETA
+
+维护版本:无新功能,无需更改配置。
+
+- **仅限本机回环的服务器(D-28)。** 已移除可选的私有网络访问途径
+  (`DOCUBROWSE_TRUSTED_CIDRS` / `DOCUBROWSE_ALLOWED_HOSTS`),这两个变量现在会被忽略。
+  服务器始终绑定 `127.0.0.1`,并始终要求 CSRF 令牌。远程 / 多用户访问属于 Enterprise 功能。
+- **参数注入加固。** 传给外部打开程序和提取工具(`xdg-open`/`gio`、`ebook-convert`、
+  `djvutxt`、`vsd2xml` 等)的文件路径会先解析为绝对路径,因此名为 `-something` 的文件
+  永远不会被当作命令行选项。
+- **XML 实体炸弹防护。** 声明了 XML 实体的 ODF、Visio(`.vsdx`,以及经 `vsd2xml` 处理的
+  旧格式)和 draw.io 文件会在解析前被拒绝,杜绝 "billion laughs" 式内存膨胀。无新增依赖。
+- **限制 `vsd2xml` 输出。** 旧版 Visio 转换器的输出上限为 256 MB;超出后会停止转换器,
+  并将该文件记录为失败。
+- **更稳定的扫描 ETA。** 进度条的速度和 ETA 现在基于最近 50 个文件而非整个运行过程计算,
+  早期的快速失败不再造成偏差。
+- **Deep Links** 对缺失的文件会像“打开”一样报告为 *missing* 或 *unmounted*,
+  而不是笼统的 "File not found"。
+- **文档。** README 截图本地化(ja/ko/zh/zh-hant)、产品网站链接,并从
+  `docubrowse.config(5)` 中删除已移除的变量。
 
 ## v1.5.2 (2026-09-13) —— 中文支持(简体 + 繁体)
 
@@ -1377,4 +1397,4 @@ Copyright (C) 2026 James Sparenberg
 
 ---
 
-**DocuBrowse v1.5.2** —— 快速、本地、AI 驱动的文档搜索。
+**DocuBrowse v1.5.3** —— 快速、本地、AI 驱动的文档搜索。

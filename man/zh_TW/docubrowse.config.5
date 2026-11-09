@@ -1,6 +1,6 @@
 .\" Copyright (C) 2026 James Sparenberg
 .\" SPDX-License-Identifier: GPL-3.0-or-later
-.TH DOCUBROWSE.CONFIG 5 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.TH DOCUBROWSE.CONFIG 5 2026-11-08 "DocuBrowse 1.5.3" "DocuBrowse Manual"
 .SH NAME
 docubrowse.config \- DocuBrowse 配置檔案
 .SH SYNOPSIS
@@ -96,19 +96,6 @@ DocuBrowse 存放其資料庫和支援檔案的工作目錄。
 )。
 也接受
 .B DOCUBROWSE_OLLAMA_HOST 。
-.TP
-.B DOCUBROWSE_TRUSTED_CIDRS
-除迴環外允許連線到伺服器的、以逗號分隔的 CIDR 或地址。
-為空表示僅迴環。
-比
-.I /24
-(IPv4)或
-.I /120
-(IPv6)更寬的範圍會被拒絕。
-這不是身份驗證;請僅用於私有網路的反向代理。
-.TP
-.B DOCUBROWSE_ALLOWED_HOSTS
-除迴環外接受的、以逗號分隔的 Host 頭名稱。
 .SH FILES
 .TP
 .I /etc/docubrowse.config

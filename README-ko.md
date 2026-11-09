@@ -2,7 +2,7 @@
 
 **언어 / Language:** [English](README.md) | [日本語](README-ja.md) | **한국어** | [简体中文](README-zh.md) | [繁體中文](README-zh-hant.md)
 
-# DocuBrowse v1.5.2
+# DocuBrowse v1.5.3
 
 <a name="top"></a>
 ## <a href="https://docubrowser.neocities.org/ko/">제품 웹사이트 </a>
@@ -944,7 +944,6 @@ ollama pull dolphin3:latest                      # 요약 생성, 없으면
 | 의미 *순위*는 문서 수준 | 전체 문서 임베딩이 *어느* 문서가 매치하는지 순위화; **딥 링크**가 그다음 임의 결과 *내부의 어디*를 온디맨드로 짚음. 코퍼스 전역 청크 수준 순위화는 향후 과제 |
 | 혼합 언어 코퍼스 없음 | 한 설치는 하나의 언어를 제공(영어·일본어·한국어·중국어 간체·중국어 번체, 설치 시점 또는 설정에서 선택); 문서 단위 언어 감지나 혼합 언어 코퍼스는 미지원. [언어](#languages) 참조 |
 | PII 감지는 미국 패턴 전용 | `purge_pii.py` 는 미국 형식(SSN, 전화 등)을 감지; 일본 "마이넘버" 및 기타 비미국 PII 패턴은 아직 미구현 |
-| ETA 표시가 높게 드리프트 | 단순 평균 사용; 슬라이딩 윈도 보류 |
 
 ---
 
@@ -953,6 +952,29 @@ ollama pull dolphin3:latest                      # 요약 생성, 없으면
 ## 변경 이력
 
 [↑ 맨 위](#top)
+
+## v1.5.3 (2026-11-08) — 보안 강화 + 안정적인 스캔 ETA
+
+유지보수 릴리스: 새 기능 없음, 설정 변경 불필요.
+
+- **루프백 전용 서버(D-28).** 옵트인 사설 네트워크 경로
+  (`DOCUBROWSE_TRUSTED_CIDRS` / `DOCUBROWSE_ALLOWED_HOSTS`)가 제거되었습니다. 두 변수는
+  이제 무시됩니다. 서버는 항상 `127.0.0.1` 에 바인딩하며 항상 CSRF 토큰을 요구합니다.
+  원격 / 다중 사용자 접근은 Enterprise 기능입니다.
+- **인수 주입 방어 강화.** 외부 열기 도구와 추출 도구(`xdg-open`/`gio`, `ebook-convert`,
+  `djvutxt`, `vsd2xml` 등)에 전달하는 파일 경로를 절대 경로로 변환하므로, `-something`
+  이라는 이름의 파일이 명령줄 옵션으로 해석되지 않습니다.
+- **XML 엔티티 폭탄 방어.** XML 엔티티를 선언한 ODF, Visio(`.vsdx`, `vsd2xml` 을 통한
+  레거시 형식), draw.io 파일은 파싱 전에 거부되어 "billion laughs" 형 메모리 폭주를
+  막습니다. 새 의존성 없음.
+- **`vsd2xml` 출력 상한.** 레거시 Visio 변환기 출력은 256 MB 로 제한됩니다. 이를 넘으면
+  변환기를 중지하고 해당 파일을 실패로 기록합니다.
+- **안정적인 스캔 ETA.** 진행 표시줄의 속도와 ETA 는 전체 실행이 아닌 최근 50 개 파일
+  기준으로 계산되어, 초반의 빠른 실패에 더 이상 왜곡되지 않습니다.
+- **Deep Links** 는 없는 파일을 일반적인 "File not found" 대신 열기와 동일하게
+  *missing* 또는 *unmounted* 로 보고합니다.
+- **문서.** README 스크린샷 현지화(ja/ko/zh/zh-hant), 제품 웹사이트 링크,
+  `docubrowse.config(5)` 에서 제거된 변수 항목 삭제.
 
 ## v1.5.2 (2026-09-13) — 중국어 지원(간체 + 번체)
 
@@ -1465,4 +1487,4 @@ Copyright (C) 2026 James Sparenberg
 
 ---
 
-**DocuBrowse v1.5.2** — 빠르고, 로컬이며, AI 기반인 문서 검색.
+**DocuBrowse v1.5.3** — 빠르고, 로컬이며, AI 기반인 문서 검색.

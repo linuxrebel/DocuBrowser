@@ -1,6 +1,6 @@
 .\" Copyright (C) 2026 James Sparenberg
 .\" SPDX-License-Identifier: GPL-3.0-or-later
-.TH DOCUBROWSE.CONFIG 5 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.TH DOCUBROWSE.CONFIG 5 2026-11-08 "DocuBrowse 1.5.3" "DocuBrowse Manual"
 .SH NAME
 docubrowse.config \- DocuBrowse 구성 파일
 .SH SYNOPSIS
@@ -98,18 +98,6 @@ DocuBrowse 가 데이터베이스와 보조 파일을 보관하는 작업 디렉
 입니다).
 .B DOCUBROWSE_OLLAMA_HOST
 로도 받아들입니다.
-.TP
-.B DOCUBROWSE_TRUSTED_CIDRS
-루프백에 더해 서버 연결을 허용하는, 쉼표로 구분된 CIDR 또는 주소.
-비어 있으면 루프백만 허용합니다.
-.I /24
-(IPv4) 또는
-.I /120
-(IPv6) 보다 넓은 범위는 거부됩니다.
-이는 인증이 아닙니다. 사설 네트워크의 리버스 프록시에만 사용하십시오.
-.TP
-.B DOCUBROWSE_ALLOWED_HOSTS
-루프백에 더해 받아들이는, 쉼표로 구분된 Host 헤더 이름.
 .SH FILES
 .TP
 .I /etc/docubrowse.config

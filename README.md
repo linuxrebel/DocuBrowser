@@ -2,7 +2,7 @@
 
 **Language:** **English** | [日本語](README-ja.md) | [한국어](README-ko.md) | [简体中文](README-zh.md) | [繁體中文](README-zh-hant.md)
 
-# DocuBrowse v1.5.2
+# DocuBrowse v1.5.3
 
 <a name="top"></a>
 ## <a href="https://docubrowser.neocities.org/">Product Website </a>
@@ -953,13 +953,36 @@ ollama pull dolphin3:latest                      # synopsis generation, if missi
 | Semantic *ranking* is document-level | Whole-document embeddings rank *which* documents match; **Deep Links** then pinpoints *where* inside any result on demand. Corpus-wide chunk-level ranking remains future work |
 | No mixed-language corpora | One install serves one language (English, Japanese, Korean, Simplified Chinese, or Traditional Chinese, chosen at install time or via Settings); per-document language detection or mixed-language corpora are not supported. See [Languages](#languages) |
 | PII detection is US-pattern only | `purge_pii.py` detects US formats (SSN, phone, etc.); Japanese "My Number" and other non-US PII patterns are not yet implemented |
-| ETA display drifts high | Uses simple average; sliding window deferred |
 
 ---
 
 ## Recent Changes
 
 [↑ Top](#top)
+
+## v1.5.3 (2026-11-08) — Security hardening + steadier scan ETA
+
+Maintenance release: no new features, no config changes required.
+
+- **Loopback-only server (D-28).** The opt-in private-network path
+  (`DOCUBROWSE_TRUSTED_CIDRS` / `DOCUBROWSE_ALLOWED_HOSTS`) is removed; both
+  variables are now ignored. The server always binds `127.0.0.1` and always
+  requires the CSRF token. Remote / multi-user access is an Enterprise feature.
+- **Argument-injection hardening.** File paths handed to external openers and
+  extractors (`xdg-open`/`gio`, `ebook-convert`, `djvutxt`, `vsd2xml`, …) are
+  resolved to absolute paths, so a file named `-something` can never be read
+  as a command-line option.
+- **XML entity-bomb guard.** ODF, Visio (`.vsdx`, legacy via `vsd2xml`), and
+  draw.io files that declare XML entities are refused before parsing, closing
+  "billion laughs" memory blow-ups. No new dependency.
+- **Bounded `vsd2xml` output.** Legacy-Visio converter output is capped at
+  256 MB; past that the converter is stopped and the file is logged as failed.
+- **Steadier scan ETA.** The progress-bar rate and ETA now use the last 50
+  files instead of the whole run, so early fast failures no longer skew it.
+- **Deep Links** report a missing file as *missing* or *unmounted* (same as
+  Open) instead of a generic "File not found".
+- **Docs.** Localized README screenshots (ja/ko/zh/zh-hant), product website link,
+  and the removed variables dropped from `docubrowse.config(5)`.
 
 ## v1.5.2 (2026-09-13) — Chinese support (Simplified + Traditional)
 
@@ -1527,4 +1550,4 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html.
 
 ---
 
-**DocuBrowse v1.5.2** — Fast, local, AI-powered document search.
+**DocuBrowse v1.5.3** — Fast, local, AI-powered document search.

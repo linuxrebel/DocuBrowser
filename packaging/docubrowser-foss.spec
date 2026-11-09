@@ -1,5 +1,5 @@
 Name:           docubrowser-foss
-Version:        1.5.2
+Version:        1.5.3
 Release:        %{release}
 Summary:        Self-hosted document search and indexing server
 License:        GPL-3.0-or-later
@@ -233,6 +233,16 @@ fi
 
 
 %changelog
+* Sun Nov 08 2026 James Sparenberg <james@sparenbergs.us> - 1.5.3-1
+- Security: server is loopback-only; DOCUBROWSE_TRUSTED_CIDRS and
+  DOCUBROWSE_ALLOWED_HOSTS removed (now ignored), CSRF token always required
+- Harden openers/extractors against argument injection (absolute paths)
+- Refuse ODF/Visio/draw.io XML that declares entities (billion-laughs guard)
+- Cap vsd2xml converter output at 256 MB
+- Scan progress ETA uses the last 50 files instead of the whole run
+- Deep Links report missing files as missing/unmounted
+- docubrowse.config(5): drop the removed variables
+
 * Sun Sep 13 2026 James Sparenberg <james@sparenbergs.us> - 1.5.2-1
 - Chinese language support: Simplified (zh) and Traditional (zh-hant),
   both using bge-m3 embeddings and the ornith-1.5:9b synopsis model

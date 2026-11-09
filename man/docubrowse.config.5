@@ -1,6 +1,6 @@
 .\" Copyright (C) 2026 James Sparenberg
 .\" SPDX-License-Identifier: GPL-3.0-or-later
-.TH DOCUBROWSE.CONFIG 5 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.TH DOCUBROWSE.CONFIG 5 2026-11-08 "DocuBrowse 1.5.3" "DocuBrowse Manual"
 .SH NAME
 docubrowse.config \- configuration file for DocuBrowse
 .SH SYNOPSIS
@@ -98,20 +98,6 @@ is accepted; the scheme defaults to
 .IR http:// .
 Also accepted as
 .BR DOCUBROWSE_OLLAMA_HOST .
-.TP
-.B DOCUBROWSE_TRUSTED_CIDRS
-Comma-separated CIDRs or addresses, in addition to loopback, permitted to
-reach the server.
-Empty means loopback only.
-Ranges wider than
-.I /24
-(IPv4) or
-.I /120
-(IPv6) are refused.
-This is not authentication; use it only for a private-network reverse proxy.
-.TP
-.B DOCUBROWSE_ALLOWED_HOSTS
-Comma-separated Host header names accepted in addition to loopback.
 .SH FILES
 .TP
 .I /etc/docubrowse.config

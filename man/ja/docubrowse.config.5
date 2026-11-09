@@ -1,6 +1,6 @@
 .\" Copyright (C) 2026 James Sparenberg
 .\" SPDX-License-Identifier: GPL-3.0-or-later
-.TH DOCUBROWSE.CONFIG 5 2026-09-13 "DocuBrowse 1.5.2" "DocuBrowse Manual"
+.TH DOCUBROWSE.CONFIG 5 2026-11-08 "DocuBrowse 1.5.3" "DocuBrowse Manual"
 .SH NAME
 docubrowse.config \- DocuBrowse の設定ファイル
 .SH SYNOPSIS
@@ -100,20 +100,6 @@ DocuBrowse がデータベースと補助ファイルを保管する作業ディ
 になります)。
 .B DOCUBROWSE_OLLAMA_HOST
 としても受け付けます。
-.TP
-.B DOCUBROWSE_TRUSTED_CIDRS
-ループバックに加えてサーバーへの接続を許可する、カンマ区切りの CIDR または
-アドレス。
-空の場合はループバックのみです。
-.I /24
-(IPv4)または
-.I /120
-(IPv6)より広い範囲は拒否されます。
-これは認証ではありません。プライベートネットワークのリバースプロキシに対して
-のみ使用してください。
-.TP
-.B DOCUBROWSE_ALLOWED_HOSTS
-ループバックに加えて受け入れる、カンマ区切りの Host ヘッダー名。
 .SH FILES
 .TP
 .I /etc/docubrowse.config

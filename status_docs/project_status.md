@@ -1,11 +1,31 @@
 # DocuBrowse Project Status
 
-**Version**: v1.5.2  
-**Status**: 🟢 **v1.5.2 — Chinese support (Simplified + Traditional); feature-complete, packaged for all platforms**  
-**Last Updated**: 2026-09-13  
+**Version**: v1.5.3  
+**Status**: 🟢 **v1.5.3 — security hardening (loopback-only, D-17 audit closed) + steadier scan ETA**  
+**Last Updated**: 2026-11-08  
 **Repository**: https://github.com/linuxrebel/DocuBrowser
 
 ---
+
+## v1.5.3 — security hardening + scan ETA (2026-11-08)
+
+Maintenance release; no features, no config changes.
+
+- **Loopback-only (D-28).** `DOCUBROWSE_TRUSTED_CIDRS` / `DOCUBROWSE_ALLOWED_HOSTS`
+  removed from `doc_search.py` (now inert); bind hardcoded `127.0.0.1`; CSRF
+  always required. Guarded by `test_loopback_only.py`. Man pages
+  (`docubrowse.config(5)`, all 5 languages) no longer document the variables.
+- **D-17 security audit fully closed.** #1 XML entity guard
+  (`odf_extractor.safe_parse`/`safe_fromstring`, used by ODF + Visio + draw.io;
+  no defusedxml dependency); #2 argument injection — extractor and opener file
+  args resolved to absolute paths; #3 `vsd2xml` stdout capped at 256 MB
+  (`visio_extractor._run_vsd2xml`).
+- **D-2 scan ETA** — `scan_docs._progress_bar` rate/ETA over the last 50
+  completions. (`embed_docs.py` progress bar unchanged.)
+- **Deep Links** — missing indexed path returns `missing`/`unmounted` like Open.
+- **Docs** — localized README screenshots (ja/ko/zh/zh-hant), product website link.
+- Tests: 92 green (new `test_visio_vsd2xml.py`, `test_xml_entity_guard.py`,
+  `test_scan_eta.py`).
 
 ## Chinese language support (2026-09-13, v1.5.2)
 
