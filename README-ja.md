@@ -22,7 +22,7 @@ DocuBrowse はローカル AI モデルを使い、完全にご自身のマシ�
 アカウントも API キーも不要、トークン予算を消費するクエリ単位のコストもありません。**あなたのデータ。あなたの AI。**
 
 内部構成：SQLite FTS5 によるキーワード検索に加え、AI による意味的類似検索と要約生成
-（Ollama + nomic-embed-text + dolphin3）。複数の文書形式・ソースコード形式に対応します。
+（言語ごとに選ばれるローカル Ollama モデル）。複数の文書形式・ソースコード形式に対応します。
 
 > **Docker（実験的 — まだ推奨しません）：** コンテナ化されたデプロイを `docker-experiment`
 > ブランチで試行中です。Docker/OS の制約と DocuBrowse のセキュリティモデルのため、完全に動作する
@@ -55,7 +55,7 @@ DocuBrowse はローカル AI モデルを使い、完全にご自身のマシ�
 
 ### 🔍 2 つの検索モード
 - **キーワード検索** — SQLite FTS5 による高速な全文検索（タイトル、著者、件名、タグ、抜粋）
-- **意味検索** — Ollama の埋め込み（nomic-embed-text:latest）による AI 類似検索。意味検索はクエリに関連する *どの文書* が該当するかを特定し、**Deep Links**（後述）が文書の *どこ* に一致箇所があるかを絞り込みます。
+- **意味検索** — Ollama の埋め込み（英語は `nomic-embed-text:latest`、日本語・韓国語・中国語は `bge-m3` — [言語](#languages)を参照）による AI 類似検索。意味検索はクエリに関連する *どの文書* が該当するかを特定し、**Deep Links**（後述）が文書の *どこ* に一致箇所があるかを絞り込みます。
 - **ハイブリッドモード**（既定、"Both"）— キーワードと意味を統合し、各文書について 2 つのスコアのうち高い方を採用します（両方が該当した場合はわずかに加点）。表示されるにはキーワードヒットか意味スコアの下限を満たす必要があります。[検索のコツとテクニック](#search-tips-and-tricks)を参照。
 
 ### 🎯 Deep Links — 文書内パッセージ検索
@@ -66,9 +66,9 @@ DocuBrowse はローカル AI モデルを使い、完全にご自身のマシ�
 - Deep Links が「見つかりません（Not Found）」を返す場合、その文書タイプがまだ実装に組み込まれていない可能性が高いです。文書に割り当て済みのキーワードは拾えていますが、実際に文書を読み込んで Deep Links を作成することはまだできていません。可能な限り、そして価値のある範囲で拡張を進めています（モナ・リザの画像だけの PDF を深く検索するようなケースは、この方法ではおそらく永遠に検索できません）。
 
 ### 📖 AI 要約
-- 任意の文書タイトルをクリックすると、Kindle の「本の帯」風の要約が Ollama（`dolphin3:latest`）によりオンデマンド生成され、初回生成後にデータベースにキャッシュされます。
+- 任意の文書タイトルをクリックすると、Kindle の「本の帯」風の要約が Ollama（英語は `dolphin3:latest`、他言語のモデルは[言語](#languages)を参照）によりオンデマンド生成され、初回生成後にデータベースにキャッシュされます。
   最小構成のハードウェア（CPU のみ、GPU なし）では、ある文書の初回要約に時間がかかることがあります。以降のリクエストはキャッシュされているため即時です。
-  意味検索の埋め込みは、もう 1 つのローカルモデル（`nomic-embed-text:latest`）で生成されます。
+  意味検索の埋め込みは、もう 1 つのローカルモデル（英語は `nomic-embed-text:latest`）で生成されます。
 
 ### 📚 文書のインデックス化
 - **対応形式**：PDF、DOCX、PPTX、XLSX、ODT、ODS、ODP、OTT/OTS/OTP（ODF テンプレート）、VSDX/VSDM、VSD/VSS/VST（旧 Visio）、VDX（Visio 2003 XML）、draw.io/diagrams.net（.drawio/.dio）、PlantUML（.puml/.plantuml）、Mermaid（.mmd）、SGML/XML ファミリ（.xml/.xhtml/.sgml/.sgm）、DocBook（.docbook/.dbk）、SVG、フィード（.rss/.atom/.opml）、reStructuredText（.rst）、AsciiDoc（.adoc/.asciidoc）、LaTeX（.tex/.latex）、メール（.eml）、RTF（.rtf）、CSV / TSV、EPUB、MOBI、AZW3、AZW、DjVu（.djvu/.djv）、HTML、TXT、Markdown、加えて設定系プレーンテキスト（.ini/.conf/.cfg/.log/.lst）
@@ -104,7 +104,7 @@ DocuBrowse はローカル AI モデルを使い、完全にご自身のマシ�
 - トピックで絞り込むためのタグクラウド
 - すべての結果に関連度スコアのバッジ（0–100%）
 - 各結果カードの **Open ボタン** — `xdg-open` で既定アプリを起動してファイルを開きます
-- 文書タイトルをクリックで AI 要約。📋 でパスをクリップボードにコピー。🗑 でファイルをディスクとインデックスから削除（確認あり）
+- 文書タイトルをクリックで AI 要約。📋 でパスをクリップボードにコピー。❌ で文書を除去 — インデックスからのみ、インデックスから除去してブラックリスト化、またはファイル自体を削除（選択式、確認あり）
 - 移動/削除された文書：ファイルが存在しない文書をクリックするとモーダルが表示されます。ファイルのフォルダーが残っている場合（ファイルが削除された場合）は、閉じるとインデックスから削除されます。フォルダーが無い・空・読み取れない場合は、ドライブがアンマウントされている（USB が外れている、ネットワーク共有が未接続）とみなし、モーダルでエントリを **Keep**（保持）するか **Remove from index**（インデックスから削除）するかを選べます
 
 ### ⚙️ 設定（`/settings`）
@@ -290,8 +290,8 @@ cd /path/to/DocuBrowse
 > インストール済みのシステムでは、代わりに `docubrowser` コマンドを使ってください。例：
 > `docubrowser rescan` / `docubrowser start` / `docubrowser open`。
 
-`docubrowser.py start` は、Ollama がインストール済みで稼働しており、必要な 2 つのモデル
-（`nomic-embed-text:latest`（埋め込み）と `dolphin3:latest`（要約生成））が揃っていることを
+`docubrowser.py start` は、Ollama がインストール済みで稼働しており、インストール言語用の 2 つのモデル
+（英語なら `nomic-embed-text:latest`（埋め込み）と `dolphin3:latest`（要約生成））が揃っていることを
 自動的に検証し、必要に応じてインストール/起動/プルします。
 
 ---
@@ -543,8 +543,8 @@ DocuBrowse のインストールは、一度に **1 つ** の言語を提供し�
 │  scan_docs.py        │  │  doc_search.py  (HTTP :8643)    │
 │  ProcessPoolExecutor │  │  GET /  /api/search             │
 │  pdf_extractor.py    │  │  GET /api/stats  /api/tags      │
-│  embed_docs.py       │  │  GET /api/open  /api/config     │
-│                      │  │  GET /api/delete /api/synopsis  │
+│  embed_docs.py       │  │  GET /api/config /api/synopsis  │
+│                      │  │  POST /api/open /api/delete     │
 │                      │  │  GET /api/deep-links            │
 └──────────┬───────────┘  └──────────────┬──────────────────┘
            │                             │
@@ -552,7 +552,7 @@ DocuBrowse のインストールは、一度に **1 つ** の言語を提供し�
                       ↓
         ┌──────────────────────────────────────────────────┐
         │  du-docs.db  (SQLite FTS5)                       │
-        │  Ollama (nomic-embed-text + dolphin3)            │
+        │  Ollama (per-language embed + synopsis models)   │
         └──────────────────────────────────────────────────┘
 ```
 
@@ -577,7 +577,7 @@ DocuBrowse のインストールは、一度に **1 つ** の言語を提供し�
 | `djvu_extractor.py` | DjVu（.djvu/.djv）を DjVuLibre `djvutxt`/`djvused` で（無ければ機能低下） |
 | `ebook_extractor.py` | EPUB/MOBI/AZW3/AZW 抽出（ebooklib + Calibre） |
 | `hardware_utils.py` | CPU/GPU/RAM 検出、ワーカー数の算出 |
-| `embed_docs.py` | Ollama にテキストを送信し、768 次元ベクトルを保存 |
+| `embed_docs.py` | Ollama にテキストを送信し、埋め込みベクトルを保存（英語 768 次元、`bge-m3` 1024 次元） |
 | `purge_pii.py` | インデックスの PII をスキャンし、削除・ブラックリスト化 |
 | `purge_dotfiles.py` | 一回限りの移行ツール：インデックス済みドットファイルを DB から除去（既定はドライラン） |
 | `dup_detect.py` | 厳密（SHA256）および近似重複（コサイン類似度）の検出 |
@@ -616,14 +616,19 @@ DocuBrowse のインストールは、一度に **1 つ** の言語を提供し�
 | `GET` | `/api/tags` | タグ一覧と件数（3 回以上出現） |
 | `GET` | `/api/search` | ページネーション付き検索 |
 | `GET` | `/api/letters` | アルファベットバー用の先頭文字索引 |
-| `GET` | `/api/synopsis` | 文書の AI 要約を生成/返却 |
+| `GET` | `/api/status` | ヘルスチェック:DB、Ollama、意味検索が使えるか |
+| `GET` | `/api/synopsis` | キャッシュ済みの AI 要約を返す。無ければ `needs_generation`(Ollama は呼ばない) |
 | `GET` | `/api/deep-links` | 単一のインデックス済み文書内の一致パッセージ（`path`、`q`、`mode=keyword\|semantic`） |
 | `GET` | `/api/config` | 現在のサーバー設定 |
 | `GET` | `/api/ignore-dirs` | 除外ディレクトリを一覧 |
 | `GET` | `/api/scan-dirs` | 追加スキャンディレクトリを一覧 |
 | 🔒 `GET` | `/api/browse` | 設定用のディレクトリブラウザ（トークンで保護） |
 | 🔒 `POST` | `/api/open` | xdg-open/gio でファイルを開く（DB と照合） |
-| 🔒 `POST` | `/api/delete` | ファイルをディスクから削除しインデックスから除去（パスはインデックス済みであること） |
+| 🔒 `POST` | `/api/delete` | 文書を除去:インデックスのみ(`mode=db_only`)、インデックス + ブラックリスト(`blacklist`)、ファイルも削除(`delete_file`)。パスはインデックス済みであること |
+| 🔒 `POST` | `/api/synopsis` | AI 要約を(Ollama で)生成してキャッシュ |
+| 🔒 `POST` | `/api/add-tags` | 文書にカンマ区切りのタグを追加 |
+| 🔒 `POST` | `/api/remove-tag` | 文書からタグを 1 つ削除 |
+| 🔒 `POST` | `/api/language` | インストールの言語を切り替え |
 | 🔒 `POST` | `/api/config` | サーバー設定を保存 |
 | 🔒 `POST` | `/api/ignore-dirs` | 除外ディレクトリを追加/削除 |
 | 🔒 `POST` | `/api/scan-dirs` | 追加スキャンディレクトリを追加/削除 |
@@ -732,7 +737,7 @@ final_score = 0.3 × keyword_score + 0.7 × semantic_score   (mode=both)
 - クエリ埋め込みと各文書埋め込みのコサイン類似度。
 - **プロセス内の L2 正規化済み埋め込み行列**（1 回のベクトル化された NumPy 行列–ベクトル積）に対して計算され、埋め込みテーブルが変わるとキャッシュが無効化されます。リクエストごとにすべての BLOB を再読み込みする代わりです。
 - 範囲 0.0–1.0。最小しきい値（意味のみモード）：**0.30**。
-- 埋め込み：768 次元の float32 ベクトル（nomic-embed-text:latest）。
+- 埋め込み：float32 ベクトル — 英語は 768 次元（`nomic-embed-text:latest`）、日本語・韓国語・中国語は 1024 次元（`bge-m3`）。
 
 ---
 
@@ -746,8 +751,9 @@ DocuBrowse は localhost にバインドし、単一ユーザーのローカル�
 Web ページが到達できないよう堅牢化されています：
 
 - **Host ヘッダ許可リスト** — `Host` が `localhost`/`127.0.0.1`/`[::1]`（任意で提供ポート付き）でない限り、すべてのリクエストを拒否します。localhost バインドのサーバーに対する DNS リバインディングを無効化します。
-- **変更操作の CSRF トークン** — `/api/delete` と `/api/open` は POST のみです。これらに加え、POST の config/dir 経路とファイルシステムを露出する `/api/browse` は、プロセスごとの `X-CSRF-Token`（提供 HTML に注入され、ファーストパーティ UI のみが保持）とループバックの `Origin`/`Referer` を要求します。
+- **変更操作の CSRF トークン** — 状態を変更する経路はすべて POST のみです（open、delete、要約生成、タグ、言語、config、スキャン/除外ディレクトリ）。これらに加え、ファイルシステムを露出する `/api/browse` は、プロセスごとの `X-CSRF-Token`（提供 HTML に注入され、ファーストパーティ UI のみが保持）とループバックの `Origin`/`Referer` を要求します。
 - **保存データインジェクションなし** — 文書フィールドは HTML 用にエスケープされ、カード操作は `data-*` 属性 + 委譲リスナーを使います（文書データから組み立てたインラインの `onclick` は使いません）。保存型 XSS ベクターを塞ぎます。
+- **悪意あるファイルへの対策** — 外部のオープナーや抽出ツールに渡すファイルパスは絶対パスにするため、`-something` という名前のファイルがコマンドラインオプションとして解釈されることはありません。エンティティを宣言している ODF/Visio/draw.io の XML は解析前に拒否します（「billion laughs」対策）。レガシー Visio 変換ツールの出力は 256 MB が上限です。Linux/macOS では各抽出ワーカーにメモリ上限とファイルごとのタイムアウトもかかります。
 - **PII パージ** は削除前に構造的に検証します：SSN は SSA の割り当て規則、クレジットカードは桁数 + 発行者接頭辞 + Luhn、銀行 ABA ルーティング番号は ABA チェックサム + 連邦準備制度接頭辞で検証。これにより、より多くの実 PII を捉えつつ、偶発的な数字の並びで文書を削除するのを避けます。
 
 サーバーは **ループバック専用**です：`127.0.0.1` にバインドするためポートはどの外部インターフェースにも
@@ -772,10 +778,16 @@ DocuBrowse/
 ├── docubrowser.py          # CLI entry point (all commands)
 ├── ensure_ollama.py        # Ollama prerequisite checker/installer
 ├── doc_search.py           # HTTP search server (port 8643)
+├── deep_links.py           # Deep Links: in-document passage search
+├── lang_models.py          # Per-language models, prompts, tokenizers
+├── cjk.py                  # CJK bigram segmentation for keyword search
+├── backup_restore.py       # Database backup / restore (docuback)
 ├── docubrowse_db.py        # SQLite schema and migrations
 ├── scan_docs.py            # Scanner: discovery, extraction, DB writes
 ├── pdf_extractor.py        # PDF extraction (pdfplumber + pypdf fallback)
 ├── docx_extractor.py       # Word document extraction (python-docx)
+├── pptx_extractor.py       # PowerPoint extraction (python-pptx)
+├── xlsx_extractor.py       # Excel extraction (openpyxl)
 ├── odf_extractor.py        # OpenDocument (.odt/.ods/.odp) extraction (stdlib)
 ├── visio_extractor.py      # Visio (.vsdx/.vsdm/.vsd) + draw.io (.drawio/.dio)
 ├── markup_extractor.py     # SGML/XML family + reST/AsciiDoc/LaTeX (stdlib)
@@ -783,6 +795,7 @@ DocuBrowse/
 ├── csv_extractor.py        # CSV / TSV — stdlib `csv`
 ├── rtf_extractor.py        # RTF via striprtf (graceful degradation)
 ├── ebook_extractor.py      # EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre)
+├── djvu_extractor.py       # DjVu text layer (DjVuLibre)
 ├── hardware_utils.py       # CPU/GPU/RAM detection, worker formula
 ├── embed_docs.py           # Embedding generation pipeline
 ├── purge_pii.py            # PII scanner and purge tool
@@ -790,6 +803,8 @@ DocuBrowse/
 ├── dup_detect.py           # Exact (SHA256) and near-duplicate detection
 ├── platform_paths.py       # Cross-platform paths and process management
 ├── index.html              # Frontend UI (single-file, dark/light theme)
+├── settings.html           # Settings page (/settings)
+├── locales/                # UI translations (en/ja/ko/zh/zh-hant JSON)
 ├── du-docs.db              # SQLite database (gitignored)
 ├── du-docs.db.example      # Empty schema for new installs
 ├── scan_blacklist.txt      # Failed-extraction skiplist (gitignored)
@@ -800,8 +815,14 @@ DocuBrowse/
 ├── ignore_dirs.txt         # Directories excluded from scanning (gitignored)
 ├── scan_dirs.txt           # Additional scan directories (gitignored)
 ├── docubrowse.config       # Local config (optional, gitignored)
+├── requirements.txt        # Python dependencies
 ├── INSTALL.md              # Step-by-step install guide
 ├── README.md               # 英語版 README
+├── README-<lang>.md        # Translations: ja, ko, zh, zh-hant
+├── EndUser_docs/           # User Guide (.docx) per language — shipped
+├── EntEndUser_docs/        # User Guide / API Reference Markdown sources
+├── man/                    # Man pages (en + ja/ko/zh_CN/zh_TW)
+├── test_*.py               # Unit tests (pytest)
 ├── README-ja.md            # このファイル（日本語版）
 ├── LICENSE                 # GPL-3.0
 ├── packaging/              # RPM spec, DEB control, build scripts, installers

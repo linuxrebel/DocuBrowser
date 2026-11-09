@@ -23,7 +23,7 @@ DocuBrowse 는 로컬 AI 모델을 사용하여 전적으로 사용자 자신의
 **당신의 데이터. 당신의 AI.**
 
 내부 구조: SQLite FTS5 키워드 검색과 AI 기반 의미 유사도 및 요약 생성(Ollama +
-nomic-embed-text + dolphin3). 여러 문서 및 소스 코드 형식을 지원합니다.
+언어별로 선택되는 로컬 Ollama 모델). 여러 문서 및 소스 코드 형식을 지원합니다.
 
 > **Docker(실험적 — 아직 권장하지 않음):** 컨테이너화된 배포를 `docker-experiment`
 > 브랜치에서 시험하고 있습니다. Docker/OS 의 제약과 DocuBrowse 의 보안 모델 때문에 완전히
@@ -56,7 +56,7 @@ nomic-embed-text + dolphin3). 여러 문서 및 소스 코드 형식을 지원�
 
 ### 🔍 두 가지 검색 모드
 - **키워드 검색** — SQLite FTS5 를 통한 빠른 전문 검색(제목, 저자, 주제, 태그, 스니펫)
-- **의미 검색** — Ollama 임베딩(nomic-embed-text:latest)을 통한 AI 기반 유사도. 의미 검색은 쿼리와 관련된 *어느 문서*가 적합한지를 식별하고, **딥 링크**(아래)가 그다음 문서 *내부의 어디*에서 매치가 일어나는지를 짚어냅니다.
+- **의미 검색** — Ollama 임베딩(영어는 `nomic-embed-text:latest`, 일본어·한국어·중국어는 `bge-m3` — [언어](#languages) 참조)을 통한 AI 기반 유사도. 의미 검색은 쿼리와 관련된 *어느 문서*가 적합한지를 식별하고, **딥 링크**(아래)가 그다음 문서 *내부의 어디*에서 매치가 일어나는지를 짚어냅니다.
 - **하이브리드 모드**(기본값, "모두") — 키워드와 의미를 병합합니다. 각 문서는 두 점수 중 더 강한 쪽을 취하며(양쪽 모두 맞으면 소폭 가산), 결과에 나타나려면 키워드 매치 또는 의미 하한을 넘어야 합니다. [검색 팁과 요령](#search-tips-and-tricks)을 참조하세요.
 
 ### 🎯 딥 링크 — 문서 내 구절 검색
@@ -68,10 +68,10 @@ nomic-embed-text + dolphin3). 여러 문서 및 소스 코드 형식을 지원�
 
 ### 📖 AI 요약
 - 임의의 문서 제목을 클릭하면 Kindle 풍의 책 표지 요약이 온디맨드로 생성됩니다.
-  Ollama(`dolphin3:latest`)로 생성되며 최초 생성 후 데이터베이스에 캐시됩니다.
+  Ollama(영어는 `dolphin3:latest`, 다른 언어 모델은 [언어](#languages) 참조)로 생성되며 최초 생성 후 데이터베이스에 캐시됩니다.
   최소 사양 하드웨어(CPU 전용, GPU 없음)에서는 특정 문서의 첫 요약에 시간이 걸릴 수 있으나,
   결과가 캐시되므로 이후 요청은 즉시 반환됩니다.
-  의미 검색 임베딩은 두 번째 로컬 모델(`nomic-embed-text:latest`)이 생성합니다.
+  의미 검색 임베딩은 두 번째 로컬 모델(영어는 `nomic-embed-text:latest`)이 생성합니다.
 
 ### 📚 문서 인덱싱
 - **형식**: PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, OTT/OTS/OTP(ODF 템플릿), VSDX/VSDM, VSD/VSS/VST(레거시 Visio), VDX(Visio 2003 XML), draw.io/diagrams.net(.drawio/.dio), PlantUML(.puml/.plantuml), Mermaid(.mmd), SGML/XML 계열(.xml/.xhtml/.sgml/.sgm), DocBook(.docbook/.dbk), SVG, 피드(.rss/.atom/.opml), reStructuredText(.rst), AsciiDoc(.adoc/.asciidoc), LaTeX(.tex/.latex), 이메일(.eml), RTF(.rtf), CSV / TSV, EPUB, MOBI, AZW3, AZW, DjVu(.djvu/.djv), HTML, TXT, Markdown, 그리고 설정 계열 일반 텍스트(.ini/.conf/.cfg/.log/.lst)
@@ -107,7 +107,7 @@ nomic-embed-text + dolphin3). 여러 문서 및 소스 코드 형식을 지원�
 - 주제별 필터링을 위한 태그 클라우드
 - 모든 결과에 관련도 점수 배지(0–100%)
 - 각 결과 카드의 **열기 버튼** — `xdg-open` 으로 기본 앱에서 파일 실행
-- 문서 제목 클릭 시 AI 요약; 📋 는 경로를 클립보드에 복사; 🗑 은 디스크와 인덱스에서 파일 삭제(확인 포함)
+- 문서 제목 클릭 시 AI 요약; 📋 는 경로를 클립보드에 복사; ❌ 는 문서 제거 — 인덱스에서만, 인덱스에서 제거하고 블랙리스트 등록, 또는 파일 자체 삭제(선택, 확인 포함)
 - 이동/삭제된 문서: 파일이 더 이상 존재하지 않는 문서를 클릭하면 모달이 표시됩니다. 파일의 폴더가 남아 있으면(파일이 삭제된 경우) 닫을 때 인덱스에서 제거됩니다. 폴더가 없거나 비어 있거나 읽을 수 없으면 드라이브가 마운트 해제된 것으로(USB 분리, 네트워크 공유 미연결) 판단하고, 모달에서 항목을 **Keep**(유지)할지 **Remove from index**(인덱스에서 제거)할지 선택할 수 있습니다
 
 ### ⚙️ 설정(`/settings`)
@@ -294,8 +294,8 @@ cd /path/to/DocuBrowse
 > 설치된 시스템에서는 대신 `docubrowser` 명령을 사용하세요. 예:
 > `docubrowser rescan` / `docubrowser start` / `docubrowser open`.
 
-`docubrowser.py start` 는 Ollama 가 설치·실행 중이며 필요한 두 모델 —
-`nomic-embed-text:latest`(임베딩)와 `dolphin3:latest`(요약 생성) — 이 있는지 자동
+`docubrowser.py start` 는 Ollama 가 설치·실행 중이며 설치 언어용 두 모델 —
+영어라면 `nomic-embed-text:latest`(임베딩)와 `dolphin3:latest`(요약 생성) — 이 있는지 자동
 확인하고, 필요에 따라 설치/시작/풀합니다.
 
 ---
@@ -552,8 +552,8 @@ FTS5 내장 `trigram` 토크나이저 대신 표준 `unicode61` 토크나이저�
 │  scan_docs.py        │  │  doc_search.py  (HTTP :8643)    │
 │  ProcessPoolExecutor │  │  GET /  /api/search             │
 │  pdf_extractor.py    │  │  GET /api/stats  /api/tags      │
-│  embed_docs.py       │  │  GET /api/open  /api/config     │
-│                      │  │  GET /api/delete /api/synopsis  │
+│  embed_docs.py       │  │  GET /api/config /api/synopsis  │
+│                      │  │  POST /api/open /api/delete     │
 │                      │  │  GET /api/deep-links            │
 └──────────┬───────────┘  └──────────────┬──────────────────┘
            │                             │
@@ -561,7 +561,7 @@ FTS5 내장 `trigram` 토크나이저 대신 표준 `unicode61` 토크나이저�
                       ↓
         ┌──────────────────────────────────────────────────┐
         │  du-docs.db  (SQLite FTS5)                       │
-        │  Ollama (nomic-embed-text + dolphin3)            │
+        │  Ollama (per-language embed + synopsis models)   │
         └──────────────────────────────────────────────────┘
 ```
 
@@ -586,7 +586,7 @@ FTS5 내장 `trigram` 토크나이저 대신 표준 `unicode61` 토크나이저�
 | `djvu_extractor.py` | DjVu(.djvu/.djv) — DjVuLibre `djvutxt`/`djvused`(없으면 우아한 성능 저하) |
 | `ebook_extractor.py` | EPUB/MOBI/AZW3/AZW 추출(ebooklib + Calibre) |
 | `hardware_utils.py` | CPU/GPU/RAM 감지, 워커 수 공식 |
-| `embed_docs.py` | Ollama 에 텍스트 전송; 768 차원 벡터 저장 |
+| `embed_docs.py` | Ollama 에 텍스트 전송; 임베딩 벡터 저장(영어 768 차원, `bge-m3` 1024 차원) |
 | `purge_pii.py` | 인덱스의 PII 스캔; 매치 제거 및 블랙리스트 |
 | `purge_dotfiles.py` | 일회성 마이그레이션 도구: 이미 인덱싱된 도트파일을 DB 에서 제거(기본 드라이런) |
 | `dup_detect.py` | 정확(SHA256) 및 근사 중복(코사인 유사도) 감지 |
@@ -625,14 +625,19 @@ FTS5 내장 `trigram` 토크나이저 대신 표준 `unicode61` 토크나이저�
 | `GET` | `/api/tags` | 개수가 있는 태그 목록(≥3 회 등장) |
 | `GET` | `/api/search` | 페이지네이션 검색 |
 | `GET` | `/api/letters` | 알파벳 바용 첫 글자 인덱스 |
-| `GET` | `/api/synopsis` | 문서의 AI 요약 생성/반환 |
+| `GET` | `/api/status` | 상태 확인: DB, Ollama, 의미 검색 사용 가능 여부 |
+| `GET` | `/api/synopsis` | 캐시된 AI 요약 반환, 없으면 `needs_generation`(Ollama 호출 안 함) |
 | `GET` | `/api/deep-links` | 하나의 인덱싱된 문서 내부의 매치 구절(`path`, `q`, `mode=keyword\|semantic`) |
 | `GET` | `/api/config` | 현재 서버 설정 |
 | `GET` | `/api/ignore-dirs` | 제외된 디렉터리 목록 |
 | `GET` | `/api/scan-dirs` | 추가 스캔 디렉터리 목록 |
 | 🔒 `GET` | `/api/browse` | 설정용 디렉터리 브라우저(토큰 게이트) |
 | 🔒 `POST` | `/api/open` | xdg-open/gio 로 파일 열기(DB 대조 검증) |
-| 🔒 `POST` | `/api/delete` | 디스크에서 파일 삭제 및 인덱스에서 제거(경로가 인덱싱되어 있어야 함) |
+| 🔒 `POST` | `/api/delete` | 문서 제거: 인덱스만(`mode=db_only`), 인덱스 + 블랙리스트(`blacklist`), 파일까지 삭제(`delete_file`); 경로가 인덱싱되어 있어야 함 |
+| 🔒 `POST` | `/api/synopsis` | AI 요약을 (Ollama 로) 생성하고 캐시 |
+| 🔒 `POST` | `/api/add-tags` | 문서에 쉼표로 구분한 태그 추가 |
+| 🔒 `POST` | `/api/remove-tag` | 문서에서 태그 하나 제거 |
+| 🔒 `POST` | `/api/language` | 설치 언어 전환 |
 | 🔒 `POST` | `/api/config` | 서버 설정 저장 |
 | 🔒 `POST` | `/api/ignore-dirs` | 제외 디렉터리 추가/제거 |
 | 🔒 `POST` | `/api/scan-dirs` | 추가 스캔 디렉터리 추가/제거 |
@@ -748,7 +753,7 @@ final_score = 0.3 × keyword_score + 0.7 × semantic_score   (mode=both)
   벡터화된 NumPy 행렬-벡터 곱)에 대해 계산되며, 임베딩 테이블이 바뀌면 캐시가
   무효화됩니다.
 - 범위 0.0–1.0; 최소 임계값(의미 전용 모드): **0.30**.
-- 임베딩: 768 차원 float32 벡터(nomic-embed-text:latest).
+- 임베딩: float32 벡터 — 영어는 768 차원(`nomic-embed-text:latest`), 일본어·한국어·중국어는 1024 차원(`bge-m3`).
 
 ---
 
@@ -764,13 +769,18 @@ DocuBrowse 는 localhost 에 바인딩되며 단일 사용자 로컬 사용을 �
 - **Host 헤더 허용 목록** — `Host` 가 `localhost`/`127.0.0.1`/`[::1]`(선택적으로 서비스
   포트 포함)이 아니면 모든 요청이 거부됩니다. localhost 바인딩 서버에 대한 DNS 리바인딩을
   무력화합니다.
-- **변경에 대한 CSRF 토큰** — `/api/delete` 와 `/api/open` 은 POST 전용이며, POST
-  설정/디렉터리 라우트 및 파일시스템 노출 `/api/browse` 와 함께 프로세스별
+- **변경에 대한 CSRF 토큰** — 상태를 바꾸는 모든 라우트는 POST 전용이며(open, delete,
+  요약 생성, 태그, 언어, 설정, 스캔/제외 디렉터리), 파일시스템 노출 `/api/browse` 와 함께 프로세스별
   `X-CSRF-Token`(제공되는 HTML 에 주입되므로 first-party UI 만 보유)과 루프백
   `Origin`/`Referer` 를 요구합니다.
 - **저장 데이터 주입 없음** — 문서 필드는 HTML 용으로 이스케이프되고 카드 동작은 `data-*`
   속성 + 위임 리스너를 사용하므로(문서 데이터로 만든 인라인 `onclick` 없음), 저장형 XSS
   벡터를 차단합니다.
+- **악성 파일 대비** — 외부 열기 도구와 추출 도구에 전달하는 파일 경로를 절대 경로로 만들어
+  `-something` 같은 이름의 파일이 명령줄 옵션으로 해석되지 않으며, 엔티티를 선언한
+  ODF/Visio/draw.io XML 은 파싱 전에 거부합니다("billion laughs" 방어). 레거시 Visio 변환기
+  출력은 256 MB 로 제한되며, Linux/macOS 에서는 각 추출 워커에 메모리 한도와 파일별
+  타임아웃도 적용됩니다.
 - **PII 정리**는 삭제 전에 구조적으로 검증합니다: SSN 은 SSA 할당 규칙, 신용카드는 길이 +
   발급사 접두어 + Luhn, 은행 라우팅 번호는 ABA 체크섬 + 연방준비 접두어로 — 그래서 실제
   PII 를 더 많이 잡으면서 우연한 숫자 묶음으로 문서를 삭제하지 않습니다.
@@ -797,10 +807,16 @@ DocuBrowse/
 ├── docubrowser.py          # CLI entry point (all commands)
 ├── ensure_ollama.py        # Ollama prerequisite checker/installer
 ├── doc_search.py           # HTTP search server (port 8643)
+├── deep_links.py           # Deep Links: in-document passage search
+├── lang_models.py          # Per-language models, prompts, tokenizers
+├── cjk.py                  # CJK bigram segmentation for keyword search
+├── backup_restore.py       # Database backup / restore (docuback)
 ├── docubrowse_db.py        # SQLite schema and migrations
 ├── scan_docs.py            # Scanner: discovery, extraction, DB writes
 ├── pdf_extractor.py        # PDF extraction (pdfplumber + pypdf fallback)
 ├── docx_extractor.py       # Word document extraction (python-docx)
+├── pptx_extractor.py       # PowerPoint extraction (python-pptx)
+├── xlsx_extractor.py       # Excel extraction (openpyxl)
 ├── odf_extractor.py        # OpenDocument (.odt/.ods/.odp) extraction (stdlib)
 ├── visio_extractor.py      # Visio (.vsdx/.vsdm/.vsd) + draw.io (.drawio/.dio)
 ├── markup_extractor.py     # SGML/XML family + reST/AsciiDoc/LaTeX (stdlib)
@@ -808,6 +824,7 @@ DocuBrowse/
 ├── csv_extractor.py        # CSV / TSV — stdlib `csv`
 ├── rtf_extractor.py        # RTF via striprtf (graceful degradation)
 ├── ebook_extractor.py      # EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre)
+├── djvu_extractor.py       # DjVu text layer (DjVuLibre)
 ├── hardware_utils.py       # CPU/GPU/RAM detection, worker formula
 ├── embed_docs.py           # Embedding generation pipeline
 ├── purge_pii.py            # PII scanner and purge tool
@@ -815,6 +832,8 @@ DocuBrowse/
 ├── dup_detect.py           # Exact (SHA256) and near-duplicate detection
 ├── platform_paths.py       # Cross-platform paths and process management
 ├── index.html              # Frontend UI (single-file, dark/light theme)
+├── settings.html           # Settings page (/settings)
+├── locales/                # UI translations (en/ja/ko/zh/zh-hant JSON)
 ├── du-docs.db              # SQLite database (gitignored)
 ├── du-docs.db.example      # Empty schema for new installs
 ├── scan_blacklist.txt      # Failed-extraction skiplist (gitignored)
@@ -825,8 +844,14 @@ DocuBrowse/
 ├── ignore_dirs.txt         # Directories excluded from scanning (gitignored)
 ├── scan_dirs.txt           # Additional scan directories (gitignored)
 ├── docubrowse.config       # Local config (optional, gitignored)
+├── requirements.txt        # Python dependencies
 ├── INSTALL.md              # Step-by-step install guide
 ├── README.md               # This file
+├── README-<lang>.md        # Translations: ja, ko, zh, zh-hant
+├── EndUser_docs/           # User Guide (.docx) per language — shipped
+├── EntEndUser_docs/        # User Guide / API Reference Markdown sources
+├── man/                    # Man pages (en + ja/ko/zh_CN/zh_TW)
+├── test_*.py               # Unit tests (pytest)
 ├── LICENSE                 # GPL-3.0
 ├── packaging/              # RPM spec, DEB control, build scripts, installers
 │   ├── build_packages.sh   # Builds RPM, DEB, and tarball (Linux)

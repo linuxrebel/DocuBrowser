@@ -22,7 +22,7 @@ DocuBrowse 使用本地 AI 模型完全在你自己的機器上執行 —— 無
 無需 API 金鑰,也沒有按次查詢侵蝕令牌預算的費用。**你的資料。你的 AI。**
 
 底層技術:SQLite FTS5 關鍵詞搜尋,加上 AI 驅動的語義相似度與摘要生成
-(Ollama + nomic-embed-text + dolphin3)。支援多種文件與原始碼型別。
+(按語言選擇的本地 Ollama 模型)。支援多種文件與原始碼型別。
 
 > **Docker(實驗性 —— 暫不推薦):** 一個容器化部署正在 `docker-experiment`
 > 分支上試驗。由於 Docker/作業系統的限制以及 DocuBrowse 的安全模型,目前**尚未**
@@ -54,7 +54,7 @@ DocuBrowse 使用本地 AI 模型完全在你自己的機器上執行 —— 無
 
 ### 🔍 雙搜尋模式
 - **關鍵詞搜尋** —— 透過 SQLite FTS5 進行快速全文搜尋(標題、作者、主題、標籤、摘錄)
-- **語義搜尋** —— 透過 Ollama 嵌入(nomic-embed-text:latest)實現的 AI 相似度。語義搜尋識別*哪些文件*與你的查詢相關;隨後**深度連結**(見下文)精確定位文件*內部*匹配的位置。
+- **語義搜尋** —— 透過 Ollama 嵌入(英語用 `nomic-embed-text:latest`,日語、韓語和中文用 `bge-m3` —— 參見[語言](#languages))實現的 AI 相似度。語義搜尋識別*哪些文件*與你的查詢相關;隨後**深度連結**(見下文)精確定位文件*內部*匹配的位置。
 - **混合模式**(預設,“兩者”)—— 合併關鍵詞與語義:每份文件取兩個分數中較高的一個(兩者都命中時略有加成),且必須清除關鍵詞命中或語義下限才會出現。參見[搜尋技巧與竅門](#search-tips-and-tricks)。
 
 ### 🎯 深度連結 —— 文件內段落搜尋
@@ -66,10 +66,10 @@ DocuBrowse 使用本地 AI 模型完全在你自己的機器上執行 —— 無
 
 ### 📖 AI 摘要
 - 點選任意文件標題,即可獲得一段 Kindle 風格的“書封”式摘要,按需透過 Ollama
-  (`dolphin3:latest`)生成,並在首次生成後快取到資料庫中。
+  (英語用 `dolphin3:latest`,其他語言的模型參見[語言](#languages))生成,並在首次生成後快取到資料庫中。
   在極簡硬體上(僅 CPU、無 GPU),某份文件的首個摘要可能需要一些時間 ——
   由於結果已快取,後續請求都是即時的。
-  語義搜尋的嵌入由第二個本地模型(`nomic-embed-text:latest`)生成。
+  語義搜尋的嵌入由第二個本地模型(英語為 `nomic-embed-text:latest`)生成。
 
 ### 📚 文件索引
 - **格式**:PDF、DOCX、PPTX、XLSX、ODT、ODS、ODP、OTT/OTS/OTP(ODF 模板)、VSDX/VSDM、VSD/VSS/VST(舊版 Visio)、VDX(Visio 2003 XML)、draw.io/diagrams.net(.drawio/.dio)、PlantUML(.puml/.plantuml)、Mermaid(.mmd)、SGML/XML 家族(.xml/.xhtml/.sgml/.sgm)、DocBook(.docbook/.dbk)、SVG、訂閱源(.rss/.atom/.opml)、reStructuredText(.rst)、AsciiDoc(.adoc/.asciidoc)、LaTeX(.tex/.latex)、電子郵件(.eml)、RTF(.rtf)、CSV / TSV、EPUB、MOBI、AZW3、AZW、DjVu(.djvu/.djv)、HTML、TXT、Markdown,以及類配置純文字(.ini/.conf/.cfg/.log/.lst)
@@ -105,7 +105,7 @@ DocuBrowse 使用本地 AI 模型完全在你自己的機器上執行 —— 無
 - 用於按主題篩選的標籤雲
 - 每個結果上的相關度分數徽章(0–100%)
 - 每張結果卡片上的**開啟按鈕** —— 透過 `xdg-open` 在預設應用中啟動檔案
-- 點選文件標題獲取 AI 摘要;📋 複製路徑到剪貼簿;🗑 從磁碟和索引中刪除檔案(需確認)
+- 點選文件標題獲取 AI 摘要;📋 複製路徑到剪貼簿;❌ 移除文件 —— 僅從索引中移除、從索引中移除並加入黑名單,或連同檔案一起刪除(可選擇,需確認)
 - 已移動/已刪除的文件:點選檔案已不存在的文件會顯示一個模態框。若檔案所在的資料夾仍在(檔案已被刪除),關閉時會將其從索引中移除。若資料夾不存在、為空或無法讀取,DocuBrowse 會認為磁碟機未掛載(USB 已拔出、網路共用未連線),並在模態框中讓你選擇 **Keep**(保留)條目或 **Remove from index**(從索引中移除)
 
 ### ⚙️ 設定(`/settings`)
@@ -286,8 +286,8 @@ cd /path/to/DocuBrowse
 > 在已安裝的系統上,請改用 `docubrowser` 命令,例如
 > `docubrowser rescan` / `docubrowser start` / `docubrowser open`。
 
-`docubrowser.py start` 會自動驗證 Ollama 已安裝、正在執行,並具備兩個所需
-模型 —— `nomic-embed-text:latest`(嵌入)和 `dolphin3:latest`(摘要生成)——
+`docubrowser.py start` 會自動驗證 Ollama 已安裝、正在執行,並具備安裝語言所需的兩個
+模型 —— 英語為 `nomic-embed-text:latest`(嵌入)和 `dolphin3:latest`(摘要生成)——
 按需安裝/啟動/拉取。
 
 ---
@@ -539,8 +539,8 @@ PII 檢測(目前僅實現了美國 PII 模式)。
 │  scan_docs.py        │  │  doc_search.py  (HTTP :8643)    │
 │  ProcessPoolExecutor │  │  GET /  /api/search             │
 │  pdf_extractor.py    │  │  GET /api/stats  /api/tags      │
-│  embed_docs.py       │  │  GET /api/open  /api/config     │
-│                      │  │  GET /api/delete /api/synopsis  │
+│  embed_docs.py       │  │  GET /api/config /api/synopsis  │
+│                      │  │  POST /api/open /api/delete     │
 │                      │  │  GET /api/deep-links            │
 └──────────┬───────────┘  └──────────────┬──────────────────┘
            │                             │
@@ -548,7 +548,7 @@ PII 檢測(目前僅實現了美國 PII 模式)。
                       ↓
         ┌──────────────────────────────────────────────────┐
         │  du-docs.db  (SQLite FTS5)                       │
-        │  Ollama (nomic-embed-text + dolphin3)            │
+        │  Ollama (per-language embed + synopsis models)   │
         └──────────────────────────────────────────────────┘
 ```
 
@@ -573,7 +573,7 @@ PII 檢測(目前僅實現了美國 PII 模式)。
 | `djvu_extractor.py` | DjVu(.djvu/.djv),透過 DjVuLibre `djvutxt`/`djvused`(缺失時優雅降級) |
 | `ebook_extractor.py` | EPUB/MOBI/AZW3/AZW 提取(ebooklib + Calibre) |
 | `hardware_utils.py` | CPU/GPU/RAM 檢測,工作程序數公式 |
-| `embed_docs.py` | 向 Ollama 傳送文字;儲存 768 維向量 |
+| `embed_docs.py` | 向 Ollama 傳送文字;儲存嵌入向量(英語 768 維,`bge-m3` 1024 維) |
 | `purge_pii.py` | 掃描索引以查詢 PII;移除匹配項並列入黑名單 |
 | `purge_dotfiles.py` | 一次性遷移工具:從資料庫中移除已索引的點檔案(預設試執行) |
 | `dup_detect.py` | 精確(SHA256)和近似重複(餘弦相似度)檢測 |
@@ -611,14 +611,19 @@ PII 檢測(目前僅實現了美國 PII 模式)。
 | `GET` | `/api/tags` | 帶計數的標籤列表(≥3 次出現) |
 | `GET` | `/api/search` | 帶分頁的搜尋 |
 | `GET` | `/api/letters` | 字母欄的首字母索引 |
-| `GET` | `/api/synopsis` | 為文件生成/返回 AI 摘要 |
+| `GET` | `/api/status` | 健康檢查:資料庫、Ollama,以及語義搜尋是否就緒 |
+| `GET` | `/api/synopsis` | 返回已快取的 AI 摘要,若無則返回 `needs_generation`(不呼叫 Ollama) |
 | `GET` | `/api/deep-links` | 單份已索引文件內的匹配段落(`path`、`q`、`mode=keyword\|semantic`) |
 | `GET` | `/api/config` | 當前伺服器配置 |
 | `GET` | `/api/ignore-dirs` | 列出排除的目錄 |
 | `GET` | `/api/scan-dirs` | 列出額外的掃描目錄 |
 | 🔒 `GET` | `/api/browse` | 設定用的目錄瀏覽器(令牌門控) |
 | 🔒 `POST` | `/api/open` | 用 xdg-open/gio 開啟檔案(對照資料庫驗證) |
-| 🔒 `POST` | `/api/delete` | 從磁碟刪除檔案並從索引中移除(路徑必須已索引) |
+| 🔒 `POST` | `/api/delete` | 移除文件:僅索引(`mode=db_only`)、索引 + 黑名單(`blacklist`),或連同檔案刪除(`delete_file`);路徑必須已索引 |
+| 🔒 `POST` | `/api/synopsis` | (透過 Ollama)生成並快取 AI 摘要 |
+| 🔒 `POST` | `/api/add-tags` | 為文件新增逗號分隔的標籤 |
+| 🔒 `POST` | `/api/remove-tag` | 從文件中移除一個標籤 |
+| 🔒 `POST` | `/api/language` | 切換安裝語言 |
 | 🔒 `POST` | `/api/config` | 儲存伺服器配置 |
 | 🔒 `POST` | `/api/ignore-dirs` | 新增/移除排除的目錄 |
 | 🔒 `POST` | `/api/scan-dirs` | 新增/移除額外的掃描目錄 |
@@ -730,7 +735,7 @@ final_score = 0.3 × keyword_score + 0.7 × semantic_score   (mode=both)
 - 針對一個**程序內、L2 歸一化的嵌入矩陣**計算(一次向量化的 NumPy 矩陣-向量乘積),
   在嵌入表變化時快取並失效 —— 而非為每個請求重新載入每個 BLOB。
 - 範圍 0.0–1.0;最小閾值(僅語義模式):**0.30**。
-- 嵌入:768 維 float32 向量(nomic-embed-text:latest)。
+- 嵌入:float32 向量 —— 英語為 768 維(`nomic-embed-text:latest`),日語、韓語和中文為 1024 維(`bge-m3`)。
 
 ---
 
@@ -745,12 +750,16 @@ DocuBrowse 繫結到 localhost,面向單使用者本地使用,但它經過加固
 
 - **Host 頭白名單** —— 除非 `Host` 為 `localhost`/`127.0.0.1`/`[::1]`(可帶服務埠),
   否則每個請求都會被拒絕。擊敗針對迴環繫結伺服器的 DNS 重繫結。
-- **變更操作上的 CSRF 令牌** —— `/api/delete` 和 `/api/open` 僅限 POST;它們加上
-  POST 配置/目錄路由以及暴露檔案系統的 `/api/browse`,都需要每程序的
+- **變更操作上的 CSRF 令牌** —— 所有會改變狀態的路由都僅限 POST(開啟、刪除、摘要生成、
+  標籤、語言、配置、掃描/排除目錄);它們加上暴露檔案系統的 `/api/browse`,都需要每程序的
   `X-CSRF-Token`(注入到所提供的 HTML 中,因此只有第一方 UI 擁有它)和一個迴環
   `Origin`/`Referer`。
 - **無儲存資料注入** —— 文件欄位針對 HTML 轉義,卡片操作使用 `data-*` 屬性 + 委託
   監聽器(不從文件資料構建內聯 `onclick`),封堵了一個儲存型 XSS 向量。
+- **惡意檔案防護** —— 傳給外部開啟程式和提取工具的檔案路徑會轉為絕對路徑,因此名為
+  `-something` 的檔案不會被當作命令列選項;宣告了實體的 ODF/Visio/draw.io XML 會在解析前被
+  拒絕(「billion laughs」防護);舊版 Visio 轉換器的輸出上限為 256 MB;在 Linux/macOS 上,
+  每個提取工作程序還受記憶體上限和逐檔案超時約束。
 - **PII 清除**在刪除前做結構性驗證:SSN 對照 SSA 分配規則,信用卡按長度 + 髮卡機構
   字首 + Luhn,銀行路由號按 ABA 校驗和 + 美聯儲字首 —— 因此它既能捕獲更多真實 PII,
   又能避免因偶然的數字組而刪除文件。
@@ -775,10 +784,16 @@ DocuBrowse/
 ├── docubrowser.py          # CLI 入口點(所有命令)
 ├── ensure_ollama.py        # Ollama 前置條件檢查器/安裝器
 ├── doc_search.py           # HTTP 搜尋伺服器(埠 8643)
+├── deep_links.py           # 深度連結:文件內段落搜尋
+├── lang_models.py          # 各語言的模型、提示詞、分詞器
+├── cjk.py                  # 關鍵詞搜尋用的 CJK 二元分詞
+├── backup_restore.py       # 資料庫備份/恢復(docuback)
 ├── docubrowse_db.py        # SQLite 架構和遷移
 ├── scan_docs.py            # 掃描器:發現、提取、資料庫寫入
 ├── pdf_extractor.py        # PDF 提取(pdfplumber + pypdf 回退)
 ├── docx_extractor.py       # Word 文件提取(python-docx)
+├── pptx_extractor.py       # PowerPoint 提取(python-pptx)
+├── xlsx_extractor.py       # Excel 提取(openpyxl)
 ├── odf_extractor.py        # OpenDocument(.odt/.ods/.odp)提取(標準庫)
 ├── visio_extractor.py      # Visio(.vsdx/.vsdm/.vsd)+ draw.io(.drawio/.dio)
 ├── markup_extractor.py     # SGML/XML 家族 + reST/AsciiDoc/LaTeX(標準庫)
@@ -786,6 +801,7 @@ DocuBrowse/
 ├── csv_extractor.py        # CSV / TSV —— 標準庫 `csv`
 ├── rtf_extractor.py        # RTF,透過 striprtf(優雅降級)
 ├── ebook_extractor.py      # EPUB/MOBI/AZW3/AZW 提取(ebooklib + Calibre)
+├── djvu_extractor.py       # DjVu 文字層(DjVuLibre)
 ├── hardware_utils.py       # CPU/GPU/RAM 檢測,工作程序公式
 ├── embed_docs.py           # 嵌入生成流水線
 ├── purge_pii.py            # PII 掃描與清除工具
@@ -793,6 +809,8 @@ DocuBrowse/
 ├── dup_detect.py           # 精確(SHA256)和近似重複檢測
 ├── platform_paths.py       # 跨平臺路徑和程序管理
 ├── index.html              # 前端 UI(單檔案,深色/淺色主題)
+├── settings.html           # 設定頁面(/settings)
+├── locales/                # UI 翻譯(en/ja/ko/zh/zh-hant JSON)
 ├── du-docs.db              # SQLite 資料庫(gitignored)
 ├── du-docs.db.example      # 新安裝用的空架構
 ├── scan_blacklist.txt      # 提取失敗跳過列表(gitignored)
@@ -803,8 +821,14 @@ DocuBrowse/
 ├── ignore_dirs.txt         # 從掃描中排除的目錄(gitignored)
 ├── scan_dirs.txt           # 額外的掃描目錄(gitignored)
 ├── docubrowse.config       # 本地配置(可選,gitignored)
+├── requirements.txt        # Python 依賴
 ├── INSTALL.md              # 分步安裝指南
 ├── README.md               # 本檔案
+├── README-<lang>.md        # 翻譯:ja、ko、zh、zh-hant
+├── EndUser_docs/           # 各語言的使用者指南(.docx)—— 隨包釋出
+├── EntEndUser_docs/        # 使用者指南 / API 參考的 Markdown 原始檔
+├── man/                    # 手冊頁(en + ja/ko/zh_CN/zh_TW)
+├── test_*.py               # 單元測試(pytest)
 ├── LICENSE                 # GPL-3.0
 ├── packaging/              # RPM spec、DEB control、構建指令碼、安裝器
 │   ├── build_packages.sh   # 構建 RPM、DEB 和 tarball(Linux)

@@ -23,7 +23,7 @@ connection required, no accounts, no API keys, and no per-query costs eating int
 token budget. **Your data. Your AI.**
 
 Under the hood: SQLite FTS5 keyword search plus AI-powered semantic similarity and
-synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple document and source code types.
+synopsis generation (local Ollama models, chosen per language). Supports multiple document and source code types.
 
 > **Docker (experimental — not recommended yet):** A containerized deployment is
 > being tried out on the `docker-experiment` branch. Because of Docker/OS
@@ -55,7 +55,7 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 
 ### 🔍 Dual Search Modes
 - **Keyword Search** — fast full-text search via SQLite FTS5 (title, author, subject, tags, snippet)
-- **Semantic Search** — AI-powered similarity via Ollama embeddings (nomic-embed-text:latest). Semantic search identifies *which documents* are relevant to your query; **Deep Links** (below) then pinpoints *where* inside a document the match is.
+- **Semantic Search** — AI-powered similarity via Ollama embeddings (`nomic-embed-text:latest` for English; `bge-m3` for Japanese, Korean, and Chinese — see [Languages](#languages)). Semantic search identifies *which documents* are relevant to your query; **Deep Links** (below) then pinpoints *where* inside a document the match is.
 - **Hybrid Mode** (default, "Both") — keyword and semantic merged: each document takes the stronger of its two scores (with a small boost when both hit), and must clear a keyword hit or a semantic floor to appear. See [Search Tips and Tricks](#search-tips-and-tricks).
 
 ### 🎯 Deep Links — in-document passage search
@@ -67,10 +67,10 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 
 ### 📖 AI Synopsis
 - Click any document title for a Kindle-style book-jacket synopsis, generated on demand
-  via Ollama (`dolphin3:latest`) and cached in the database after first generation.
+  via Ollama (`dolphin3:latest` for English; per-language models in [Languages](#languages)) and cached in the database after first generation.
   The first synopsis for a given document may take a while on minimal hardware (CPU-only,
   no GPU) — subsequent requests are instant since the result is cached.
-  Semantic search embeddings are produced by a second local model (`nomic-embed-text:latest`)
+  Semantic search embeddings are produced by a second local model (`nomic-embed-text:latest` for English)
 
 ### 📚 Document Indexing
 - **Formats**: PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, OTT/OTS/OTP (ODF templates), VSDX/VSDM, VSD/VSS/VST (legacy Visio), VDX (Visio 2003 XML), draw.io/diagrams.net (.drawio/.dio), PlantUML (.puml/.plantuml), Mermaid (.mmd), SGML/XML family (.xml/.xhtml/.sgml/.sgm), DocBook (.docbook/.dbk), SVG, feeds (.rss/.atom/.opml), reStructuredText (.rst), AsciiDoc (.adoc/.asciidoc), LaTeX (.tex/.latex), Email (.eml), RTF (.rtf), CSV / TSV, EPUB, MOBI, AZW3, AZW, DjVu (.djvu/.djv), HTML, TXT, Markdown, plus config-ish plain text (.ini/.conf/.cfg/.log/.lst)
@@ -106,7 +106,7 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 - Tag cloud for filtering by topic
 - Relevance score badges (0–100%) on every result
 - **Open button** on each result card — launches the file in your default app via `xdg-open`
-- Click document title for an AI synopsis; 📋 copies path to clipboard; 🗑 deletes file from disk and index (with confirmation)
+- Click document title for an AI synopsis; 📋 copies path to clipboard; ❌ removes a document — from the index only, from the index and blacklisted, or the file itself deleted (you choose, with confirmation)
 - Moved/deleted documents: clicking a doc whose file no longer exists shows a modal. If the
   file's folder is still there (the file was deleted), dismissing it removes the doc from the
   index. If the folder is gone, empty, or unreadable, DocuBrowse assumes the drive is unmounted
@@ -294,8 +294,8 @@ cd /path/to/DocuBrowse
 > `docubrowser rescan` / `docubrowser start` / `docubrowser open`.
 
 `docubrowser.py start` automatically verifies Ollama is installed, running, and has
-both required models — `nomic-embed-text:latest` (embeddings) and
-`dolphin3:latest` (synopsis generation) — installing/starting/pulling
+both models for the install's language — for English `nomic-embed-text:latest`
+(embeddings) and `dolphin3:latest` (synopsis generation) — installing/starting/pulling
 as needed.
 
 ---
@@ -567,8 +567,8 @@ Number" PII detection (only US PII patterns are implemented today).
 │  scan_docs.py        │  │  doc_search.py  (HTTP :8643)    │
 │  ProcessPoolExecutor │  │  GET /  /api/search             │
 │  pdf_extractor.py    │  │  GET /api/stats  /api/tags      │
-│  embed_docs.py       │  │  GET /api/open  /api/config     │
-│                      │  │  GET /api/delete /api/synopsis  │
+│  embed_docs.py       │  │  GET /api/config /api/synopsis  │
+│                      │  │  POST /api/open /api/delete     │
 │                      │  │  GET /api/deep-links            │
 └──────────┬───────────┘  └──────────────┬──────────────────┘
            │                             │
@@ -576,7 +576,7 @@ Number" PII detection (only US PII patterns are implemented today).
                       ↓
         ┌──────────────────────────────────────────────────┐
         │  du-docs.db  (SQLite FTS5)                       │
-        │  Ollama (nomic-embed-text + dolphin3)            │
+        │  Ollama (per-language embed + synopsis models)   │
         └──────────────────────────────────────────────────┘
 ```
 
@@ -601,7 +601,7 @@ Number" PII detection (only US PII patterns are implemented today).
 | `djvu_extractor.py` | DjVu (.djvu/.djv) via DjVuLibre `djvutxt`/`djvused` (graceful degradation if missing) |
 | `ebook_extractor.py` | EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre) |
 | `hardware_utils.py` | CPU/GPU/RAM detection, worker count formula |
-| `embed_docs.py` | Sends text to Ollama; stores 768-dim vectors |
+| `embed_docs.py` | Sends text to Ollama; stores embedding vectors (768-dim English, 1024-dim `bge-m3`) |
 | `purge_pii.py` | Scans index for PII; removes and blacklists matches |
 | `purge_dotfiles.py` | One-off migration tool: removes already-indexed dotfiles from the DB (dry-run by default) |
 | `dup_detect.py` | Exact (SHA256) and near-duplicate (cosine similarity) detection |
@@ -640,14 +640,19 @@ Base URL: `http://localhost:8643`
 | `GET` | `/api/tags` | Tag list with counts (≥3 occurrences) |
 | `GET` | `/api/search` | Search with pagination |
 | `GET` | `/api/letters` | First-letter index for the alphabetic bar |
-| `GET` | `/api/synopsis` | Generate/return an AI synopsis for a document |
+| `GET` | `/api/status` | Health check: DB, Ollama, and whether semantic search is ready |
+| `GET` | `/api/synopsis` | Return the cached AI synopsis for a document, or `needs_generation` (never calls Ollama) |
 | `GET` | `/api/deep-links` | Matching passages inside one indexed document (`path`, `q`, `mode=keyword\|semantic`) |
 | `GET` | `/api/config` | Current server configuration |
 | `GET` | `/api/ignore-dirs` | List excluded directories |
 | `GET` | `/api/scan-dirs` | List additional scan directories |
 | 🔒 `GET` | `/api/browse` | Directory browser for Settings (token-gated) |
 | 🔒 `POST` | `/api/open` | Open a file with xdg-open/gio (validates against DB) |
-| 🔒 `POST` | `/api/delete` | Delete a file from disk and remove from index (path must be indexed) |
+| 🔒 `POST` | `/api/delete` | Remove a document: index only (`mode=db_only`), index + blacklist (`blacklist`), or delete the file too (`delete_file`); path must be indexed |
+| 🔒 `POST` | `/api/synopsis` | Generate (via Ollama) and cache an AI synopsis for a document |
+| 🔒 `POST` | `/api/add-tags` | Add comma-separated tags to a document |
+| 🔒 `POST` | `/api/remove-tag` | Remove one tag from a document |
+| 🔒 `POST` | `/api/language` | Switch the install's language |
 | 🔒 `POST` | `/api/config` | Save server configuration |
 | 🔒 `POST` | `/api/ignore-dirs` | Add/remove an excluded directory |
 | 🔒 `POST` | `/api/scan-dirs` | Add/remove an additional scan directory |
@@ -764,7 +769,8 @@ final_score = 0.3 × keyword_score + 0.7 × semantic_score   (mode=both)
   vectorized NumPy matrix-vector product), cached and invalidated when the
   embeddings table changes — instead of reloading every BLOB per request.
 - Range 0.0–1.0; minimum threshold (semantic-only mode): **0.30**.
-- Embeddings: 768-dimensional float32 vectors (nomic-embed-text:latest).
+- Embeddings: float32 vectors — 768-dimensional for English (`nomic-embed-text:latest`),
+  1024-dimensional for Japanese, Korean, and Chinese (`bge-m3`).
 
 ---
 
@@ -778,13 +784,20 @@ is hardened so a malicious web page you happen to visit can't reach it:
 - **Host-header allow-list** — every request is rejected unless `Host` is
   `localhost`/`127.0.0.1`/`[::1]` (optionally with the serving port). Defeats
   DNS-rebinding against the localhost-bound server.
-- **CSRF tokens on mutations** — `/api/delete` and `/api/open` are POST-only;
-  they plus the POST config/dir routes and the filesystem-exposing
-  `/api/browse` require a per-process `X-CSRF-Token` (injected into the served
-  HTML, so only the first-party UI has it) and a loopback `Origin`/`Referer`.
+- **CSRF tokens on mutations** — every state-changing route is POST-only
+  (open, delete, synopsis generation, tags, language, config, scan/ignore dirs);
+  they plus the filesystem-exposing `/api/browse` require a per-process
+  `X-CSRF-Token` (injected into the served HTML, so only the first-party UI has
+  it) and a loopback `Origin`/`Referer`.
 - **No stored-data injection** — document fields are escaped for HTML and
   card actions use `data-*` attributes + delegated listeners (no inline
   `onclick` built from document data), closing a stored-XSS vector.
+- **Hostile-file hardening** — file paths passed to external openers and
+  extractors are made absolute, so a file named `-something` can't be read as a
+  command-line option; ODF/Visio/draw.io XML that declares entities is refused
+  before parsing ("billion laughs" guard); legacy-Visio converter output is
+  capped at 256 MB; on Linux/macOS each extraction worker also runs under a
+  memory limit and per-file timeout.
 - **PII purge** validates structurally before deleting: SSNs against SSA
   allocation rules, credit cards by length + issuer prefix + Luhn, bank routing
   numbers by ABA checksum + Federal Reserve prefix — so it both catches more
@@ -813,10 +826,16 @@ DocuBrowse/
 ├── docubrowser.py          # CLI entry point (all commands)
 ├── ensure_ollama.py        # Ollama prerequisite checker/installer
 ├── doc_search.py           # HTTP search server (port 8643)
+├── deep_links.py           # Deep Links: in-document passage search
+├── lang_models.py          # Per-language models, prompts, tokenizers
+├── cjk.py                  # CJK bigram segmentation for keyword search
+├── backup_restore.py       # Database backup / restore (docuback)
 ├── docubrowse_db.py        # SQLite schema and migrations
 ├── scan_docs.py            # Scanner: discovery, extraction, DB writes
 ├── pdf_extractor.py        # PDF extraction (pdfplumber + pypdf fallback)
 ├── docx_extractor.py       # Word document extraction (python-docx)
+├── pptx_extractor.py       # PowerPoint extraction (python-pptx)
+├── xlsx_extractor.py       # Excel extraction (openpyxl)
 ├── odf_extractor.py        # OpenDocument (.odt/.ods/.odp) extraction (stdlib)
 ├── visio_extractor.py      # Visio (.vsdx/.vsdm/.vsd) + draw.io (.drawio/.dio)
 ├── markup_extractor.py     # SGML/XML family + reST/AsciiDoc/LaTeX (stdlib)
@@ -824,6 +843,7 @@ DocuBrowse/
 ├── csv_extractor.py        # CSV / TSV — stdlib `csv`
 ├── rtf_extractor.py        # RTF via striprtf (graceful degradation)
 ├── ebook_extractor.py      # EPUB/MOBI/AZW3/AZW extraction (ebooklib + Calibre)
+├── djvu_extractor.py       # DjVu text layer (DjVuLibre)
 ├── hardware_utils.py       # CPU/GPU/RAM detection, worker formula
 ├── embed_docs.py           # Embedding generation pipeline
 ├── purge_pii.py            # PII scanner and purge tool
@@ -831,6 +851,8 @@ DocuBrowse/
 ├── dup_detect.py           # Exact (SHA256) and near-duplicate detection
 ├── platform_paths.py       # Cross-platform paths and process management
 ├── index.html              # Frontend UI (single-file, dark/light theme)
+├── settings.html           # Settings page (/settings)
+├── locales/                # UI translations (en/ja/ko/zh/zh-hant JSON)
 ├── du-docs.db              # SQLite database (gitignored)
 ├── du-docs.db.example      # Empty schema for new installs
 ├── scan_blacklist.txt      # Failed-extraction skiplist (gitignored)
@@ -841,8 +863,14 @@ DocuBrowse/
 ├── ignore_dirs.txt         # Directories excluded from scanning (gitignored)
 ├── scan_dirs.txt           # Additional scan directories (gitignored)
 ├── docubrowse.config       # Local config (optional, gitignored)
+├── requirements.txt        # Python dependencies
 ├── INSTALL.md              # Step-by-step install guide
 ├── README.md               # This file
+├── README-<lang>.md        # Translations: ja, ko, zh, zh-hant
+├── EndUser_docs/           # User Guide (.docx) per language — shipped
+├── EntEndUser_docs/        # User Guide / API Reference Markdown sources
+├── man/                    # Man pages (en + ja/ko/zh_CN/zh_TW)
+├── test_*.py               # Unit tests (pytest)
 ├── LICENSE                 # GPL-3.0
 ├── packaging/              # RPM spec, DEB control, build scripts, installers
 │   ├── build_packages.sh   # Builds RPM, DEB, and tarball (Linux)
