@@ -104,7 +104,7 @@ Scanned (image-only) PDFs are detected and listed in `ocr_list_pdfs.txt` but not
 searchable. Integrate Tesseract or similar OCR engine to extract text from these.
 
 ### D-8: Windows Unicode console encoding — permanent fix needed
-**Status:** ANSI colors resolved 2026-07-04; item 3 (check_missing_path) still open  
+**Status:** Resolved — ANSI colors 2026-07-04; item 3 2026-11-08  
 **Priority:** Low  
 **Added:** 2026-07-04
 
@@ -127,6 +127,10 @@ process unless `PYTHONUTF8=1` is set in the environment.
    device ID comparison) that doesn't apply to Windows drive letters.  The function
    degrades gracefully (returns "missing" on OSError) but won't correctly classify
    disconnected Windows network shares as "unmounted".
+   **Resolved 2026-11-08** — `check_missing_path` no longer compares device IDs:
+   `missing` only when the file's own folder exists and still has other entries,
+   everything else (incl. OSError) is `unmounted`. Platform-neutral, so a
+   disconnected drive letter or share now reads as `unmounted` on Windows too.
 
 ---
 

@@ -1,11 +1,11 @@
-# DocuBrowse v1.5.2 — API Reference (FOSS subset)
+# DocuBrowse v1.5.3 — API Reference (FOSS subset)
 
 > **FOSS subset.** This covers the localhost HTTP API shipped in the FOSS build.
 > Enterprise-only API features (remote access, `enterprise_mode` status fields,
 > and other tier-specific behavior) live in the **Enterprise API Reference** in
 > the DocuBrowse-Ent repository — most API usage is Enterprise.
 
-**Date:** 2026-09-11
+**Date:** 2026-11-08
 **Base URL:** `http://127.0.0.1:8643`
 **Content-Type:** `application/json` (all API requests and responses)
 
@@ -17,12 +17,11 @@
 2. [Authentication and Security](#2-authentication-and-security)
    - 2.1 [CSRF Protection](#21-csrf-protection)
    - 2.2 [Host-Header Allowlist (DNS Rebinding Protection)](#22-host-header-allowlist-dns-rebinding-protection)
-   - 2.3 [localhost-only Restriction on /api/open](#23-localhost-only-restriction-on-apiopen)
 3. [Common Response Format](#3-common-response-format)
 4. [Endpoint Reference](#4-endpoint-reference)
    - 4.1 [GET /api/status](#41-get-apistatus)
    - 4.2 [GET /api/search](#42-get-apisearch)
-   - 4.3 [GET /api/synopsis](#43-get-apisynopsis)
+   - 4.3 [GET / POST /api/synopsis](#43-get--post-apisynopsis)
    - 4.4 [GET /api/stats](#44-get-apistats)
    - 4.5 [GET /api/tags](#45-get-apitags)
    - 4.6 [GET /api/letters](#46-get-apiletters)
@@ -35,11 +34,10 @@
    - 4.13 [POST /api/config](#413-post-apiconfig)
    - 4.14 [POST /api/ignore-dirs](#414-post-apiignore-dirs)
    - 4.15 [POST /api/scan-dirs](#415-post-apiscan-dirs)
-   - 4.16 [GET /api/download](#416-get-apidownload)
-   - 4.17 [POST /api/add-tags](#417-post-apiadd-tags)
-   - 4.18 [POST /api/remove-tag](#418-post-apiremove-tag)
-   - 4.19 [GET /api/deep-links](#419-get-apideep-links)
-   - 4.20 [POST /api/language](#420-post-apilanguage)
+   - 4.16 [POST /api/add-tags](#416-post-apiadd-tags)
+   - 4.17 [POST /api/remove-tag](#417-post-apiremove-tag)
+   - 4.18 [GET /api/deep-links](#418-get-apideep-links)
+   - 4.19 [POST /api/language](#419-post-apilanguage)
 5. [Search Modes](#5-search-modes)
 6. [Enterprise Tier](#6-enterprise-tier)
 7. [Rate Limits and Performance Notes](#7-rate-limits-and-performance-notes)
@@ -59,14 +57,14 @@ All API paths begin with `/api/`. The root path `/` and `/settings` serve the we
 ## 2. Authentication and Security
 
 > **Localhost-only (network exposure).** The FOSS server is not reachable from
-> other machines. By default it binds to `127.0.0.1` only, so the port is not
-> exposed on any external network interface (a LAN or port scan sees nothing).
-> Even in the opt-in private-network mode (`DOCUBROWSE_TRUSTED_CIDRS`, e.g. a
-> Docker bridge), the server binds `0.0.0.0` but `DocuBrowseServer.verify_request()`
-> **rejects any connection whose source IP is neither loopback (`127.0.0.0/8` /
-> `::1`) nor in the trusted CIDR list — at the TCP-accept level, before any HTTP
-> is read.** Access control does **not** depend on the host OS firewall. This
-> holds for every endpoint below.
+> other machines. It always binds to `127.0.0.1`, so the port is not exposed on
+> any external network interface (a LAN or port scan sees nothing). In addition,
+> `DocuBrowseServer.verify_request()` **rejects any connection whose source IP is
+> not loopback (`127.0.0.0/8` / `::1`) at the TCP-accept level, before any HTTP is
+> read.** There is no setting that widens this: the former
+> `DOCUBROWSE_TRUSTED_CIDRS` / `DOCUBROWSE_ALLOWED_HOSTS` variables were removed in
+> v1.5.3 and are ignored. Access control does **not** depend on the host OS
+> firewall. This holds for every endpoint below.
 
 ### 2.1 CSRF Protection
 
@@ -103,6 +101,7 @@ Before checking the token, the server also inspects the `Origin` and `Referer` h
 | GET /api/status | No |
 | GET /api/search | No |
 | GET /api/synopsis | No |
+| **POST /api/synopsis** | **Yes** |
 | GET /api/deep-links | No |
 | GET /api/stats | No |
 | GET /api/tags | No |
@@ -116,7 +115,6 @@ Before checking the token, the server also inspects the `Origin` and `Referer` h
 | **POST /api/config** | **Yes** |
 | **POST /api/ignore-dirs** | **Yes** |
 | **POST /api/scan-dirs** | **Yes** |
-| **GET /api/download** | **Yes** |
 | **POST /api/add-tags** | **Yes** |
 | **POST /api/remove-tag** | **Yes** |
 | **POST /api/language** | **Yes** |
@@ -125,31 +123,11 @@ Before checking the token, the server also inspects the `Origin` and `Referer` h
 
 Every request (GET and POST) is validated against an allowlist of permitted `Host` header values before any processing occurs. This prevents DNS rebinding attacks, where a malicious domain is made to resolve to `127.0.0.1` so that a browser can make cross-origin requests to the server.
 
-**Default (local-only) mode:** Only `localhost`, `127.0.0.1`, and `::1` are accepted. If a port is included in the `Host` header, it must match the port the server is listening on. Requests with any other `Host` value receive `403 Forbidden`.
+Only `localhost`, `127.0.0.1` (any `127.0.0.0/8` address), and `::1` are accepted. If a port is included in the `Host` header, it must match the port the server is listening on. Requests with any other `Host` value receive `403 Forbidden`.
 
-**Remote (--allow-remote) mode:** The server additionally accepts the machine's own hostname and FQDN (resolved at startup), and any IP-literal `Host` header. This still blocks DNS rebinding because rebinding depends on an attacker-controlled *domain name* resolving to the server — a raw IP or the server's own known hostname is safe.
+HTTP/1.0 clients that omit the `Host` header entirely are accepted, because only a client on the local loopback interface can reach the server.
 
-HTTP/1.0 clients that omit the `Host` header entirely are accepted, because only a client on the local loopback interface can reach a loopback-bound socket.
-
-### 2.3 localhost-only Restriction on /api/open
-
-`POST /api/open` checks that the TCP connection originated from `127.0.0.1` or `::1`, even when the server is running with `--allow-remote`. This prevents remote clients from triggering arbitrary file opens on the server's desktop.
-
-### 2.4 CORS (Cross-Origin Resource Sharing)
-
-When the server is started with `--allow-remote`, all API responses include CORS headers to support the DocuBrowse companion app (which runs as a Tauri WebView with origin `tauri://localhost`):
-
-```
-Access-Control-Allow-Origin: *
-Access-Control-Allow-Headers: X-CSRF-Token, Content-Type
-Access-Control-Allow-Methods: GET, POST, OPTIONS
-```
-
-The server also responds to `OPTIONS` preflight requests with a `204 No Content` and the same CORS headers.
-
-In local-only mode (default, no `--allow-remote`), CORS headers are **not** sent. This is intentional — localhost-bound servers have no cross-origin clients.
-
-**Security note:** CORS headers do not weaken the existing security model. CSRF tokens still protect all mutating endpoints, and the document index check still gates file access on `/api/download` and `/api/open`.
+There are no CORS headers: the API never sends `Access-Control-Allow-Origin`, so cross-origin JavaScript cannot read its responses.
 
 ---
 
@@ -352,13 +330,16 @@ curl "http://127.0.0.1:8643/api/search?letter=P&limit=50"
 
 ---
 
-### 4.3 GET /api/synopsis
+### 4.3 GET / POST /api/synopsis
 
-**CSRF required:** No
+**CSRF required:** GET — No; POST — Yes
 
-Generate or retrieve an AI-written synopsis for a document. The synopsis is generated by Ollama using the `dolphin3:latest` model, prompted with the document's title, description, and text snippet. The result is cached in the database; subsequent calls for the same path return immediately.
+AI-written synopsis for a document, in two steps:
 
-This endpoint can block for **30–90 seconds** on the first call if Ollama must load the model into memory after a fresh start. Plan for a generous timeout in any client that calls this endpoint.
+- **`GET /api/synopsis`** is read-only. It returns the cached synopsis (`{"ok": true, "synopsis": "...", "cached": true}`), or `{"ok": false, "needs_generation": true}` if none has been generated yet. It never calls Ollama.
+- **`POST /api/synopsis`** generates the synopsis with Ollama (the active language's synopsis model; English default `dolphin3:latest`), prompted with the document's title, description, and text snippet, caches it in the database, and returns it (`"cached": false`). The fields and errors below describe this call.
+
+POST can block for **up to 180 seconds** (`SYNOPSIS_TIMEOUT_SECS`) on the first call if Ollama must load the model into memory after a fresh start. Plan for a generous timeout in any client that calls it.
 
 **Query parameters:**
 
@@ -388,7 +369,12 @@ This endpoint can block for **30–90 seconds** on the first call if Ollama must
 **Example request:**
 
 ```bash
+# read the cached synopsis (no generation)
 curl "http://127.0.0.1:8643/api/synopsis?path=/home/user/docs/linux_perf_guide.pdf"
+
+# generate one
+curl -X POST -H "X-CSRF-Token: <token>" \
+  "http://127.0.0.1:8643/api/synopsis?path=/home/user/docs/linux_perf_guide.pdf"
 ```
 
 **Example response (freshly generated):**
@@ -708,7 +694,7 @@ curl -H "X-CSRF-Token: <token>" \
 ### 4.11 POST /api/open
 
 **CSRF required:** Yes
-**localhost-only:** Yes (connection must originate from 127.0.0.1 or ::1 even with --allow-remote)
+**localhost-only:** Yes (as is every endpoint — see [Section 2](#2-authentication-and-security))
 
 Opens a file using the desktop's default application. The path must be present in the document index — arbitrary filesystem paths are not accepted. The server tries an ordered chain of openers: `gio open` (GNOME/Flatpak), `kde-open5` (KDE Plasma 5), `kde-open` (KDE Plasma 4), `xdg-open` (generic XDG fallback). Only tools found on `PATH` are tried.
 
@@ -737,8 +723,8 @@ Opens a file using the desktop's default application. The path must be present i
 |---|---|
 | "Missing path parameter" | `path` query parameter was not provided. |
 | "Path not in document index" | The path exists on disk but is not indexed. |
-| "unmounted" | The file's storage device does not appear to be mounted. |
-| "missing" | The file was in the index but is no longer on disk. |
+| "unmounted" | The file is not on disk and its folder is gone, empty, or unreadable — the drive or share it lives on looks unmounted. The UI asks the user whether to keep the entry or remove it from the index. |
+| "missing" | The file is not on disk but its folder is reachable and still holds other files — the file was deleted. The UI removes it from the index when the user dismisses the notice. |
 | "No file opener found on PATH (tried gio, kde-open5, kde-open, xdg-open)" | None of the opener tools are installed. |
 | "No default application for this file type (...)" | All openers were tried and all failed. |
 
@@ -825,7 +811,7 @@ curl -X POST \
 
 **CSRF required:** Yes
 
-Writes a new `docubrowse.config` file next to `doc_search.py`. `workDir` is required. `docPath` and `port` are optional. The existing `allow_remote` value is preserved from the current config file (it is not settable through this endpoint to prevent accidental remote exposure).
+Writes a new `docubrowse.config` file next to `doc_search.py`. `workDir` is required. `docPath` and `port` are optional.
 
 **Request body (JSON):**
 
@@ -979,55 +965,7 @@ curl -X POST \
 
 ---
 
-### 4.16 GET /api/download
-
-**CSRF required:** Yes
-**localhost-only:** No (usable from remote clients with `--allow-remote`)
-
-Stream a file's bytes to the client for local saving and opening. This is the remote-client counterpart to `/api/open`: instead of opening the file on the server's desktop, it sends the raw bytes so the client application can save to a temp file and open with the client OS's default app.
-
-The path must be present in the document index — arbitrary filesystem paths are rejected, same as `/api/open`.
-
-**Query parameters:**
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| path | string | Yes | Absolute path of the document (must be in the index). |
-
-**Success response:**
-
-HTTP 200 with binary body. Headers:
-
-| Header | Value |
-|---|---|
-| Content-Type | Detected MIME type, or `application/octet-stream` |
-| Content-Disposition | `attachment; filename="<basename>"` |
-| Content-Length | File size in bytes |
-| Cache-Control | `no-store` |
-
-The body is streamed in 64 KB chunks — no full-file buffering.
-
-**Error responses (JSON):**
-
-| Condition | HTTP | Response |
-|---|---|---|
-| Missing path parameter | 200 | `{"ok": false, "error": "Missing path parameter"}` |
-| Path not in index | 200 | `{"ok": false, "error": "Path not in document index"}` |
-| File missing from disk | 404 | `{"ok": false, "error": "missing", "message": "..."}` |
-| Mount unavailable | 404 | `{"ok": false, "error": "unmounted", "message": "..."}` |
-| Invalid CSRF token | 403 | `Forbidden: missing or invalid CSRF token` |
-
-**Example request:**
-
-```bash
-curl -H "X-CSRF-Token: <token>" \
-  "https://192.168.1.50:8643/api/download?path=/home/user/docs/linux_perf_guide.pdf" \
-  -o linux_perf_guide.pdf
-```
-
----
-
-### 4.17 POST /api/add-tags
+### 4.16 POST /api/add-tags
 
 **CSRF required:** Yes
 
@@ -1053,7 +991,7 @@ Append one or more tags to a document. Existing tags are preserved (uses `INSERT
 
 ```bash
 curl -X POST -H "X-CSRF-Token: <token>" \
-  "https://localhost:8643/api/add-tags?path=/home/user/docs/guide.pdf&tags=security,reference"
+  "http://127.0.0.1:8643/api/add-tags?path=/home/user/docs/guide.pdf&tags=security,reference"
 ```
 
 **Example response:**
@@ -1069,7 +1007,7 @@ curl -X POST -H "X-CSRF-Token: <token>" \
 
 ---
 
-### 4.18 POST /api/remove-tag
+### 4.17 POST /api/remove-tag
 
 **CSRF required:** Yes
 
@@ -1095,7 +1033,7 @@ Remove a single tag from a document.
 
 ```bash
 curl -X POST -H "X-CSRF-Token: <token>" \
-  "https://localhost:8643/api/remove-tag?path=/home/user/docs/guide.pdf&tag=hidden"
+  "http://127.0.0.1:8643/api/remove-tag?path=/home/user/docs/guide.pdf&tag=hidden"
 ```
 
 **Example response:**
@@ -1111,7 +1049,7 @@ curl -X POST -H "X-CSRF-Token: <token>" \
 
 ---
 
-### 4.19 GET /api/deep-links
+### 4.18 GET /api/deep-links
 
 **CSRF required:** No
 
@@ -1137,7 +1075,8 @@ Semantic mode embeds the query and the document's passages via Ollama (`nomic-em
 | passages | array | Matching passages, best first. Present unless `unsupported`. |
 | truncated | boolean | true if more matches existed than were returned. |
 | unsupported | boolean | true for non-prose formats (no `passages`). |
-| error | string | Human-readable failure reason. Present only when ok is false. |
+| error | string | Failure reason. Present only when ok is false. If the indexed file is not on disk this is `"missing"` (deleted) or `"unmounted"` (the drive looks unmounted), same as `POST /api/open`; otherwise a human-readable message. |
+| message | string | Human-readable detail. Present with `missing` / `unmounted`. |
 
 Each **passage** object:
 
@@ -1182,7 +1121,7 @@ curl "http://127.0.0.1:8643/api/deep-links?path=/home/user/docs/security.pdf&q=f
 
 ---
 
-### 4.20 POST /api/language
+### 4.19 POST /api/language
 
 **CSRF required:** Yes
 
@@ -1294,10 +1233,10 @@ part of the FOSS build**. It is documented in the **Enterprise API Reference**
 
 **Concurrency:** The server uses Python's `ThreadingHTTPServer`, which spawns a new thread per request. Concurrent requests are handled in parallel, with SQLite connections opened and closed per request.
 
-**Synopsis generation latency:** `GET /api/synopsis` can take **30–90 seconds** on the first call after a server restart. Ollama must load the `dolphin3:latest` model into memory before the first generation can begin. The server uses a 90-second timeout (`SYNOPSIS_TIMEOUT_SECS = 90`) to accommodate this. Subsequent calls on a warm Ollama instance are typically faster. Clients should set their HTTP timeout to at least 120 seconds when calling this endpoint.
+**Synopsis generation latency:** `POST /api/synopsis` can take **up to 180 seconds** on the first call after a server restart. Ollama must load the active language's synopsis model (English default: `dolphin3:latest`) into memory before the first generation can begin. The server uses a 180-second timeout (`SYNOPSIS_TIMEOUT_SECS = 180`) to accommodate this. Subsequent calls on a warm Ollama instance are typically faster. Clients should set their HTTP timeout to at least 200 seconds when calling this endpoint.
 
 **Semantic search latency:** On the first search after a restart, the embedding matrix is loaded from the database into memory. For large indexes this may take a few seconds. After the initial load, the matrix is cached in-process and queries are fast (a single matrix-vector multiply). The cache is automatically invalidated when documents are added or deleted.
 
-**Search embedding latency:** Each non-empty search request embeds the query string via Ollama (`nomic-embed-text`). This round-trip adds roughly 100–500ms depending on hardware. In `keyword`-only mode, this embedding call is skipped.
+**Search embedding latency:** Each non-empty search request embeds the query string via Ollama with the active language's embedder (English: `nomic-embed-text`; Japanese, Korean, and Chinese: `bge-m3`). This round-trip adds roughly 100–500ms depending on hardware. In `keyword`-only mode, this embedding call is skipped.
 
 **Embedding coverage:** Documents without stored embeddings are invisible to `semantic` and `both` mode searches. After scanning new documents, run `docubrowser embed` to generate embeddings before expecting semantic results for those documents.

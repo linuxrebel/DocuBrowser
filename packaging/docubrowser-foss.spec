@@ -240,7 +240,10 @@ fi
 - Refuse ODF/Visio/draw.io XML that declares entities (billion-laughs guard)
 - Cap vsd2xml converter output at 256 MB
 - Scan progress ETA uses the last 50 files instead of the whole run
-- Deep Links report missing files as missing/unmounted
+- Missing files: "deleted" only when the file's folder still has other files;
+  otherwise treated as an unmounted drive (fixes unplugged USB / disconnected
+  shares being reported as deleted and dropped by scan-missing). Open and
+  Deep Links show a Keep / Remove-from-index modal for unmounted drives
 - docubrowse.config(5): drop the removed variables
 
 * Sun Sep 13 2026 James Sparenberg <james@sparenbergs.us> - 1.5.2-1

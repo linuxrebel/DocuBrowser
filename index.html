@@ -1086,7 +1086,7 @@ grid.addEventListener('click', (e) => {
   const dlEl = e.target.closest('.doc-dl-btn');
   if (dlEl) return downloadFile(dlEl.dataset.path);
   const dlnEl = e.target.closest('.doc-deeplinks-btn');
-  if (dlnEl) return showDeepLinks(dlnEl.dataset.path, dlnEl.dataset.title);
+  if (dlnEl) return showDeepLinks(dlnEl.dataset.path, dlnEl.dataset.title, dlnEl.closest('.doc-card'));
 });
 
 async function downloadFile(path) {
@@ -1195,14 +1195,14 @@ function dlHighlight(excerpt, s, e) {
          esc(excerpt.slice(s, e)) + '</mark>' + esc(excerpt.slice(e));
 }
 
-async function showDeepLinks(path, title) {
+async function showDeepLinks(path, title, card) {
   const overlay  = document.getElementById('deepLinksModal');
   const titleEl  = document.getElementById('deepLinksTitle');
   const bodyEl   = document.getElementById('deepLinksBody');
   const actionsEl = document.getElementById('deepLinksActions');
   const q = (currentQuery || '').trim();
 
-  dlState = { path, title: title || 'this document', passages: [], truncated: false };
+  dlState = { path, title: title || 'this document', card, passages: [], truncated: false };
   titleEl.textContent = 'Deep Links';
   bodyEl.innerHTML = '<div class="dl-message">Just a moment as we find your passage…</div>';
   actionsEl.innerHTML = '';
@@ -1212,6 +1212,11 @@ async function showDeepLinks(path, title) {
   try {
     const res = await fetch(`/api/deep-links?path=${encodeURIComponent(path)}&q=${encodeURIComponent(q)}&mode=${mode}`);
     const data = await res.json();
+    if (data.error === 'missing' || data.error === 'unmounted') {
+      closeDeepLinks();
+      showGoneDocModal(data.error, path, card);
+      return;
+    }
     if (!data.ok) {
       bodyEl.innerHTML = `<div class="dl-message error">${esc(data.error || 'Deep Links failed.')}</div>`;
       dlSetActions([['Close', closeDeepLinks, 'btn-secondary']]);
@@ -1270,7 +1275,7 @@ function showDeepLinksExcerpt(idx) {
   document.getElementById('deepLinksBody').innerHTML =
     `<div class="dl-excerpt">${dlHighlight(p.excerpt, p.match_start, p.match_end)}</div>`;
   dlSetActions([
-    ['Open full document', () => openFile(dlState.path), 'doc-open-btn'],
+    ['Open full document', () => openFile(dlState.path, dlState.card), 'doc-open-btn'],
     ['Back', renderDeepLinksList, 'btn-secondary'],
   ]);
 }
@@ -1281,7 +1286,7 @@ function renderDeepLinksUnsupported() {
     '<div class="dl-message">Due to the document format and technical limitations, ' +
     'we can\'t display this document outside its reader.</div>';
   dlSetActions([
-    ['Open in reader', () => openFile(dlState.path), 'doc-open-btn'],
+    ['Open in reader', () => openFile(dlState.path, dlState.card), 'doc-open-btn'],
     ['Back', closeDeepLinks, 'btn-secondary'],
   ]);
 }
@@ -1300,10 +1305,8 @@ function openFile(path, el) {
     .then(d => {
       if (d.ok) {
         showToast('Opening…');
-      } else if (d.error === 'unmounted') {
-        showToast('⚠ ' + (d.message || 'Device not mounted'), 4000);
-      } else if (d.error === 'missing') {
-        showMissingDocModal(path, el ? el.closest('.doc-card') : null);
+      } else if (d.error === 'unmounted' || d.error === 'missing') {
+        showGoneDocModal(d.error, path, el ? el.closest('.doc-card') : null);
       } else {
         showErrorModal(d.message || d.error || 'Could not open file');
       }
@@ -1321,27 +1324,59 @@ function showMissingDocModal(path, card) {
       <button class="modal-ok" id="missingOkBtn">OK</button>
     </div>`;
   document.body.appendChild(overlay);
-  const dismiss = async () => {
-    overlay.remove();
-    try {
-      const res = await apiPost('/api/delete?path=' + encodeURIComponent(path) + '&mode=db_only');
-      const data = await res.json();
-      if (data.ok) {
-        if (card) {
-          card.style.transition = 'opacity 0.25s';
-          card.style.opacity = '0';
-          setTimeout(() => card.remove(), 260);
-        }
-      } else {
-        showToast('⚠ Cleanup failed: ' + (data.error || 'unknown error'));
-      }
-    } catch (e) {
-      showToast('⚠ Cleanup failed: ' + friendlyError(e));
-    }
-  };
+  const dismiss = () => { overlay.remove(); removeFromIndex(path, card); };
   overlay.querySelector('#missingOkBtn').addEventListener('click', dismiss);
   overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(); });
   overlay.querySelector('#missingOkBtn').focus();
+}
+
+// Pick the modal for a document whose file isn't on disk: "missing" = deleted
+// (its folder is reachable), "unmounted" = the drive looks disconnected.
+function showGoneDocModal(kind, path, card) {
+  if (kind === 'missing') showMissingDocModal(path, card);
+  else showUnmountedDocModal(path, card);
+}
+
+// The drive or share holding the file looks unmounted. Nothing is removed
+// unless the user chooses to; Keep (the default) leaves the index entry.
+function showUnmountedDocModal(path, card) {
+  const overlay = document.createElement('div');
+  overlay.className = 'err-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-icon">🔌</div>
+      <div class="modal-msg">DocuBrowse can't reach this document — it looks like the drive it's on is unmounted (unplugged, or a network share that isn't connected):<br><strong>${esc(path)}</strong><br><br>Keep it in the index if you'll reconnect the drive, or remove it if the file is gone for good.</div>
+      <button class="modal-ok" id="unmountedKeepBtn">Keep</button>
+      <button class="modal-ok" id="unmountedRemoveBtn" style="background:var(--accent3,#e05);margin-left:0.5rem;">Remove from index</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  const keep = () => overlay.remove();
+  overlay.querySelector('#unmountedKeepBtn').addEventListener('click', keep);
+  overlay.querySelector('#unmountedRemoveBtn').addEventListener('click', () => {
+    overlay.remove();
+    removeFromIndex(path, card);
+  });
+  overlay.addEventListener('click', e => { if (e.target === overlay) keep(); });
+  overlay.querySelector('#unmountedKeepBtn').focus();
+}
+
+// Drop a document's index row (the file itself is untouched) and fade its card.
+async function removeFromIndex(path, card) {
+  try {
+    const res = await apiPost('/api/delete?path=' + encodeURIComponent(path) + '&mode=db_only');
+    const data = await res.json();
+    if (data.ok) {
+      if (card) {
+        card.style.transition = 'opacity 0.25s';
+        card.style.opacity = '0';
+        setTimeout(() => card.remove(), 260);
+      }
+    } else {
+      showToast('⚠ Cleanup failed: ' + (data.error || 'unknown error'));
+    }
+  } catch (e) {
+    showToast('⚠ Cleanup failed: ' + friendlyError(e));
+  }
 }
 
 function copyToClipboard(text) {

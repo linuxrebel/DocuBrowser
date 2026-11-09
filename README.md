@@ -107,9 +107,11 @@ synopsis generation (Ollama + nomic-embed-text + dolphin3). Supports multiple do
 - Relevance score badges (0–100%) on every result
 - **Open button** on each result card — launches the file in your default app via `xdg-open`
 - Click document title for an AI synopsis; 📋 copies path to clipboard; 🗑 deletes file from disk and index (with confirmation)
-- Moved/deleted documents: clicking a doc whose file no longer exists shows a dismissable
-  modal (and removes it from the index on dismiss) if its filesystem is mounted, or a
-  toast (no index change) if the filesystem can't be verified (e.g. unmounted drive)
+- Moved/deleted documents: clicking a doc whose file no longer exists shows a modal. If the
+  file's folder is still there (the file was deleted), dismissing it removes the doc from the
+  index. If the folder is gone, empty, or unreadable, DocuBrowse assumes the drive is unmounted
+  (unplugged USB, disconnected network share) and the modal lets you **Keep** the entry or
+  **Remove from index**
 
 ### ⚙️ Settings (`/settings`)
 - General panel: document directory (with live directory browser), any number of additional scan directories (added/removed under the same panel — automatically included in `scan`/`rescan`, no extra command needed), working directory, and port
@@ -665,11 +667,14 @@ If the indexed path no longer exists on disk, `/api/open` returns one of:
 {"ok": false, "error": "unmounted", "message": "..."}
 ```
 
-`missing` means the file's filesystem is mounted and the file is genuinely gone — the UI
-shows a dismissable modal and deletes the document from the index (and disk-adjacent DB
-rows) when dismissed. `unmounted` means the path's filesystem can't currently be verified
-(likely an unmounted drive) — the UI shows a toast and makes no DB changes. See
-`scan-missing` for the equivalent batch cleanup.
+`missing` means the file's own folder is reachable and still holds other files, so the file
+was deleted — the UI shows a dismissable modal and deletes the document from the index (and
+disk-adjacent DB rows) when dismissed. `unmounted` means the folder is gone, empty, or
+unreadable — most likely an unmounted drive or network share — so nothing changes
+automatically: the UI shows a modal saying the drive looks unmounted and lets the user keep
+the entry or remove it from the index. `/api/deep-links` returns the same two errors and the UI
+handles them the same way. See `scan-missing` for the equivalent batch cleanup (it never
+removes `unmounted` rows).
 
 ### Search Parameters
 
@@ -979,10 +984,15 @@ Maintenance release: no new features, no config changes required.
   256 MB; past that the converter is stopped and the file is logged as failed.
 - **Steadier scan ETA.** The progress-bar rate and ETA now use the last 50
   files instead of the whole run, so early fast failures no longer skew it.
-- **Deep Links** report a missing file as *missing* or *unmounted* (same as
-  Open) instead of a generic "File not found".
+- **Deleted vs. unmounted files.** A file now counts as deleted only when its folder is
+  still there with other files in it; anything else (folder gone, empty, or unreadable) is
+  treated as an unmounted drive. Before, an unplugged USB drive or disconnected network share
+  under `/run`, `/home`, or any non-root disk was reported as deleted — and `scan-missing`
+  removed its index rows. Open and Deep Links now show a modal for an unmounted drive that
+  lets you keep the entry or remove it from the index.
 - **Docs.** Localized README screenshots (ja/ko/zh/zh-hant), product website link,
-  and the removed variables dropped from `docubrowse.config(5)`.
+  the removed variables dropped from `docubrowse.config(5)`, and the User Guide
+  (en/ja/ko/zh) updated for local-only use, with its internal links fixed.
 
 ## v1.5.2 (2026-09-13) — Chinese support (Simplified + Traditional)
 

@@ -1,4 +1,4 @@
-# DocuBrowse v1.5.2 — User Guide
+# DocuBrowse v1.5.3 — User Guide
 
 ---
 
@@ -98,8 +98,7 @@ considered — and that set is then ranked by meaning. You can mix forms:
 Each result is displayed as a card. A card contains:
 
 - **Title** — The document title, displayed in blue. Click it to open a synopsis (see [Synopsis](#5-synopsis--ai-generated-summaries)).
-- **Action buttons** — **Open** and/or **Download** buttons appear below the title (see [Opening a File](#4-opening-a-file) for details on which buttons appear). Next to them are icon buttons: 📋 copy link, 🔖 add tags, 🙈 hide, and ❌ remove document.
-- **File path** — When accessing remotely, the full path to the file on the server is shown. Hidden in local mode since the path is not useful.
+- **Action buttons** — An **Open** button appears below the title (see [Opening a File](#4-opening-a-file)), plus a **Deep Links** button when a search is active. Next to them are icon buttons: 📋 copy link, 🔖 add tags, 🙈 hide, and ❌ remove document.
 - **Snippet** — The first few lines of extracted text, giving you a preview of the content.
 - **Tags** — Colored labels showing the document's topics and format. Click a tag to filter by it.
 - **File type badge** — Shows the file extension (PDF, DOCX, EPUB, etc.) in the top-right corner of the card.
@@ -124,15 +123,15 @@ It works on text documents — **PDF, TXT, HTML, Markdown, DOCX, RTF, ODT**, e-b
 
 ## 4. Opening a File
 
-Each document card shows action buttons below the file path, depending on how you access DocuBrowse:
+Each document card has an **Open** button below the title. Clicking it opens the file in the application your operating system has configured for that file type — for example, a PDF opens in your PDF viewer, a DOCX opens in LibreOffice Writer or Microsoft Word.
 
-- **Local access** (browsing on the same machine as the server): An **Open** button appears. Clicking it opens the file in the application your operating system has configured for that file type — for example, a PDF opens in your PDF viewer, a DOCX opens in LibreOffice Writer or Microsoft Word.
-- **Remote access** (browsing from a different machine): A **Download** button appears instead. Clicking it streams the file to your browser as a download.
-- **Enterprise desktop client**: Both **Open** and **Download** buttons are available.
+DocuBrowse runs entirely on your own computer: the browser and the DocuBrowse server must be on the same machine, so files always open locally. (Access from other machines is not supported.)
 
 You can also click the **📋** icon next to the title to copy the full file path to your clipboard, so you can paste it into a terminal or file manager.
 
-**If the file has been moved or deleted:** DocuBrowse will display a warning modal explaining that the file no longer exists. Clicking OK removes the stale entry from the index. If the file is on a drive that is currently not connected, you will see a brief notification at the bottom of the screen and the index entry is left in place.
+**If the file has been moved or deleted:** DocuBrowse will display a warning explaining that the file no longer exists. Clicking OK removes the stale entry from the index.
+
+**If the file is on a drive that isn't connected:** when the file's folder is gone, empty, or can't be read, DocuBrowse assumes the drive it lives on is unmounted — for example an unplugged USB drive or a network share that isn't connected — and asks what to do. Choose **Keep** to leave the entry in the index (it works again once you reconnect the drive), or **Remove from index** if the file is gone for good. The same choice appears if you click **Deep Links** on such a document.
 
 ---
 
@@ -324,7 +323,7 @@ using fewer words.
 
 ### A document appears in search results but the file is missing
 
-If you click a file path and see a warning that the document no longer exists on disk, the file has been moved, renamed, or deleted since DocuBrowse last indexed it. Click **OK** in the warning dialog to remove the stale entry from the index.
+If you click **Open** and see a warning that the document no longer exists on disk, the file has been moved, renamed, or deleted since DocuBrowse last indexed it. Click **OK** in the warning dialog to remove the stale entry from the index. If instead DocuBrowse says the drive looks unmounted, reconnect the drive and try again, or choose **Remove from index** — see [Opening a File](#4-opening-a-file).
 
 If this happens for many documents at once (for example, after reorganising a folder), ask your administrator to run the `scan-missing` maintenance command, which cleans up the whole index in one pass.
 

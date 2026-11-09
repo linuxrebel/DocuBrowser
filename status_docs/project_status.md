@@ -22,8 +22,20 @@ Maintenance release; no features, no config changes.
   (`visio_extractor._run_vsd2xml`).
 - **D-2 scan ETA** — `scan_docs._progress_bar` rate/ETA over the last 50
   completions. (`embed_docs.py` progress bar unchanged.)
-- **Deep Links** — missing indexed path returns `missing`/`unmounted` like Open.
+- **Deleted vs. unmounted** — `docubrowse_db.check_missing_path` rewritten: `missing`
+  only when the file's own folder is reachable and non-empty; anything else
+  (folder gone/empty/unreadable, I/O error) is `unmounted`. The old device-ID
+  heuristic reported unplugged USB / gvfs / shares on non-root filesystems as
+  `missing`, so `scan-missing` dropped their rows. UI: Open and Deep Links show a
+  modal for `unmounted` ("the drive looks unmounted" — Keep / Remove from index);
+  `missing` keeps the remove-on-dismiss modal. Also closes D-8 item 3 (Windows).
 - **Docs** — localized README screenshots (ja/ko/zh/zh-hant), product website link.
+  User Guide (en/ja/ko/zh `.docx` + English `.md`) and API Reference rewritten for
+  loopback-only: Download/remote/Enterprise-client text, `/api/download`,
+  `--allow-remote`, CORS and `allow_remote` removed; synopsis timeout corrected
+  to 180 s; Deep Links `missing`/`unmounted` errors documented. `.docx` internal
+  links (broken since v1.5.2) fixed — build with `pandoc -f markdown+gfm_auto_identifiers
+  --toc --toc-depth=2`.
 - Tests: 92 green (new `test_visio_vsd2xml.py`, `test_xml_entity_guard.py`,
   `test_scan_eta.py`).
 
