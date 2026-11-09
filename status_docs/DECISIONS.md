@@ -11,7 +11,7 @@ resolved items keep their number.
 ## Open
 
 ### D-17: Pre-v1.0.4 security audit — deferred low-severity findings
-**Status:** Deferred — low severity, no code change for this release
+**Status:** Resolved — all items closed 2026-11-08
 **Priority:** Low
 **Added:** 2026-08-24
 
@@ -33,7 +33,15 @@ this release:
    `odf_extractor` / `visio_extractor` / `markup_extractor` doesn't resolve
    external entities (no file/SSRF exfil), but isn't hardened against
    billion-laughs expansion DoS. Mitigated today by `RLIMIT_AS` (6 GB) + per-file
-   timeouts. Follow-up: switch to `defusedxml.ElementTree` (adds a dependency).
+   timeouts. ~~Follow-up: switch to `defusedxml.ElementTree` (adds a dependency).~~
+   **Resolved 2026-11-08 without a new dependency** — `odf_extractor.safe_parse` /
+   `safe_fromstring` refuse any input containing `<!ENTITY` (UTF-8 or UTF-16)
+   with `ET.ParseError` before expat sees it; every ElementTree parse in
+   `odf_extractor` and `visio_extractor` (incl. draw.io and vsd2xml output) goes
+   through them. None of these formats legitimately declare entities.
+   `markup_extractor` is regex-based (no XML parser) and was never affected.
+   Covered by `test_xml_entity_guard.py`. Revisit defusedxml only if a format
+   that needs DTDs is ever parsed with ElementTree.
 2. **Opener/extractor argument injection (theoretical).** A filename beginning
    with `-` passed as a subprocess arg to openers (`xdg-open`/`gio`) or extractors
    (`vsd2xml`/`djvutxt`/`ebook-convert`) could be misparsed as a flag. Requires an
@@ -51,8 +59,12 @@ this release:
 3. **vsd2xml unbounded stdout.** The legacy-Visio converter's stdout is read via
    `subprocess.run(..., capture_output=True)` with no size cap; a hostile/corrupt
    `.vsd` emitting multi-GB output is bounded only by the 90 s timeout +
-   `RLIMIT_AS`. Follow-up: bounded `Popen` read (`stdout.read(N)`) or a `head -c`
-   wrapper.
+   `RLIMIT_AS`. ~~Follow-up: bounded `Popen` read (`stdout.read(N)`) or a `head -c`
+   wrapper.~~ **Resolved 2026-11-08** — `_run_vsd2xml` (`visio_extractor.py`)
+   reads at most `_VSD2XML_MAX_BYTES` (256 MB) of stdout and kills the converter
+   past that (file indexed with an "output exceeded" error); stderr goes to a
+   temp file (first 200 bytes reported); the 90 s timeout is now a
+   `threading.Timer` kill. Covered by `test_visio_vsd2xml.py` (fake `vsd2xml`).
 4. **Deep Links semantic N+1 embed.** ~~`_semantic_passage` calls the embedder once
    per returned passage (up to `max_passages` = 200 Ollama round-trips per
    request).~~ **Resolved 2026-08-25 (see D-18)** — the per-passage re-embed was
@@ -74,15 +86,6 @@ sandboxed browser). Current thinking is that Docker will only be viable as an
 
 The full decision record, code, and `docker/README.md` live on that branch —
 this is only a pointer. Not recommended for use; for experimentation only.
-
-### D-2: Sliding window ETA for progress bar
-**Status:** Open  
-**Priority:** Low  
-**Added:** 2026-06-15
-
-The scan progress bar uses a simple elapsed-time average for ETA, which drifts
-high when large PDFs are encountered after many fast failures early on. A sliding
-window (last N files) would give a more stable estimate.
 
 ### D-3: File-type filter in search UI
 **Status:** Open  
@@ -128,6 +131,17 @@ process unless `PYTHONUTF8=1` is set in the environment.
 ---
 
 ## Resolved
+
+### D-2: Sliding window ETA for progress bar
+**Status:** Resolved — 2026-11-08
+**Priority:** Low
+**Added:** 2026-06-15
+
+The scan progress bar used a simple elapsed-time average for ETA, which drifted
+when large PDFs came after many fast failures early on. `_progress_bar`
+(`scan_docs.py`) now computes rate/ETA over the last `_ETA_WINDOW` (50)
+completions. Covered by `test_scan_eta.py`. `embed_docs.py` has its own progress
+bar with the same whole-run average; not changed.
 
 ### D-1: Multi-language / i18n support
 **Status:** Resolved — 2026-09-09

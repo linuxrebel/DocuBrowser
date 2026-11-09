@@ -27,6 +27,7 @@ Default workers: min(os.cpu_count(), 8)
 # pylint: disable=line-too-long
 
 import argparse
+import collections
 import contextlib
 import html as _html
 import io
@@ -493,14 +494,31 @@ def _setup_scan_logger() -> tuple:
     return logger, None
 
 
-def _progress_bar(completed: int, total: int, start_time: float, errors: int = 0) -> str:
-    """Return a compact \\r progress line for interactive TTY display."""
-    elapsed = time.time() - start_time + 0.001
+_ETA_WINDOW = 50   # files; rate/ETA use only the most recent N completions (D-2)
+
+
+# pylint: disable-next=too-many-locals
+def _progress_bar(completed: int, total: int, start_time: float, errors: int = 0,
+                  window: "collections.deque | None" = None) -> str:
+    """Return a compact \\r progress line for interactive TTY display.
+
+    ``window`` is a deque(maxlen=_ETA_WINDOW) of (time, completed) samples the
+    caller keeps across calls.  When given, rate and ETA come from the oldest
+    sample in it instead of the whole run, so a burst of fast early failures
+    doesn't skew the estimate for the large files that follow.
+    """
+    now     = time.time()
+    elapsed = now - start_time + 0.001
     pct     = completed * 100 // total
     width   = 25
     filled    = width * completed // total
     bar_glyph = "█" * filled + "░" * (width - filled)
     rate      = completed / elapsed
+    if window is not None:
+        window.append((now, completed))
+        t0, c0 = window[0]
+        if completed > c0 and now > t0:
+            rate = (completed - c0) / (now - t0)
     remain    = (total - completed) / rate if rate > 0 else 0
     eta       = (f"{int(remain // 60)}m{int(remain % 60):02d}s"
                  if remain > 60 else f"{remain:.0f}s")
@@ -1048,9 +1066,11 @@ def scan_directory(
             f = executor.submit(_extract_file, item)
             in_flight[f] = item[0]
 
+    eta_window = collections.deque(maxlen=_ETA_WINDOW)
+
     def _progress():
         if _IS_TTY:
-            print(_progress_bar(completed, total, start_time, failed),
+            print(_progress_bar(completed, total, start_time, failed, eta_window),
                   end="", flush=True)
 
     def _maybe_commit(force=False):

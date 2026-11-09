@@ -25,11 +25,15 @@ import html as html_mod
 import re
 import shutil
 import subprocess
+import tempfile
+import threading
 import urllib.parse
 import xml.etree.ElementTree as ET
 import zlib
 import zipfile
 from pathlib import Path
+
+from odf_extractor import safe_fromstring, safe_parse
 
 
 _TEXT_LIMIT    = 5000
@@ -98,7 +102,7 @@ def _parse_vsdx_core_props(zf: zipfile.ZipFile, result: dict) -> None:
     """Read docProps/core.xml — same dc:* fields the docx path uses."""
     try:
         with zf.open("docProps/core.xml") as f:
-            tree = ET.parse(f)
+            tree = safe_parse(f)
     except (KeyError, ET.ParseError):
         return
 
@@ -124,7 +128,7 @@ def _parse_vsdx_page_names(zf: zipfile.ZipFile) -> dict:
     names: dict = {}
     try:
         with zf.open("visio/pages/pages.xml") as f:
-            tree = ET.parse(f)
+            tree = safe_parse(f)
     except (KeyError, ET.ParseError):
         return names
 
@@ -132,7 +136,7 @@ def _parse_vsdx_page_names(zf: zipfile.ZipFile) -> dict:
     rels: dict = {}
     try:
         with zf.open("visio/pages/_rels/pages.xml.rels") as f:
-            rels_tree = ET.parse(f)
+            rels_tree = safe_parse(f)
         for rel in rels_tree.getroot():
             rid    = rel.attrib.get("Id")
             target = rel.attrib.get("Target")
@@ -156,7 +160,7 @@ def _extract_vsdx_page(zf: zipfile.ZipFile, member: str) -> list:
     parts: list = []
     try:
         with zf.open(member) as f:
-            tree = ET.parse(f)
+            tree = safe_parse(f)
     except (KeyError, ET.ParseError):
         return parts
 
@@ -216,6 +220,60 @@ def _have_vsd2xml() -> bool:
     return shutil.which("vsd2xml") is not None
 
 
+_VSD2XML_TIMEOUT = 90
+# ponytail: fixed cap on converter stdout (D-17 #3); raise it if a legit
+# drawing ever trips it.
+_VSD2XML_MAX_BYTES = 256 * 1024 * 1024
+
+
+def _run_vsd2xml(file_path: str):
+    """Run vsd2xml with a bounded stdout read.
+
+    Returns (stdout, stderr_head, returncode); stdout is None when the
+    output exceeded _VSD2XML_MAX_BYTES (the process is killed).  Raises
+    subprocess.TimeoutExpired after _VSD2XML_TIMEOUT seconds.
+    """
+    with tempfile.TemporaryFile() as errf:
+        proc = subprocess.Popen(  # pylint: disable=consider-using-with
+            ["vsd2xml", str(Path(file_path).resolve())],
+            stdout=subprocess.PIPE, stderr=errf,
+        )
+        timed_out = threading.Event()
+
+        def _on_timeout():
+            timed_out.set()
+            proc.kill()
+
+        timer = threading.Timer(_VSD2XML_TIMEOUT, _on_timeout)
+        timer.start()
+        try:
+            chunks, size = [], 0
+            while size <= _VSD2XML_MAX_BYTES:
+                chunk = proc.stdout.read(1024 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                size += len(chunk)
+            if size > _VSD2XML_MAX_BYTES:
+                proc.kill()
+                out = None
+            else:
+                out = b"".join(chunks)
+            proc.stdout.close()
+            returncode = proc.wait()
+        except BaseException:
+            proc.kill()
+            proc.wait()
+            raise
+        finally:
+            timer.cancel()
+        if timed_out.is_set():
+            raise subprocess.TimeoutExpired("vsd2xml", _VSD2XML_TIMEOUT)
+        errf.seek(0)
+        return out, errf.read(200), returncode
+
+
+# pylint: disable-next=too-many-return-statements
 def _extract_vsd_legacy(file_path: str) -> dict:
     """Extract text from a legacy binary Visio file using vsd2xml.
 
@@ -232,19 +290,18 @@ def _extract_vsd_legacy(file_path: str) -> dict:
         return result
 
     try:
-        proc = subprocess.run(
-            ["vsd2xml", str(Path(file_path).resolve())],
-            capture_output=True,
-            timeout=90,
-            check=False,
-        )
-        if proc.returncode != 0 or not proc.stdout:
-            err = (proc.stderr or b"").decode("utf-8", "replace").strip()
-            result["error"] = f"vsd2xml exited {proc.returncode}: {err[:200]}"
+        out, err, returncode = _run_vsd2xml(file_path)
+        if out is None:
+            result["error"] = (f"vsd2xml output exceeded "
+                               f"{_VSD2XML_MAX_BYTES // (1024 * 1024)} MB")
+            return result
+        if returncode != 0 or not out:
+            err = err.decode("utf-8", "replace").strip()
+            result["error"] = f"vsd2xml exited {returncode}: {err[:200]}"
             return result
 
         try:
-            root = ET.fromstring(proc.stdout)
+            root = safe_fromstring(out)
         except ET.ParseError as exc:
             result["error"] = f"vsd2xml output not valid XML: {exc}"
             return result
@@ -263,7 +320,7 @@ def _extract_vsd_legacy(file_path: str) -> dict:
         return _finalize(result, parts)
 
     except subprocess.TimeoutExpired:
-        result["error"] = "vsd2xml timed out after 90s"
+        result["error"] = f"vsd2xml timed out after {_VSD2XML_TIMEOUT}s"
         return result
     except (OSError, ValueError, KeyError, ET.ParseError) as exc:
         result["error"] = str(exc)
@@ -333,7 +390,7 @@ def _extract_drawio_cells(inner_xml: str) -> list:
     if not inner_xml:
         return parts
     try:
-        root = ET.fromstring(inner_xml)
+        root = safe_fromstring(inner_xml)
     except ET.ParseError:
         return parts
 
@@ -384,7 +441,7 @@ def _extract_drawio(file_path: str) -> dict:
             text = ""
 
         try:
-            root = ET.fromstring(text)
+            root = safe_fromstring(text)
         except ET.ParseError as exc:
             result["error"] = f"invalid draw.io XML: {exc}"
             return result

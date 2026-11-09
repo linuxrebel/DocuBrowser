@@ -36,6 +36,28 @@ _NS = {
 }
 
 
+# Entity-bomb guard (D-17 #1). None of the formats parsed with ElementTree here
+# (ODF, Visio, draw.io, vsd2xml output) legitimately declare entities, so any
+# input that does is refused before expat can expand it.
+# ponytail: substring check instead of defusedxml (no new dependency); switch to
+# defusedxml if a format that needs DTDs is ever parsed here.
+_ENTITY_DECLS = tuple("<!ENTITY".encode(enc)
+                      for enc in ("utf-8", "utf-16-le", "utf-16-be"))
+
+
+def safe_fromstring(data):
+    """ET.fromstring that raises ET.ParseError on any <!ENTITY declaration."""
+    raw = data.encode("utf-8") if isinstance(data, str) else data
+    if any(decl in raw for decl in _ENTITY_DECLS):
+        raise ET.ParseError("XML entity declarations are not allowed")
+    return ET.fromstring(data)
+
+
+def safe_parse(fileobj):
+    """ET.parse for a binary file object, with the safe_fromstring guard."""
+    return ET.ElementTree(safe_fromstring(fileobj.read()))
+
+
 def _iter_text(elem):
     """Recursively yield all text content under *elem*."""
     if elem.text:
@@ -56,7 +78,7 @@ def _parse_meta(zf):
     meta = {"title": None, "author": None, "subject": None, "description": ""}
     try:
         with zf.open("meta.xml") as f:
-            tree = ET.parse(f)
+            tree = safe_parse(f)
     except (KeyError, ET.ParseError):
         return meta
 
@@ -104,7 +126,7 @@ def _parse_meta(zf):
 def _extract_odt(zf):
     """Extract body text from an ODT (text document)."""
     with zf.open("content.xml") as f:
-        tree = ET.parse(f)
+        tree = safe_parse(f)
     root = tree.getroot()
 
     body = root.find("office:body", _NS)
@@ -151,7 +173,7 @@ def _extract_odt(zf):
 def _extract_ods(zf):
     """Extract cell text from an ODS (spreadsheet)."""
     with zf.open("content.xml") as f:
-        tree = ET.parse(f)
+        tree = safe_parse(f)
     root = tree.getroot()
 
     body = root.find("office:body", _NS)
@@ -186,7 +208,7 @@ def _extract_ods(zf):
 def _extract_odp(zf):
     """Extract slide text from an ODP (presentation)."""
     with zf.open("content.xml") as f:
-        tree = ET.parse(f)
+        tree = safe_parse(f)
     root = tree.getroot()
 
     body = root.find("office:body", _NS)
